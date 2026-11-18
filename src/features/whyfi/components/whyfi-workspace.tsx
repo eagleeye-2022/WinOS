@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { SubtaskTree } from "@/components/shared/subtask-tree";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/components/shared/toast";
 import { useConfirm } from "@/components/shared/confirm-dialog";
@@ -630,8 +631,10 @@ function LearningCard({
 
       {/* Nested subtasks — same card, indented like the project board */}
       {(addingSub || (showSubtasks && task.subtasks.length > 0)) && (
-        <div className="relative ml-2.5 mt-1 space-y-2 border-l-2 border-cyan-400/70 pl-3 dark:border-cyan-500/50">
-          {addingSub && (
+        <SubtaskTree
+          stopClicks={false}
+          before={
+            addingSub && (
             <div className="flex items-center gap-1.5 rounded-lg border border-primary/40 bg-background p-1.5">
               <input
                 autoFocus
@@ -673,15 +676,17 @@ function LearningCard({
                 <X size={12} />
               </button>
             </div>
-          )}
-          {showSubtasks &&
-            task.subtasks.map((sub) => (
-              <div key={sub.id} className="relative">
-                <span className="absolute -left-3 top-4 w-3 border-t-2 border-cyan-400/70 dark:border-cyan-500/50" />
-                <LearningCard task={sub} list={list} workspace={workspace} run={run} />
-              </div>
-            ))}
-        </div>
+            )
+          }
+          items={
+            showSubtasks
+              ? task.subtasks.map((sub) => ({
+                  key: sub.id,
+                  content: <LearningCard task={sub} list={list} workspace={workspace} run={run} />,
+                }))
+              : []
+          }
+        />
       )}
     </div>
   );

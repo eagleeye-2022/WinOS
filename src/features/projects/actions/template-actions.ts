@@ -60,16 +60,11 @@ async function requireManager(): Promise<{ userId: string } | { error: string }>
   return { userId: session.user.id };
 }
 
-/** Templates created by managers, plus their saved edits of the built-in ones (same id as the built-in). */
+/** Templates created by managers, plus their saved edits of the built-in ones (same id as the built-in).
+ *  Managers only — team members and clients get an empty list. */
 export async function getCustomProjectTemplatesAction(): Promise<ProjectTemplate[]> {
-  const session = await auth();
-  if (!session?.user?.id) return [];
-
-  const user = await db.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true, profileRole: true },
-  });
-  if (!user || user.profileRole === "CLIENT" || String(user.role).toUpperCase() === "CLIENT") return [];
+  const access = await requireManager();
+  if ("error" in access) return [];
 
   const rows = await d.projectTemplate.findMany({ where: CUSTOM_TEMPLATE_WHERE, orderBy: { createdAt: "asc" } });
   return rows.map(toProjectTemplate);

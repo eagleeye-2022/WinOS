@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Plus, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { PULSE_PAGE_BG, PulseStickyTabs, StatusPill } from "@/components/pulse/pulse-ui";
+import { PULSE_PAGE_BG, PulseStickyTabs, PulseTabs, StatusPill } from "@/components/pulse/pulse-ui";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 import { EmployeeSwitcherHeader, type SwitcherEmployee } from "@/components/pulse/employee-switcher-header";
 import { useUrlState } from "@/lib/navigation/use-url-state";
@@ -45,7 +45,11 @@ type PolicyData = Awaited<ReturnType<typeof getEmployeeLeavePolicyAction>>;
 
 const dmy = (key: string) => key.split("-").reverse().join("/");
 
-export function EmployeeLeaveWorkspace({ userId }: { userId: string }) {
+/**
+ * `embedded`: shown as a tab inside the member's profile — no page frame, no breadcrumb, and no
+ * member switcher (the profile header already says who this is).
+ */
+export function EmployeeLeaveWorkspace({ userId, embedded = false }: { userId: string; embedded?: boolean }) {
   const router = useRouter();
   const [tab, setTab] = useUrlState<Tab>("tab", "summary", { allowed: TABS, history: "push" });
   const thisYear = istYear();
@@ -78,17 +82,20 @@ export function EmployeeLeaveWorkspace({ userId }: { userId: string }) {
   const name = data?.profile.name ?? "Team Member";
   usePulseCrumbs(
     useMemo(
-      () => [
-        { label: name, onClick: () => { setApplyFor(null); setTab("summary"); } },
-        { label: applyFor ? "Apply Leave" : TAB_LABEL[tab] },
-      ],
-      [name, tab, applyFor, setTab]
+      () =>
+        embedded
+          ? null
+          : [
+              { label: name, onClick: () => { setApplyFor(null); setTab("summary"); } },
+              { label: applyFor ? "Apply Leave" : TAB_LABEL[tab] },
+            ],
+      [name, tab, applyFor, setTab, embedded]
     )
   );
 
   useEffect(() => {
-    document.title = `${name} · ${TAB_LABEL[tab]} | WinOS`;
-  }, [name, tab]);
+    if (!embedded) document.title = `${name} · ${TAB_LABEL[tab]} | WinOS`;
+  }, [name, tab, embedded]);
 
   const leaveTypes: LeaveTypeConfig[] = useMemo(
     () =>
@@ -141,7 +148,14 @@ export function EmployeeLeaveWorkspace({ userId }: { userId: string }) {
   };
 
   return (
-    <div className={cn("flex h-full select-none flex-col space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6", PULSE_PAGE_BG)}>
+    <div
+      className={cn(
+        "flex select-none flex-col space-y-4",
+        // Embedded: the host page already scrolls and has its own background and padding.
+        !embedded && "h-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6",
+        !embedded && PULSE_PAGE_BG
+      )}
+    >
       {applyFor ? (
         <ApplyLeaveForm
           leaveTypes={leaveTypes}
@@ -156,25 +170,31 @@ export function EmployeeLeaveWorkspace({ userId }: { userId: string }) {
         />
       ) : (
         <>
-          <EmployeeSwitcherHeader
-            employee={employee}
-            options={options}
-            onSwitch={switchEmployee}
-            actions={
-              <Button asChild variant="outline" className="h-8 gap-1.5 rounded-md px-3 text-xs font-semibold">
-                <Link href={`/pulse/team-attendance/${userId}`}>
-                  <CalendarDays className="h-3.5 w-3.5" />
-                  Attendance
-                </Link>
-              </Button>
-            }
-          />
+          {embedded ? (
+            <PulseTabs tabs={TABS.map((t) => ({ label: TAB_LABEL[t], active: tab === t, onClick: () => setTab(t) }))} />
+          ) : (
+            <>
+              <EmployeeSwitcherHeader
+                employee={employee}
+                options={options}
+                onSwitch={switchEmployee}
+                actions={
+                  <Button asChild variant="outline" className="h-8 gap-1.5 rounded-md px-3 text-xs font-semibold">
+                    <Link href={`/pulse/team-attendance/${userId}`}>
+                      <CalendarDays className="h-3.5 w-3.5" />
+                      Attendance
+                    </Link>
+                  </Button>
+                }
+              />
 
-          {/* Under the header (not at the very top), so cancel the sticky bar's top bleed. */}
-          <PulseStickyTabs
-            className="mt-0 pt-0 sm:mt-0 sm:pt-0"
-            tabs={TABS.map((t) => ({ label: TAB_LABEL[t], active: tab === t, onClick: () => setTab(t) }))}
-          />
+              {/* Under the header (not at the very top), so cancel the sticky bar's top bleed. */}
+              <PulseStickyTabs
+                className="mt-0 pt-0 sm:mt-0 sm:pt-0"
+                tabs={TABS.map((t) => ({ label: TAB_LABEL[t], active: tab === t, onClick: () => setTab(t) }))}
+              />
+            </>
+          )}
 
           {tab === "summary" && (
             <SummaryTab
@@ -381,7 +401,7 @@ function PolicyTab({ userId, name }: { userId: string; name: string }) {
 
   const applies = policy.policies.filter((p) => p.applies).length;
   const facts = [
-    ["Employment type", policy.employee.employmentType || "Not set"],
+    ["Member type", policy.employee.employmentType || "Not set"],
     ["Department", policy.employee.department || "Not set"],
     ["Date of joining", policy.employee.dateOfJoining || "Not set"],
     ["Probation", policy.employee.confirmed ? "Confirmed" : "On probation / not confirmed"],

@@ -71,7 +71,7 @@ import type { ChecklistCloseBlock } from "@/features/sop-checklists/types";
  * Display label for each Prisma `ProfileRole` value — backs the "Portal Profile" column.
  */
 const PROFILE_ROLE_LABELS: Record<ProfileRoleValue, string> = {
-  EMPLOYEE: "Employee",
+  EMPLOYEE: "Member",
   MANAGER: "Manager",
   CONTRACTOR: "Contractor",
   CLIENT: "Client",

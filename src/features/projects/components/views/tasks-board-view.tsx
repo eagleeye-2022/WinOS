@@ -37,6 +37,7 @@ import { taskOwnerPeople } from "../../utils/task-owner-people";
 import { toast } from "@/components/shared/toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { SubtaskTree } from "@/components/shared/subtask-tree";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { ProjectPhase, TaskItem, TaskStatus, TaskSubtask, UserTimeGroup, WorkspaceRole, PROJECT_TASK_STATUSES, isTaskDone, getTaskStatusPillClasses } from "../../types";
 import { TaskDetailDrawer } from "../modals/task-detail-drawer";
@@ -1655,17 +1656,12 @@ export function TasksBoardView({
         </div>
 
         {task.subtasks && task.subtasks.length > 0 && expandedSubtaskCardIds.has(task.id) && (
-          <div
-            className="relative ml-2.5 mt-1 space-y-2 border-l-2 border-cyan-400/70 dark:border-cyan-500/50 pl-3"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {task.subtasks.map((subtask) => (
-              <div key={subtask.id} className="relative">
-                <span className="absolute -left-3 top-4 w-3 border-t-2 border-cyan-400/70 dark:border-cyan-500/50" />
-                {renderTaskCard(convertSubtaskToTaskItem(subtask, task), true)}
-              </div>
-            ))}
-          </div>
+          <SubtaskTree
+            items={task.subtasks.map((subtask) => ({
+              key: subtask.id,
+              content: renderTaskCard(convertSubtaskToTaskItem(subtask, task), true),
+            }))}
+          />
         )}
       </div>
     );

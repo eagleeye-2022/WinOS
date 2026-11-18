@@ -145,6 +145,7 @@ export interface MemberFormInput {
   workMobile?: string;
   personalMobile: string;
   parentGuardianName?: string;
+  parentGuardianRelationship?: string;
   parentGuardianMobile?: string;
   permanentAddress?: string;
   personalEmail?: string;
@@ -183,7 +184,10 @@ function assertRequiredFields(input: MemberFormInput) {
   // (e.g. a direct API call), which we allow rather than block on.
   if (!input.gender?.trim()) missing.push("Gender");
   if (!input.dateOfBirth?.trim()) missing.push("Date of Birth");
-  if (!input.personalMobile?.trim()) missing.push("Personal Mobile Number");
+  if (!input.personalMobile?.trim()) missing.push("Permanent Mobile Number");
+  if (!input.parentGuardianName?.trim()) missing.push("Parent/Guardian Name");
+  if (!input.parentGuardianRelationship?.trim()) missing.push("Parent/Guardian Relationship");
+  if (!input.parentGuardianMobile?.trim()) missing.push("Parent/Guardian Mobile Number");
   if (!input.location?.trim()) missing.push("Location");
   if (missing.length > 0) {
     throw new Error(`Missing required field(s): ${missing.join(", ")}`);
@@ -227,6 +231,7 @@ export async function addTeamMemberAction(input: MemberFormInput): Promise<{ id:
       workMobile: input.workMobile || null,
       personalMobile: input.personalMobile.trim(),
       parentGuardianName: input.parentGuardianName || null,
+      parentGuardianRelationship: input.parentGuardianRelationship || null,
       parentGuardianMobile: input.parentGuardianMobile || null,
       permanentAddress: input.permanentAddress || null,
       personalEmail: input.personalEmail || null,
@@ -280,6 +285,7 @@ export async function updateTeamMemberAction(input: UpdateTeamMemberInput): Prom
       workMobile: input.workMobile || null,
       personalMobile: input.personalMobile.trim(),
       parentGuardianName: input.parentGuardianName || null,
+      parentGuardianRelationship: input.parentGuardianRelationship || null,
       parentGuardianMobile: input.parentGuardianMobile || null,
       permanentAddress: input.permanentAddress || null,
       personalEmail: input.personalEmail || null,
@@ -314,6 +320,7 @@ export interface MemberDetails {
   workMobile: string;
   personalMobile: string;
   parentGuardianName: string;
+  parentGuardianRelationship: string;
   parentGuardianMobile: string;
   permanentAddress: string;
   personalEmail: string;
@@ -354,6 +361,7 @@ export async function getUserDetailsAction(userId: string): Promise<MemberDetail
     workMobile: user.workMobile || "",
     personalMobile: user.personalMobile || "",
     parentGuardianName: user.parentGuardianName || "",
+    parentGuardianRelationship: user.parentGuardianRelationship || "",
     parentGuardianMobile: user.parentGuardianMobile || "",
     permanentAddress: user.permanentAddress || "",
     personalEmail: user.personalEmail || "",

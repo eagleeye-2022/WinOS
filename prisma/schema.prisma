@@ -29,6 +29,7 @@ model User {
   workMobile            String?
   personalMobile        String?
   parentGuardianName    String?
+  parentGuardianRelationship String?
   parentGuardianMobile  String?
   permanentAddress      String?
   personalEmail         String?

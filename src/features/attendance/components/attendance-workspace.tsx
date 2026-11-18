@@ -45,7 +45,7 @@ import {
 } from "../utils";
 import { cn } from "@/lib/utils";
 import { PeriodNav, periodKind } from "@/components/shared/period-nav";
-import { PulsePage, PulseStickyTabs } from "@/components/pulse/pulse-ui";
+import { PulsePage, PulseStickyTabs, PulseTabs } from "@/components/pulse/pulse-ui";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
 
@@ -79,6 +79,8 @@ interface AttendanceWorkspaceProps {
   initialTab?: MainTab;
   /** "my" (My Attendance) hides the team tab, "team" (Team Attendance) hides the personal one. */
   view?: keyof typeof TABS_FOR_VIEW;
+  /** Shown as a tab inside another page (the profile): no page frame, no sticky tabs, no breadcrumb. */
+  embedded?: boolean;
 }
 
 export function AttendanceWorkspace({
@@ -86,6 +88,7 @@ export function AttendanceWorkspace({
   currentUserId,
   initialTab = "my-attendance",
   view = "all",
+  embedded = false,
 }: AttendanceWorkspaceProps) {
   const router = useRouter();
   const initialToday = istDateKey();
@@ -249,7 +252,7 @@ export function AttendanceWorkspace({
     "team-attendance": "Team Attendance",
     regularization: "Regularization Request",
   };
-  usePulseCrumbs([
+  usePulseCrumbs(embedded ? null : [
     {
       label: TAB_LABEL[activeTab],
       onClick: () => {
@@ -267,11 +270,15 @@ export function AttendanceWorkspace({
       : []),
   ]);
 
+  // Embedded: the host page already scrolls and has its own background and padding.
+  const Frame = embedded ? EmbeddedFrame : PulsePage;
+  const Tabs = embedded ? PulseTabs : PulseStickyTabs;
+
   return (
-    <PulsePage className="select-none p-4 sm:p-6">
+    <Frame className="select-none p-4 sm:p-6">
       <div className="max-w-[1600px] w-full mx-auto space-y-4">
         {/* Top Main Navigation Tabs — sticky (not fixed): pinned to the top while this page scrolls. */}
-        <PulseStickyTabs
+        <Tabs
           tabs={[
             ...(shownTabs.includes("my-attendance")
               ? [{ label: "Attendance Records", active: activeTab === "my-attendance", onClick: () => setActiveTab("my-attendance") }]
@@ -583,6 +590,11 @@ export function AttendanceWorkspace({
           }}
         />
       </div>
-    </PulsePage>
+    </Frame>
   );
+}
+
+/** Plain wrapper used instead of PulsePage when embedded (the host provides scroll + padding). */
+function EmbeddedFrame({ children }: { children: React.ReactNode; className?: string }) {
+  return <div className="w-full select-none">{children}</div>;
 }

@@ -422,6 +422,14 @@ body {
 }
 
 /* Custom scrollbar utility to show scrollbars specifically for DSM columns and tables */
+/* Column resizing (TableColumnResizer): while the pointer is on a column's resize edge, or dragging
+   one, show the ↔ cursor everywhere — boards that drag-scroll (cursor: grab) and clickable cards set
+   their own cursor, which would otherwise win over the one on <html>. */
+html.col-resize-active,
+html.col-resize-active * {
+  cursor: col-resize !important;
+}
+
 /* Always visible (not only on hover). In Chromium a non-default scrollbar-color makes the browser
    ignore the ::-webkit-scrollbar styles below and fall back to its own overlay scrollbar, which on
    Windows 11 / macOS only shows while hovering or scrolling (and the old near-white color was

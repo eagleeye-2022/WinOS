@@ -159,6 +159,11 @@ export function TableColumnResizer() {
     let drag: { th: ResizableEl; startX: number; startWidth: number } | null = null;
     let suppressClick = false;
 
+    /** Forces the ↔ cursor over everything (see `html.col-resize-active` in globals.css). */
+    const setResizeCursor = (on: boolean) => {
+      document.documentElement.classList.toggle("col-resize-active", on);
+    };
+
     const showGuide = (el: ResizableEl, x: number) => {
       // Full height of the table by default; a table marked data-col-guide="header" gets a guide
       // as tall as the header cell only.
@@ -182,7 +187,7 @@ export function TableColumnResizer() {
         return;
       }
       const th = resizableEdgeAt(e);
-      document.documentElement.style.cursor = th ? "col-resize" : "";
+      setResizeCursor(Boolean(th));
       if (th) showGuide(th, th.getBoundingClientRect().right);
       else hideGuide();
     };
@@ -195,6 +200,8 @@ export function TableColumnResizer() {
       e.preventDefault();
       e.stopPropagation();
       drag = { th, startX: e.clientX, startWidth: th.getBoundingClientRect().width };
+      // Keep ↔ for the whole drag, even when the pointer runs ahead of the edge.
+      setResizeCursor(true);
       document.body.style.userSelect = "none";
       // Columns with `transition-all` would otherwise lag behind the pointer.
       th.style.transition = "none";
@@ -207,6 +214,7 @@ export function TableColumnResizer() {
       suppressClick = true;
       th.style.transition = "";
       document.body.style.userSelect = "";
+      setResizeCursor(false);
       hideGuide();
       const id = cellId(th);
       if (id) {
@@ -250,7 +258,7 @@ export function TableColumnResizer() {
       document.removeEventListener("pointerup", onPointerUp, true);
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("dblclick", onDoubleClick, true);
-      document.documentElement.style.cursor = "";
+      setResizeCursor(false);
       document.body.style.userSelect = "";
       guide.remove();
     };

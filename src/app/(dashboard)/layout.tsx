@@ -25,7 +25,7 @@ import { PendingTimerLogRecovery } from "@/features/projects/components/pending-
 import { ChecklistGateHost } from "@/features/sop-checklists/components/checklist-gate";
 import { UserAvatar, UserAvatarProvider } from "@/components/shared/user-avatar";
 import { UserCardProvider } from "@/components/shared/user-card";
-import { presenceFrom, type UserCardUser } from "@/features/users/user-card-data";
+import { cleanMobile, presenceFrom, type UserCardUser } from "@/features/users/user-card-data";
 import { dateFromKey, istDateKey } from "@/features/attendance/utils";
 import { canManageAttendance } from "@/features/attendance/utils";
 import { db } from "@/lib/db";
@@ -88,6 +88,8 @@ export default async function DashboardLayout({
     .toUpperCase();
 
   const isManager = userRole === "MANAGER";
+  /** Pulse managers can open anyone's Pulse profile from the user card (same check as that page). */
+  const canOpenProfiles = canManageAttendance(session.user);
 
   const today = dateFromKey(istDateKey())!;
   const [unreadCount, recentNotifications, myModuleAccess, directory] = await Promise.all([
@@ -104,6 +106,9 @@ export default async function DashboardLayout({
         image: true,
         title: true,
         department: true,
+        workMobile: true,
+        // Personal numbers only reach managers' browsers (a fallback when there's no work mobile).
+        personalMobile: canOpenProfiles,
         isActive: true,
         dailyAttendances: {
           where: { date: today },
@@ -118,14 +123,17 @@ export default async function DashboardLayout({
       },
     }),
   ]);
-  const cardUsers: UserCardUser[] = directory.map(({ dailyAttendances, leaveRequests, ...u }) => ({
-    ...u,
-    presence: presenceFrom(dailyAttendances[0], leaveRequests.length > 0),
-  }));
+  const cardUsers: UserCardUser[] = directory.map(
+    ({ dailyAttendances, leaveRequests, workMobile, personalMobile, ...u }) => ({
+      ...u,
+      mobile: cleanMobile(workMobile) ?? (canOpenProfiles ? cleanMobile(personalMobile) : null),
+      presence: presenceFrom(dailyAttendances[0], leaveRequests.length > 0),
+    })
+  );
 
   return (
     <UserAvatarProvider users={cardUsers}>
-    <UserCardProvider users={cardUsers} viewerId={userId} viewerIsManager={isManager}>
+    <UserCardProvider users={cardUsers} viewerId={userId} viewerIsManager={canOpenProfiles}>
     <MobileNavProvider>
     {/* 100dvh, not 100vh: on phones the browser's address bar would otherwise hide the bottom. */}
     <div className="flex h-[100dvh] w-screen flex-col overflow-hidden">

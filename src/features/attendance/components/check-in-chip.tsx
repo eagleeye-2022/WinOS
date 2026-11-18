@@ -62,7 +62,7 @@ export function CheckInChip() {
   const pathname = usePathname();
   const [status, setStatus] = useState<MyCheckInStatus | null>(null);
   const [captureMode, setCaptureMode] = useState<"check-in" | "check-out" | null>(null);
-  const [workMode, setWorkMode] = useState<"OFFICE" | "REMOTE">("OFFICE");
+  const [workMode, setWorkMode] = useState<"OFFICE" | "REMOTE">("REMOTE");
   const [reminderOpen, setReminderOpen] = useState(false);
   const [, startRefresh] = useTransition();
   const worked = useWorkedClock(status?.bankedMinutes ?? 0, status?.liveSince ?? null);
@@ -168,7 +168,7 @@ export function CheckInChip() {
         extra={
           captureMode === "check-in" && !status.checkedIn ? (
             <div className="grid grid-cols-2 rounded-md border border-border/70 bg-muted/50 p-0.5 text-xs font-semibold">
-              {(["OFFICE", "REMOTE"] as const).map((mode) => (
+              {(["REMOTE", "OFFICE"] as const).map((mode) => (
                 <button
                   key={mode}
                   type="button"

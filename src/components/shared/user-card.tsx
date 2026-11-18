@@ -3,7 +3,7 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
-import { Building2, Check, Copy, Home, Info, Mail } from "lucide-react";
+import { Briefcase, Building2, CalendarOff, Check, Clock, Copy, Home, Info, LogOut, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getAvatarColor, getInitials } from "@/lib/avatar";
 import { ROUTES } from "@/constants/routes";
@@ -169,6 +169,7 @@ export function UserCardProvider({
                 data={shown}
                 who={state.who}
                 canViewProfile={Boolean(shown) && (viewerIsManager || shown!.id === viewerId)}
+                isSelf={shown?.id === viewerId}
                 onNavigate={() => setState(null)}
               />
             )}
@@ -185,11 +186,13 @@ function UserCardBody({
   data,
   who,
   canViewProfile,
+  isSelf,
   onNavigate,
 }: {
   data: UserCardUser | null;
   who: UserCardTarget;
   canViewProfile: boolean;
+  isSelf: boolean;
   onNavigate: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -280,19 +283,22 @@ function UserCardBody({
             </div>
           </div>
 
-          <div className="mt-2 flex gap-1.5">
-            <a
-              href={`mailto:${data.email}`}
-              onClick={onNavigate}
-              className={ACTION_BTN}
-              title={`Email ${displayName}`}
-              aria-label="Send email"
-            >
-              <Mail className="h-4 w-4" />
-            </a>
+          <div className={cn("mt-2 flex gap-1.5", !data.mobile && !canViewProfile && "hidden")}>
+            {data.mobile && (
+              <a
+                href={`tel:${data.mobile.replace(/[^\d+]/g, "")}`}
+                onClick={onNavigate}
+                className={ACTION_BTN}
+                title={`Call ${data.mobile}`}
+                aria-label="Call"
+              >
+                <Phone className="h-4 w-4" />
+              </a>
+            )}
             {canViewProfile && (
+              // Their Pulse profile (details, attendance, leave) — yours, or anyone's for managers.
               <Link
-                href={ROUTES.settingsUsersEdit(data.id)}
+                href={isSelf ? ROUTES.pulseProfile : ROUTES.pulseMemberProfile(data.id)}
                 onClick={onNavigate}
                 className={ACTION_BTN}
                 title="View profile"
@@ -305,51 +311,104 @@ function UserCardBody({
         </div>
       </div>
 
-      {/* ── Today's status ── */}
-      <div className="flex items-center gap-2.5 px-1.5 pt-1.5">
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-          <Home className="h-4 w-4" />
-        </span>
-        <span className={cn("text-sm font-semibold", presence.text)}>{presence.label}</span>
-      </div>
-
-      {/* ── Department + designation ── */}
-      {(data.department || data.title) && (
-        <div className="flex items-start gap-2.5 px-1.5 pb-1.5 pt-1">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-            <Building2 className="h-4 w-4" />
+      <div className="space-y-2 px-1.5 pb-1.5 pt-1.5">
+        {/* ── Today's status: working now (since when), checked out, on leave, not in ── */}
+        <InfoRow icon={presence.kindIcon}>
+          <span className={cn("flex items-center gap-1.5 text-sm font-semibold", presence.text)}>
+            {presence.live && (
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+            )}
+            {presence.label}
           </span>
-          <div className="min-w-0 pt-0.5">
-            {data.department && <p className="truncate text-sm">{data.department}</p>}
-            {data.title && <p className="truncate text-xs font-semibold text-muted-foreground">{data.title}</p>}
-          </div>
-        </div>
-      )}
+        </InfoRow>
+
+        {/* ── Designation + department (each only when set) ── */}
+        {data.title?.trim() && (
+          <InfoRow icon={<Briefcase className="h-4 w-4" />}>
+            <span className="block truncate text-sm font-medium">{data.title}</span>
+          </InfoRow>
+        )}
+        {data.department?.trim() && (
+          <InfoRow icon={<Building2 className="h-4 w-4" />}>
+            <span className="block truncate text-sm font-medium">{data.department}</span>
+          </InfoRow>
+        )}
+
+        {/* ── Mobile (only when set) ── */}
+        {data.mobile && (
+          <InfoRow icon={<Phone className="h-4 w-4" />}>
+            <a
+              href={`tel:${data.mobile.replace(/[^\d+]/g, "")}`}
+              onClick={onNavigate}
+              className="block truncate text-sm font-medium hover:underline"
+            >
+              {data.mobile}
+            </a>
+          </InfoRow>
+        )}
+      </div>
     </div>
   );
 }
 
+function InfoRow({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">{icon}</span>
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+
 const ACTION_BTN =
   "inline-flex h-8 w-11 items-center justify-center rounded-md border border-border/60 bg-background text-foreground transition-colors hover:bg-accent";
 
-function presenceView(p: UserCardPresence, isActive: boolean): { label: string; text: string; dot: string } {
-  if (!isActive) return { label: "Inactive", text: "text-muted-foreground", dot: "bg-zinc-400" };
+type PresenceView = {
+  label: string;
+  text: string;
+  dot: string;
+  /** Checked in right now — shows a pulsing dot. */
+  live?: boolean;
+  kindIcon: React.ReactNode;
+};
+
+function presenceView(p: UserCardPresence, isActive: boolean): PresenceView {
+  if (!isActive) {
+    return { label: "Inactive", text: "text-muted-foreground", dot: "bg-zinc-400", kindIcon: <Home className="h-4 w-4" /> };
+  }
   switch (p.kind) {
     case "LIVE":
       return {
         label: p.workMode === "REMOTE" ? "Remote In" : "In Office",
         text: "text-emerald-600 dark:text-emerald-500",
         dot: "bg-emerald-500",
+        live: true,
+        kindIcon: p.workMode === "REMOTE" ? <Home className="h-4 w-4" /> : <Building2 className="h-4 w-4" />,
       };
     case "CHECKED_OUT":
       return {
-        label: p.at ? `Checked Out at ${p.at}` : "Checked Out",
+        label: "Checked Out",
         text: "text-muted-foreground",
         dot: "bg-zinc-400",
+        kindIcon: <LogOut className="h-4 w-4" />,
       };
     case "ON_LEAVE":
-      return { label: "On Leave", text: "text-amber-600 dark:text-amber-500", dot: "bg-amber-500" };
+      return {
+        label: "On Leave",
+        text: "text-amber-600 dark:text-amber-500",
+        dot: "bg-amber-500",
+        kindIcon: <CalendarOff className="h-4 w-4" />,
+      };
     default:
-      return { label: "Not Checked In", text: "text-muted-foreground", dot: "bg-zinc-400" };
+      return {
+        label: "Not Checked In",
+        text: "text-muted-foreground",
+        dot: "bg-zinc-400",
+        kindIcon: <Clock className="h-4 w-4" />,
+      };
   }
 }
