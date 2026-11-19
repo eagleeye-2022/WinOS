@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useModuleViewState, useUrlState, writeSearchParam } from "@/lib/navigation/use-url-state";
+import { useModuleViewState, useUrlState, writeSearchParam, usePageViewState } from "@/lib/navigation/use-url-state";
 import { useRouter, useParams } from "next/navigation";
 import {
   Columns,
@@ -100,6 +100,7 @@ const BOARD_SUB_TABS = ["TASKS", "DASHBOARD", "PHASES", "TIME_LOGS", "CHECKLIST"
 type BoardSubTab = (typeof BOARD_SUB_TABS)[number];
 const TASK_SCOPES = ["MY_TASKS", "ALL_TASKS"] as const;
 const NO_COLLAPSED_PHASES: string[] = [];
+const NO_EXPANDED_SUBTASK_CARDS: string[] = [];
 
 // Fallback initial tasks for rich rendering matching reference design
 const FALLBACK_PROJECT_TASKS: TaskItem[] = [
@@ -465,9 +466,9 @@ export function TasksBoardView({
       : (localTasks.find((t) => t.id === openTaskId) ?? null)
     : null;
   const isDetailDrawerOpen = drawerTask !== null;
-  const [isAddTaskDrawerOpen, setIsAddTaskDrawerOpen] = useState(false);
+  const [isAddTaskDrawerOpen, setIsAddTaskDrawerOpen] = usePageViewState("TasksBoardView:isAddTaskDrawerOpen", false);
   const [selectedAddTaskPhase, setSelectedAddTaskPhase] = useState<string | undefined>(undefined);
-  const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
+  const [isTimeLogModalOpen, setIsTimeLogModalOpen] = usePageViewState("TasksBoardView:isTimeLogModalOpen", false);
 
   const handleOpenAddTaskForPhase = (phaseCode?: string) => {
     setSelectedAddTaskPhase(phaseCode);
@@ -551,7 +552,13 @@ export function TasksBoardView({
 
   // Owner Assignment State
   const [userOptions, setUserOptions] = useState<{ id: string; name: string; email: string }[]>([]);
-  const [expandedSubtaskCardIds, setExpandedSubtaskCardIds] = useState<Set<string>>(new Set());
+  // Cards with their subtasks shown — kept in the module's navigation slice like the collapsed
+  // phases below, so opening a task and coming back shows the board exactly as it was left.
+  const [expandedSubtaskCardList, setExpandedSubtaskCardList] = useModuleViewState<string[]>(
+    `tasks-board:expanded-subtasks:${realProjectId ?? "all"}`,
+    NO_EXPANDED_SUBTASK_CARDS
+  );
+  const expandedSubtaskCardIds = useMemo(() => new Set(expandedSubtaskCardList), [expandedSubtaskCardList]);
   // Collapsed phase columns: ephemeral UI, kept in the module's navigation slice (not the URL).
   const [collapsedPhaseList, setCollapsedPhaseList] = useModuleViewState<string[]>(
     `tasks-board:collapsed:${realProjectId ?? "all"}`,
@@ -1043,15 +1050,9 @@ export function TasksBoardView({
 
   const handleToggleSubtasksPanel = (e: React.MouseEvent, task: TaskItem) => {
     e.stopPropagation();
-    setExpandedSubtaskCardIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(task.id)) {
-        next.delete(task.id);
-      } else {
-        next.add(task.id);
-      }
-      return next;
-    });
+    setExpandedSubtaskCardList((prev) =>
+      prev.includes(task.id) ? prev.filter((id) => id !== task.id) : [...prev, task.id]
+    );
   };
 
   // A subtask is a real ProjectTask row under the hood (parentTaskId set), so it supports the
@@ -2042,7 +2043,12 @@ export function TasksBoardView({
 
           {/* ── Kanban Board Layout (Phase Columns matching reference image) ────────────────────── */}
           {viewMode === "KANBAN" && (
-            <div className="dsm-columns-scrollbar flex-1 min-h-0 overflow-x-auto p-4.5 bg-slate-50/50 dark:bg-background/40">
+            // data-scroll-key: stable ids so returning from a task restores these scroll positions
+            // even when expanded/collapsed cards change the structure (see NavigationStateTracker).
+            <div
+              data-scroll-key={`tasks-board-${realProjectId ?? "all"}`}
+              className="dsm-columns-scrollbar flex-1 min-h-0 overflow-x-auto p-4.5 bg-slate-50/50 dark:bg-background/40"
+            >
               <div data-col-scope className="flex gap-3.5 h-full items-stretch">
                 {phaseColumns.map((col) => {
                   const isCollapsed = collapsedPhaseCodes.has(col.code);
@@ -2206,6 +2212,7 @@ export function TasksBoardView({
 
                       {/* Task Cards Column Body matching reference screenshot */}
                       <div
+                        data-scroll-key={`tasks-board-${realProjectId ?? "all"}-${col.code}`}
                         className={cn(
                           "space-y-3 overflow-y-auto pr-1 flex-1 min-h-0 rounded-xl transition-colors",
                           draggedTaskId && "ring-1 ring-transparent hover:ring-primary/30"

@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
 import { Zap, ChevronDown } from "lucide-react";
 import type { EntryWithDetails } from "../queries";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 type TodaysFocusProps = {
   entry: EntryWithDetails | null;
 };
 
 export function TodaysFocusCard({ entry }: TodaysFocusProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = usePageViewState("TodaysFocusCard:open", false);
 
   const todayTasks = entry?.tasks.filter((t) => t.kind === "TODAY") ?? [];
   const focusTask = todayTasks[0];

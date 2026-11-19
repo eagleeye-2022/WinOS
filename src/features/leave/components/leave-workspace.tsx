@@ -23,7 +23,7 @@ import { CompensatoryDetailsView } from "./compensatory-details-view";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PULSE_PAGE_BG, PulseStickyTabs, PulseTabs, StatusPill } from "@/components/pulse/pulse-ui";
-import { useUrlState } from "@/lib/navigation/use-url-state";
+import { useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 import { toast } from "@/components/shared/toast";
 import {
@@ -127,10 +127,10 @@ export function LeaveWorkspace({
   const [isLoading, setIsLoading] = useState(true);
 
   // Modals / View details state
-  const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
-  const [selectedCompRequest, setSelectedCompRequest] = useState<CompensatoryRequest | null>(null);
+  const [selectedRequest, setSelectedRequest] = usePageViewState<LeaveRequest | null>("LeaveWorkspace:selectedRequest", null);
+  const [selectedCompRequest, setSelectedCompRequest] = usePageViewState<CompensatoryRequest | null>("LeaveWorkspace:selectedCompRequest", null);
   const [regularizeItem, setRegularizeItem] = useState<ActionRequiredItem | null>(null);
-  const [isRegularizeModalOpen, setIsRegularizeModalOpen] = useState(false);
+  const [isRegularizeModalOpen, setIsRegularizeModalOpen] = usePageViewState("LeaveWorkspace:isRegularizeModalOpen", false);
   const [prefilledApplyDate, setPrefilledApplyDate] = useState<string | undefined>(undefined);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   /** Signed-in person is a manager (they may approve their own pending leave). */

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePageDraft, useClearPageDraft } from "@/lib/navigation/use-url-state";
 import React, { useState } from "react";
 import { X, Calendar, Loader2, Info } from "lucide-react";
 import { TaskSubtask, TaskStatus, PROJECT_TASK_STATUSES, isTaskDone } from "../../types";
@@ -24,12 +25,20 @@ export function AddSubtaskDrawer({
   nextSubtaskNumber,
   hideCodePreview = false,
 }: AddSubtaskDrawerProps) {
-  const [title, setTitle] = useState("");
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = `add-subtask:${parentTaskCode}`;
+  const clearDraft = useClearPageDraft(draft);
+  const close = () => {
+    clearDraft();
+    onClose();
+  };
+  const [title, setTitle] = usePageDraft(draft, "title", "");
   // No dates by default — left empty they're saved as "--" (no start / due date).
-  const [startDate, setStartDate] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [status, setStatus] = useState<TaskStatus>("Open");
-  const [description, setDescription] = useState("");
+  const [startDate, setStartDate] = usePageDraft(draft, "startDate", "");
+  const [dueDate, setDueDate] = usePageDraft(draft, "dueDate", "");
+  const [status, setStatus] = usePageDraft<TaskStatus>(draft, "status", "Open");
+  const [description, setDescription] = usePageDraft(draft, "description", "");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -71,11 +80,7 @@ export function AddSubtaskDrawer({
       setIsSubmitting(false);
     }
     if (!saved) return;
-    onClose();
-    setTitle("");
-    setDescription("");
-    setStartDate("");
-    setDueDate("");
+    close();
   };
 
   return (
@@ -94,7 +99,7 @@ export function AddSubtaskDrawer({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
           >
             <X size={18} />
@@ -210,7 +215,7 @@ export function AddSubtaskDrawer({
 
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="rounded-md border border-input bg-background px-6 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer"
             >
               Cancel

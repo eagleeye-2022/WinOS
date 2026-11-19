@@ -18,6 +18,7 @@ import { cn, toTitleCase } from "@/lib/utils";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserName } from "@/components/shared/user-card";
 import { NotesTopNav } from "./notes-top-nav";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 export type SharedNoteItem = {
   id: string;
@@ -89,7 +90,7 @@ const getCardBg = (color?: string | null) => {
 
 export function SharedNotesView({ title, description, notes, type }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedNote, setSelectedNote] = useState<SharedNoteItem | null>(null);
+  const [selectedNote, setSelectedNote] = usePageViewState<SharedNoteItem | null>("SharedNotesView:selectedNote", null);
 
   const filteredNotes = notes.filter((n) => {
     const query = searchQuery.toLowerCase().trim();

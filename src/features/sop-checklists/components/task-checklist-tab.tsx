@@ -45,6 +45,7 @@ import { SopPickerOption, TaskChecklistItemView, TaskChecklistView } from "../ty
 import { checklistProgress, sopPlaceLabel } from "../utils";
 import { docItemIds, hidePlaceholderNotes } from "../doc";
 import { SopTimelineDrawer } from "./sop-timeline-drawer";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 /** TipTap needs the browser — loaded on demand. */
 const SopDocView = dynamic(() => import("../editor/sop-doc-view"), {
@@ -63,7 +64,7 @@ export function TaskChecklistTab({ taskId }: TaskChecklistTabProps) {
   const [canCheck, setCanCheck] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = usePageViewState("TaskChecklistTab:pickerOpen", false);
   // "" = all categories (SearchableSelect's placeholder row clears it).
   const [category, setCategory] = useState("");
   const [attachingId, setAttachingId] = useState<string | null>(null);
@@ -379,7 +380,7 @@ function ChecklistCard({
 }) {
   const [newItem, setNewItem] = useState("");
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = usePageViewState(`ChecklistCard:${checklist.id}:open`, true);
   const [isBulkSaving, setIsBulkSaving] = useState(false);
 
   const handleSelectAll = async (checked: boolean) => {
@@ -408,7 +409,7 @@ function ChecklistCard({
     checklist.latestTemplateVersion !== null && checklist.templateVersion < checklist.latestTemplateVersion;
 
   // Document mode: the SOP doc shows the checkboxes; ticks live on the items, matched by sourceItemId.
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetails, setShowDetails] = usePageViewState(`ChecklistCard:${checklist.id}:showDetails`, false);
   const [proofItemId, setProofItemId] = useState<string | null>(null);
   const docIds = useMemo(() => (checklist.content ? docItemIds(checklist.content) : null), [checklist.content]);
   // Shown without the import's empty "Notes & references / PURPOSE" placeholder (stored SOP unchanged).
@@ -728,7 +729,7 @@ function ChecklistItemRow({
   onChange: (item: TaskChecklistItemView) => void;
   onDelete: () => void;
 }) {
-  const [detailsOpen, setDetailsOpen] = useState(!!openDetails);
+  const [detailsOpen, setDetailsOpen] = usePageViewState(`ChecklistItemRow:${item.id}:detailsOpen`, !!openDetails);
   useEffect(() => {
     if (openDetails) setDetailsOpen(true);
   }, [openDetails]);

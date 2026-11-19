@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+
 import Link from "next/link";
 import { ArrowRight, CalendarPlus, CircleCheck, Phone, PhoneCall, Plus, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ import { useSetuStore } from "../../store";
 import type { Meeting121, PipelineStageId } from "../../types";
 import { formatDate } from "../../utils";
 import { Pill, SectionLabel, SetuAvatar, SetuButton } from "../setu-ui";
+import { usePageViewState, usePageDraft, useClearPageDraft } from "@/lib/navigation/use-url-state";
 
 /** The stage after `stage` in the active funnel ("→ Proposal next"), if any. */
 function nextStage(stage: PipelineStageId) {
@@ -41,9 +42,13 @@ function MeetingDetailBody({ meeting }: { meeting: Meeting121 }) {
   const convertReferrals = useSetuStore((s) => s.convertReferrals);
   const addMeetingNote = useSetuStore((s) => s.addMeetingNote);
   const toggleTodo = useSetuStore((s) => s.toggleTodo);
-  const [note, setNote] = useState("");
-  const [noteOpen, setNoteOpen] = useState(false);
-  const [callOpen, setCallOpen] = useState(false);
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = `meeting-note:${meeting.id}`;
+  const clearDraft = useClearPageDraft(draft);
+  const [note, setNote] = usePageDraft(draft, "note", "");
+  const [noteOpen, setNoteOpen] = usePageViewState(`MeetingDetailBody:${meeting.id}:noteOpen`, false);
+  const [callOpen, setCallOpen] = usePageViewState(`MeetingDetailBody:${meeting.id}:callOpen`, false);
 
   const linked = prospects.filter((p) => meeting.prospectIds.includes(p.id));
   const lead = linked[0];
@@ -58,7 +63,7 @@ function MeetingDetailBody({ meeting }: { meeting: Meeting121 }) {
     const t = text.trim();
     if (!t) return;
     addMeetingNote(meeting.id, t);
-    setNote("");
+    clearDraft();
     setNoteOpen(false);
   };
 
@@ -259,8 +264,12 @@ function MeetingDetailBody({ meeting }: { meeting: Meeting121 }) {
 
 /** "Call now" opens this over the dialog to capture what was said on the call. */
 function CallNoteOverlay({ name, onCancel, onSave }: { name: string; onCancel: () => void; onSave: (text: string) => void }) {
-  const [text, setText] = useState("");
-  const [followUp, setFollowUp] = useState(false);
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = `call-note:${name}`;
+  const clearDraft = useClearPageDraft(draft);
+  const [text, setText] = usePageDraft(draft, "text", "");
+  const [followUp, setFollowUp] = usePageDraft(draft, "followUp", false);
   const now = new Date().toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   return (
     <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
@@ -282,10 +291,19 @@ function CallNoteOverlay({ name, onCancel, onSave }: { name: string; onCancel: (
           Schedule follow-up meeting
         </label>
         <div className="mt-5 flex gap-2">
-          <SetuButton variant="primary" size="sm" className="flex-1" disabled={!text.trim()} onClick={() => onSave(text.trim())}>
+          <SetuButton variant="primary" size="sm" className="flex-1" disabled={!text.trim()} onClick={() => {
+              clearDraft();
+              onSave(text.trim());
+            }}>
             Save note
           </SetuButton>
-          <SetuButton size="sm" onClick={onCancel}>
+          <SetuButton
+            size="sm"
+            onClick={() => {
+              clearDraft();
+              onCancel();
+            }}
+          >
             Cancel
           </SetuButton>
         </div>

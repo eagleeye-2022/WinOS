@@ -35,23 +35,6 @@ function writeLastShown(at: number) {
   }
 }
 
-const pad = (n: number) => String(n).padStart(2, "0");
-
-/** Today's worked time "hh:mm:ss", ticking every second while checked in. */
-function useWorkedClock(bankedMinutes: number, liveSince: string | null): string {
-  const [now, setNow] = useState<number | null>(null);
-  useEffect(() => {
-    setNow(Date.now());
-    if (!liveSince) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [liveSince]);
-
-  let seconds = bankedMinutes * 60;
-  if (liveSince && now !== null) seconds += Math.max(0, Math.floor((now - new Date(liveSince).getTime()) / 1000));
-  return `${pad(Math.floor(seconds / 3600))}:${pad(Math.floor((seconds % 3600) / 60))}:${pad(seconds % 60)}`;
-}
-
 /**
  * Check-in / check-out from the top bar, on every module (Standup, Pulse, Srijan…). Uses the same
  * selfie capture and actions as Pulse Home, so all attendance views stay in sync. On a working day,
@@ -65,12 +48,11 @@ export function CheckInChip() {
   const [workMode, setWorkMode] = useState<"OFFICE" | "REMOTE">("REMOTE");
   const [reminderOpen, setReminderOpen] = useState(false);
   const [, startRefresh] = useTransition();
-  const worked = useWorkedClock(status?.bankedMinutes ?? 0, status?.liveSince ?? null);
 
   const loadStatus = useCallback(async () => {
     const next = await getMyCheckInStatusAction().catch(() => null);
     setStatus(next);
-    if (next && !next.checkedIn) setWorkMode(next.workMode);
+    if (next && !next.isLive) setWorkMode(next.workMode);
     return next;
   }, []);
 
@@ -132,28 +114,19 @@ export function CheckInChip() {
         <button
           type="button"
           onClick={() => setCaptureMode("check-out")}
-          title="Checked in — click to check out"
-          className="flex shrink-0 mr-3 items-center gap-2 rounded-full border bg-card py-1 pl-3 pr-1 text-xs font-medium shadow-xs sm:w-[188px]"
+          title="Check out"
+          // Checked in: just the Check-out button, sized to its label, in a light tint.
+          className="flex w-fit shrink-0 items-center justify-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
         >
-          <span className="relative flex h-2 w-2 ">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-          </span>
-          {/* Fixed box, so the ticking digits never resize the chip or push the icons beside it. */}
-          <span className="inline-block w-[60px] shrink-0 whitespace-nowrap text-center tabular-nums text-foreground max-sm:hidden">
-            {worked}
-          </span>
-          <span className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-rose-600 px-2.5 py-1 font-semibold text-white hover:bg-rose-700">
-            <LogOut className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Check-out</span>
-          </span>
+          <LogOut className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Check-out</span>
         </button>
       ) : (
         <button
           type="button"
           onClick={openCheckIn}
           title={status.checkedOut ? "Check in again" : "Check in"}
-          className="flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-emerald-700 sm:w-[188px]"
+          className="flex w-fit shrink-0 items-center justify-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20"
         >
           <LogIn className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">{status.checkedOut ? "Check-in again" : "Check-in"}</span>
@@ -166,7 +139,8 @@ export function CheckInChip() {
         mode={captureMode ?? "check-in"}
         title={captureMode === "check-out" ? "Check-out" : status.checkedOut ? "Check-in again" : "Check-in"}
         extra={
-          captureMode === "check-in" && !status.checkedIn ? (
+          // First check-in and "Check-in again" both pick Remote / Office.
+          captureMode === "check-in" ? (
             <div className="grid grid-cols-2 rounded-md border border-border/70 bg-muted/50 p-0.5 text-xs font-semibold">
               {(["REMOTE", "OFFICE"] as const).map((mode) => (
                 <button
@@ -191,6 +165,12 @@ export function CheckInChip() {
               : await checkInAction({ workMode, source: "Web", photo, location });
           if (!res.success) return ("message" in res && res.message) || "That didn't go through. Please try again.";
           await loadStatus();
+          const redirectTo = "redirectTo" in res ? res.redirectTo : undefined;
+          if (typeof redirectTo === "string") {
+            // Checked in: straight to the standup (managers: their own one).
+            router.push(redirectTo);
+            return null;
+          }
           // Refresh whatever page is open (Pulse Home, attendance…) so it shows the new punch.
           startRefresh(() => router.refresh());
           return null;

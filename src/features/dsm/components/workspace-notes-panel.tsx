@@ -14,6 +14,7 @@ import { toggleBoardNoteItem } from "@/features/notes/actions/toggle-board-note-
 import { EditNoteModal } from "@/features/notes/components/edit-note-modal";
 import type { SharedNoteData } from "../queries";
 import { toTitleCase } from "@/lib/utils";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 const PINNED_NOTES_KEY = "workspace-notes-pinned";
 
@@ -342,7 +343,7 @@ export function WorkspaceNotesPanel({
   userRole,
 }: WorkspaceNotesPanelProps) {
   const router = useRouter();
-  const [editingNote, setEditingNote] = useState<SharedNoteData | null>(null);
+  const [editingNote, setEditingNote] = usePageViewState<SharedNoteData | null>("WorkspaceNotesPanel:editingNote", null);
   // Pinned cards go first. Personal to this browser (no database change).
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePageDraft, useClearPageDraft } from "@/lib/navigation/use-url-state";
 import React, { useState } from "react";
 import {
   X,
@@ -28,7 +29,7 @@ const DEFAULT_PERMISSIONS = [
   { key: "PROJECT_OVERVIEW", label: "Project Overview", enabled: true },
   { key: "TASKS", label: "Tasks", enabled: true },
   { key: "TASK_DETAILS", label: "Task Details", enabled: true },
-  { key: "TASK_COMMENTS", label: "Task Comments", enabled: true },
+  { key: "TASK_COMMENTS", label: "Task Notes", enabled: true },
   { key: "DOCUMENTS", label: "Documents", enabled: true },
   { key: "DISCUSSIONS", label: "Discussions", enabled: true },
   { key: "PROJECT_CHAT", label: "Project Chat", enabled: true },
@@ -43,12 +44,20 @@ export function InviteClientModal({
   projects,
   onSuccess,
 }: InviteClientModalProps) {
-  const [clientName, setClientName] = useState("");
-  const [email, setEmail] = useState("");
-  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
-  const [projectSearch, setProjectSearch] = useState("");
-  const [permissions, setPermissions] = useState(DEFAULT_PERMISSIONS);
-  const [showPermissions, setShowPermissions] = useState(false);
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = "invite-client";
+  const clearDraft = useClearPageDraft(draft);
+  const close = () => {
+    clearDraft();
+    onClose();
+  };
+  const [clientName, setClientName] = usePageDraft(draft, "clientName", "");
+  const [email, setEmail] = usePageDraft(draft, "email", "");
+  const [selectedProjectIds, setSelectedProjectIds] = usePageDraft<string[]>(draft, "selectedProjectIds", []);
+  const [projectSearch, setProjectSearch] = usePageDraft(draft, "projectSearch", "");
+  const [permissions, setPermissions] = usePageDraft(draft, "permissions", DEFAULT_PERMISSIONS);
+  const [showPermissions, setShowPermissions] = usePageDraft(draft, "showPermissions", false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -151,7 +160,7 @@ export function InviteClientModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
           >
             <X size={18} />
@@ -373,7 +382,7 @@ export function InviteClientModal({
               </button>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={close}
                 className="rounded-md border border-input bg-background px-5 py-2.5 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
               >
                 Cancel

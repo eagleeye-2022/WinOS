@@ -110,6 +110,7 @@ import { ProjectStandupRollup } from "../project-standup-rollup";
 import { toast } from "@/components/shared/toast";
 import { InlineTextCell, STICKY_HEADER_ROW } from "./time-tracker-view";
 import { RemarksPopupCell } from "../remarks-popup-cell";
+import { usePageViewState, usePageViewSet } from "@/lib/navigation/use-url-state";
 
 interface SingleTaskWorkspaceViewProps {
   projectId: string;
@@ -139,6 +140,10 @@ export function SingleTaskWorkspaceView({
   // WhyFi School reuses this page under /pulse with its own links (see the whyfi-learning routes).
   const backHref = backHrefProp ?? `/projects/${projectId}`;
   const taskHrefBase = taskHrefBaseProp ?? `/projects/${projectId}/tasks`;
+  // The task's comments are called "Notes" in WhyFi School and "Task Notes" in Srijan.
+  const notesLabel = isLearningList ? "Notes" : "Task Notes";
+  const noteLabel = isLearningList ? "Note" : "Task Note";
+  const noteWord = isLearningList ? "note" : "task note";
   const { confirm, ConfirmDialog } = useConfirm();
 
   // Project, task list, owners and viewer are loaded once per project by the [projectId]
@@ -152,9 +157,9 @@ export function SingleTaskWorkspaceView({
     isLoading,
     refresh: refreshWorkspace,
   } = useProjectWorkspace();
-  const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
-  const [editingLog, setEditingLog] = useState<TimeLogEntry | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isTimeLogModalOpen, setIsTimeLogModalOpen] = usePageViewState("SingleTaskWorkspaceView:isTimeLogModalOpen", false);
+  const [editingLog, setEditingLog] = usePageViewState<TimeLogEntry | null>("SingleTaskWorkspaceView:editingLog", null);
+  const [isEditModalOpen, setIsEditModalOpen] = usePageViewState("SingleTaskWorkspaceView:isEditModalOpen", false);
   const currentUser = workspaceUser as {
     id: string;
     name: string;
@@ -165,7 +170,7 @@ export function SingleTaskWorkspaceView({
   // Header Actions States & Handlers
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [isExpandedView, setIsExpandedView] = useState(false);
+  const [isExpandedView, setIsExpandedView] = usePageViewState("SingleTaskWorkspaceView:isExpandedView", false);
 
   // "Current Task" panel width — drag its right edge to resize (like an Excel column). Remembered
   // in this browser only.
@@ -404,12 +409,12 @@ export function SingleTaskWorkspaceView({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(activeTask.title || "");
 
-  const [descriptionOpen, setDescriptionOpen] = useState(true);
+  const [descriptionOpen, setDescriptionOpen] = usePageViewState("SingleTaskWorkspaceView:descriptionOpen", true);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(activeTask.description || "");
 
   // SOPs/Checklist sits right under the description, open by default.
-  const [checklistOpen, setChecklistOpen] = useState(true);
+  const [checklistOpen, setChecklistOpen] = usePageViewState("SingleTaskWorkspaceView:checklistOpen", true);
   const checklistSectionRef = React.useRef<HTMLDivElement>(null);
   const openChecklistSection = useCallback(() => {
     setChecklistOpen(true);
@@ -582,7 +587,7 @@ export function SingleTaskWorkspaceView({
     await handleUpdateTaskField({ title: trimmed });
   };
 
-  const [taskInfoOpen, setTaskInfoOpen] = useState(false);
+  const [taskInfoOpen, setTaskInfoOpen] = usePageViewState("SingleTaskWorkspaceView:taskInfoOpen", false);
   const searchParams = useSearchParams();
   // Subtasks is the default tab (tabs keep their order — Comments first). SOPs/Checklist is its own
   // section under the description.
@@ -617,8 +622,8 @@ export function SingleTaskWorkspaceView({
   };
 
   const [newSubtaskTitle, setNewSubtaskTitle] = useState("");
-  const [isAddSubtaskDrawerOpen, setIsAddSubtaskDrawerOpen] = useState(false);
-  const [moveToProjectOpen, setMoveToProjectOpen] = useState(false);
+  const [isAddSubtaskDrawerOpen, setIsAddSubtaskDrawerOpen] = usePageViewState("SingleTaskWorkspaceView:isAddSubtaskDrawerOpen", false);
+  const [moveToProjectOpen, setMoveToProjectOpen] = usePageViewState("SingleTaskWorkspaceView:moveToProjectOpen", false);
 
   const subtasks = React.useMemo(() => {
     return (activeTask.subtasks || []).map((st, i) => ({
@@ -629,7 +634,7 @@ export function SingleTaskWorkspaceView({
 
   // Subtasks as a tree: a subtask's own subtasks sit indented under it, any depth. Each row with
   // children has a ⊟/⊞ box to fold them.
-  const [collapsedSubtaskIds, setCollapsedSubtaskIds] = useState<Set<string>>(() => new Set());
+  const [collapsedSubtaskIds, setCollapsedSubtaskIds] = usePageViewSet<string>("SingleTaskWorkspaceView:collapsedSubtaskIds");
   const toggleSubtaskCollapsed = (id: string) =>
     setCollapsedSubtaskIds((prev) => {
       const next = new Set(prev);
@@ -1119,7 +1124,7 @@ export function SingleTaskWorkspaceView({
   // WhyFi School time isn't billed — no Billing Type column/totals, same as Pulse → WhyFi Effort Logs.
   const showBilling = !isLearningList;
 
-  const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
+  const [collapsedDates, setCollapsedDates] = usePageViewState<Record<string, boolean>>("SingleTaskWorkspaceView:collapsedDates", {});
 
   const toggleDateCollapse = (dateKey: string) => {
     setCollapsedDates((prev) => ({
@@ -1412,13 +1417,13 @@ export function SingleTaskWorkspaceView({
           },
           ...prev,
         ]);
-        showToast("Comment saved");
+        showToast(`${noteLabel} saved`);
         await refreshComments();
         router.refresh();
       }
     } catch (err) {
       console.error("Failed to save comment:", err);
-      showToast("Failed to save comment");
+      showToast(`Failed to save the ${noteWord}`);
     } finally {
       setIsSavingComment(false);
     }
@@ -2099,7 +2104,7 @@ export function SingleTaskWorkspaceView({
             <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs font-semibold dark:border-zinc-800">
               <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
                 {[
-                  { key: "COMMENTS", label: "Comments" },
+                  { key: "COMMENTS", label: notesLabel },
                   { key: "SUBTASKS", label: "Subtasks" },
                   { key: "LOG_HOURS", label: `Log Hours (${formattedTotalTaskHours})` },
                   { key: "DOCUMENTS", label: "Documents" },
@@ -2144,7 +2149,7 @@ export function SingleTaskWorkspaceView({
                       rows={3}
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
-                      placeholder="Write a comment or update on this task..."
+                      placeholder={`Write a ${noteWord} or update on this task...`}
                       className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none resize-y font-sans dark:text-zinc-100 dark:placeholder-zinc-500"
                     />
 
@@ -2156,7 +2161,7 @@ export function SingleTaskWorkspaceView({
                         className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
                       >
                         {isSavingComment ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-                        <span>Save Comment</span>
+                        <span>Save {noteLabel}</span>
                       </button>
                     </div>
                   </div>
@@ -2165,7 +2170,7 @@ export function SingleTaskWorkspaceView({
                   <div className="space-y-3 pt-1">
                     {commentsList.length === 0 ? (
                       <div className="py-8 text-center text-xs text-muted-foreground italic dark:text-zinc-400">
-                        No comments yet. Post a comment above to start the discussion!
+                        No {noteWord}s yet. Add a {noteWord} above to start the discussion!
                       </div>
                     ) : (
                       commentsList.map((c) => (

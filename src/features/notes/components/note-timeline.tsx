@@ -11,6 +11,7 @@ import {
 } from "../actions/get-note-timeline";
 import { updateBoardNote } from "../actions/update-board-note";
 import { diffNoteSnapshots, noteHtmlToLines, type DiffLine } from "../note-versions";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 const DOT_COLOR: Record<string, string> = {
   CREATED: "bg-emerald-500",
@@ -53,7 +54,7 @@ export function NoteTimelineDrawer({
 }) {
   const [data, setData] = useState<NoteTimelineResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const [openVersion, setOpenVersion] = useState<number | null>(null);
+  const [openVersion, setOpenVersion] = usePageViewState<number | null>("NoteTimelineDrawer:openVersion", null);
   // Slide in on mount, slide out before unmounting (CSS transition on translate-x).
   const [visible, setVisible] = useState(false);
   useEffect(() => {

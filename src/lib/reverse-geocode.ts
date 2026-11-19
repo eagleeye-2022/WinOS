@@ -1,44 +1,38 @@
-// Reverse geocoding (coordinates → "Area, Village/Town") via OpenStreetMap Nominatim.
-// Server-only. Follows the Nominatim usage policy (https://operations.osmfoundation.org/policies/nominatim/):
-// an identifying User-Agent, at most one request per second, and results cached.
+// Reverse geocoding (coordinates → "Area, Town") for Pulse check-in via the TomTom Reverse Geocoding API
+// (https://developer.tomtom.com/reverse-geocoding-api/documentation/reverse-geocode). Server-only.
+// Needs TOMTOM_API_KEY. Requests are throttled (free tier: 5 requests/s) and results cached.
 // Never throws — callers fall back to raw coordinates when this returns null.
 
-const ENDPOINT = "https://nominatim.openstreetmap.org/reverse";
+const ENDPOINT = "https://api.tomtom.com/search/2/reverseGeocode";
 const TIMEOUT_MS = 4000;
-const MIN_INTERVAL_MS = 1100;
+const MIN_INTERVAL_MS = 250;
 const CACHE_LIMIT = 500;
 
 export interface ReverseGeocodeResult {
-  /** Short label, e.g. "Ubale Nagar, Wagholi". */
+  /** Short label, e.g. "Siddhi Park, Wagholi". */
   name: string;
-  /** Full line, e.g. "Ubale Nagar, Wagholi, Haveli, Maharashtra 412207". */
+  /** Full line, e.g. "Wagholi Manjri Road, Siddhi Park, Wagholi, Pune 412207, Maharashtra". */
   address: string;
 }
 
-/** The parts of Nominatim's `address` object we use. */
-export interface NominatimAddress {
-  /** Point-of-interest / building level — the most exact parts of the address. */
-  amenity?: string;
-  building?: string;
-  office?: string;
-  shop?: string;
-  house_name?: string;
-  house_number?: string;
+/** The parts of TomTom's `address` object we use. */
+export interface TomTomAddress {
+  streetNameAndNumber?: string;
+  street?: string;
   neighbourhood?: string;
-  suburb?: string;
-  quarter?: string;
-  hamlet?: string;
-  residential?: string;
-  road?: string;
-  village?: string;
-  town?: string;
-  city_district?: string;
-  city?: string;
+  /** Smallest named area, e.g. a colony / society ("Siddhi Park"). */
+  municipalitySecondarySubdivision?: string;
+  /** Locality within the city ("Wagholi", "Rajwada"). */
+  municipalitySubdivision?: string;
+  /** City / town. */
   municipality?: string;
-  county?: string;
-  state_district?: string;
-  state?: string;
-  postcode?: string;
+  localName?: string;
+  countrySecondarySubdivision?: string;
+  countrySubdivisionName?: string;
+  countrySubdivision?: string;
+  postalCode?: string;
+  /** TomTom's own full address line. */
+  freeformAddress?: string;
 }
 
 function unique(parts: (string | undefined)[]): string[] {
@@ -53,33 +47,23 @@ function unique(parts: (string | undefined)[]): string[] {
   return out;
 }
 
-/**
- * Turns a Nominatim address into our short name + full address. Pure, so it can be unit-tested.
- * `placeName` is Nominatim's top-level `name` (the building / business at the point, when there is one).
- */
-export function formatNominatimAddress(
-  a: NominatimAddress,
-  displayName?: string,
-  placeName?: string
-): ReverseGeocodeResult | null {
-  // Road is the last resort for the area: city centres often have no neighbourhood/suburb tag.
-  const area = a.neighbourhood || a.suburb || a.quarter || a.residential || a.hamlet || a.road;
-  const locality = a.village || a.town || a.city || a.municipality || a.city_district;
-  const district = a.state_district || a.county;
-
-  const nameParts = unique([area, locality]);
-  const name = nameParts.length
-    ? nameParts.join(", ")
-    : unique((displayName || "").split(",").slice(0, 2)).join(", ");
+/** Turns a TomTom address into our short name + full address. Pure, so it can be unit-tested. */
+export function formatTomTomAddress(a: TomTomAddress): ReverseGeocodeResult | null {
+  // Most specific area first: colony / neighbourhood, then locality, then city.
+  let nameParts = unique([
+    a.municipalitySecondarySubdivision || a.neighbourhood,
+    a.municipalitySubdivision,
+    a.municipality || a.localName,
+  ]);
+  // Only a city known: lead with the street so the name still says where in it.
+  if (nameParts.length < 2) nameParts = unique([a.street, ...nameParts]);
+  const name = nameParts.slice(0, 2).join(", ") || unique((a.freeformAddress || "").split(",").slice(0, 2)).join(", ");
   if (!name) return null;
 
-  // The exact spot: the building / business, then "house number + road".
-  const poi = placeName || a.amenity || a.office || a.shop || a.building || a.house_name;
-  const street = a.road ? (a.house_number ? `${a.house_number} ${a.road}` : a.road) : undefined;
-
-  // De-duplicated part by part, so "Indore" (city) and "Indore" (district) appear once.
+  const state = a.countrySubdivisionName || a.countrySubdivision;
   const address =
-    unique([poi, street, ...nameParts, district, a.state]).join(", ") + (a.postcode ? ` ${a.postcode}` : "");
+    a.freeformAddress?.trim() ||
+    unique([a.streetNameAndNumber || a.street, ...nameParts, state]).join(", ") + (a.postalCode ? ` ${a.postalCode}` : "");
   return { name, address: address.trim() || name };
 }
 
@@ -101,40 +85,36 @@ function throttled<T>(task: () => Promise<T>): Promise<T> {
   return run;
 }
 
-function userAgent(): string {
-  return process.env.NOMINATIM_USER_AGENT?.trim() || "WinOS/1.0 (Eagle Eye Digital internal attendance)";
-}
-
+/** Street-level address for the point, whatever the fix's accuracy. */
 export async function reverseGeocode(latitude: number, longitude: number): Promise<ReverseGeocodeResult | null> {
+  const apiKey = process.env.TOMTOM_API_KEY?.trim();
+  if (!apiKey) {
+    console.warn("[reverse-geocode] TOMTOM_API_KEY is not set, using coordinates.");
+    return null;
+  }
+
   // ~11 m buckets: people checking in from the same spot share one lookup.
   const key = `${latitude.toFixed(4)},${longitude.toFixed(4)}`;
   const hit = cache.get(key);
   if (hit) return hit;
 
   try {
-    const params = new URLSearchParams({
-      format: "jsonv2",
-      lat: String(latitude),
-      lon: String(longitude),
-      zoom: "18",
-      addressdetails: "1",
-      "accept-language": "en",
-    });
-    const email = process.env.NOMINATIM_EMAIL?.trim();
-    if (email) params.set("email", email);
+    const params = new URLSearchParams({ key: apiKey, language: "en-GB" });
+    const url = `${ENDPOINT}/${latitude},${longitude}.json?${params}`;
 
     const json = await throttled(async () => {
-      const res = await fetch(`${ENDPOINT}?${params}`, {
-        headers: { "User-Agent": userAgent(), Accept: "application/json" },
+      const res = await fetch(url, {
+        headers: { Accept: "application/json" },
         signal: AbortSignal.timeout(TIMEOUT_MS),
         cache: "no-store",
       });
-      if (!res.ok) throw new Error(`Nominatim responded ${res.status}`);
-      return (await res.json()) as { address?: NominatimAddress; display_name?: string; name?: string; error?: string };
+      if (!res.ok) throw new Error(`TomTom responded ${res.status}`);
+      return (await res.json()) as { addresses?: { address?: TomTomAddress }[] };
     });
 
-    if (!json || json.error || !json.address) return null;
-    const result = formatNominatimAddress(json.address, json.display_name, json.name || undefined);
+    const address = json?.addresses?.[0]?.address;
+    if (!address) return null;
+    const result = formatTomTomAddress(address);
     if (!result) return null;
 
     if (cache.size >= CACHE_LIMIT) cache.delete(cache.keys().next().value!);

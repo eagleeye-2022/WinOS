@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { formatIstDate } from "@/features/attendance/utils";
+import { usePageViewState, usePageDraft, useClearPageDraft } from "@/lib/navigation/use-url-state";
 
 export function CompensatoryView() {
   const [requests, setRequests] = useState<CompensatoryRequest[]>([
@@ -47,9 +48,18 @@ export function CompensatoryView() {
     },
   ]);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [workDate, setWorkDate] = useState("2026-08-20");
-  const [reason, setReason] = useState("");
+  const [isModalOpen, setIsModalOpen] = usePageViewState("CompensatoryView:isModalOpen", false);
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = "claim-comp-off";
+  const clearDraft = useClearPageDraft(draft);
+  /** Closing the dialog (Cancel, ✕, or after saving) forgets the draft. */
+  const setModalOpen = (open: boolean) => {
+    if (!open) clearDraft();
+    setIsModalOpen(open);
+  };
+  const [workDate, setWorkDate] = usePageDraft(draft, "workDate", "2026-08-20");
+  const [reason, setReason] = usePageDraft(draft, "reason", "");
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,8 +78,7 @@ export function CompensatoryView() {
       expiryDate: "90 Days from approval",
     };
     setRequests([newReq, ...requests]);
-    setIsModalOpen(false);
-    setReason("");
+    setModalOpen(false);
   };
 
   return (
@@ -139,7 +148,7 @@ export function CompensatoryView() {
         </div>
       </div>
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md rounded-lg p-6">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">Claim Compensatory Off</DialogTitle>
@@ -169,7 +178,7 @@ export function CompensatoryView() {
             </div>
 
             <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsModalOpen(false)}>
+              <Button type="button" variant="outline" size="sm" onClick={() => setModalOpen(false)}>
                 Cancel
               </Button>
               <Button type="submit" size="sm" disabled={!reason}>

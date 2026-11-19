@@ -75,7 +75,7 @@ import {
 } from "../../actions/project-actions";
 import { toast } from "@/components/shared/toast";
 import { useConfirm } from "@/components/shared/confirm-dialog";
-import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
+import { useModuleViewState, useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
 import Link from "next/link";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { PageTitle } from "@/components/shared/page-header";
@@ -243,19 +243,19 @@ export function TimeTrackerView({
   const [searchQuery, setSearchQuery] = useUrlState("logQ", "");
 
   // Report Modal State
-  const [showReportModal, setShowReportModal] = useState(false);
+  const [showReportModal, setShowReportModal] = usePageViewState("TimeTrackerView:showReportModal", false);
 
   // Rejection Reason Modal State
-  const [showRejectionModal, setShowRejectionModal] = useState(false);
+  const [showRejectionModal, setShowRejectionModal] = usePageViewState("TimeTrackerView:showRejectionModal", false);
   const [rejectionReasonText, setRejectionReasonText] = useState("");
 
   // Add Time Log Modal State
-  const [showAddLogModal, setShowAddLogModal] = useState(false);
+  const [showAddLogModal, setShowAddLogModal] = usePageViewState("TimeTrackerView:showAddLogModal", false);
   const [modalTargetDate, setModalTargetDate] = useState("");
   const [modalTargetProject, setModalTargetProject] = useState("");
 
   // Share Timesheet Modal State
-  const [showShareModal, setShowShareModal] = useState(false);
+  const [showShareModal, setShowShareModal] = usePageViewState("TimeTrackerView:showShareModal", false);
 
   // Date navigator — defaults to today; Prev/Next step one day at a time,
   // and a date picker lets the user jump straight to any day.
@@ -327,7 +327,7 @@ export function TimeTrackerView({
   };
 
   // Collapsible date sections state
-  const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
+  const [collapsedDates, setCollapsedDates] = usePageViewState<Record<string, boolean>>("TimeTrackerView:collapsedDates", {});
 
   const toggleDateCollapse = (dateKey: string) => {
     setCollapsedDates((prev) => ({
@@ -355,7 +355,7 @@ export function TimeTrackerView({
   };
 
   // Edit Time Log State
-  const [editingLog, setEditingLog] = useState<TimeLogEntry | null>(null);
+  const [editingLog, setEditingLog] = usePageViewState<TimeLogEntry | null>("TimeTrackerView:editingLog", null);
 
   // Single Running Timer State
   const [runningTimer, setRunningTimer] = useState<{

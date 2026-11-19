@@ -1,10 +1,15 @@
 "use client";
 
 import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
 import type { NavModuleId } from "@/lib/navigation/modules";
 
-// Global navigation state, one slice per module. Deliberately in-memory only (no `persist`
-// middleware): a full page refresh resets every module back to its default view.
+// Global navigation state, one slice per module. Saved to the tab's sessionStorage, so a full
+// page refresh (F5) brings back the same screen — scroll, expanded/collapsed sections, open
+// panels and form drafts — while a new tab or browser restart starts fresh. Values must be
+// JSON-safe (no Dates / Sets / functions): store ids and arrays, not objects with methods.
+// Hydration is manual (`skipHydration`), done by NavigationStateTracker after mount, so the
+// server-rendered HTML and the first client render match.
 //
 // The URL is the source of truth for anything shareable (open record → path segment; tab,
 // filters, search → query params via useUrlState), so a module slice only needs to remember
@@ -37,11 +42,34 @@ interface NavigationStore {
   recordUrl: (module: NavModuleId, url: string) => void;
   saveScroll: (module: NavModuleId, url: string, entries: ScrollEntry[]) => void;
   setView: (module: NavModuleId, key: string, value: unknown) => void;
+  /** Forget every view key in a module that starts with `prefix` (e.g. a form's draft fields). */
+  clearViewPrefix: (module: NavModuleId, prefix: string) => void;
   /** Forget everything remembered for a module (Home / Reset view). */
   resetModule: (module: NavModuleId) => void;
 }
 
-export const useNavigationStore = create<NavigationStore>()((set) => ({
+/** Hydrated state is merged module by module; anything set since page load (newer) wins. */
+function mergeModules(
+  persisted: Partial<Record<NavModuleId, ModuleNavState>> | undefined,
+  current: Partial<Record<NavModuleId, ModuleNavState>>
+): Partial<Record<NavModuleId, ModuleNavState>> {
+  const out: Partial<Record<NavModuleId, ModuleNavState>> = { ...(persisted ?? {}) };
+  for (const [id, cur] of Object.entries(current) as [NavModuleId, ModuleNavState][]) {
+    const old = out[id];
+    out[id] = old
+      ? {
+          lastUrl: cur.lastUrl ?? old.lastUrl,
+          scroll: { ...old.scroll, ...cur.scroll },
+          view: { ...old.view, ...cur.view },
+        }
+      : cur;
+  }
+  return out;
+}
+
+export const useNavigationStore = create<NavigationStore>()(
+  persist(
+    (set) => ({
   modules: {},
 
   recordUrl: (module, url) =>
@@ -73,6 +101,29 @@ export const useNavigationStore = create<NavigationStore>()((set) => ({
       return { modules: { ...s.modules, [module]: { ...current, view: { ...current.view, [key]: value } } } };
     }),
 
+  clearViewPrefix: (module, prefix) =>
+    set((s) => {
+      const current = s.modules[module];
+      if (!current) return s;
+      const keys = Object.keys(current.view).filter((k) => k.startsWith(prefix));
+      if (keys.length === 0) return s;
+      const view = { ...current.view };
+      for (const k of keys) delete view[k];
+      return { modules: { ...s.modules, [module]: { ...current, view } } };
+    }),
+
   resetModule: (module) =>
     set((s) => ({ modules: { ...s.modules, [module]: emptyModule() } })),
-}));
+    }),
+    {
+      name: "winos:navigation",
+      storage: createJSONStorage(() => sessionStorage),
+      partialize: (s) => ({ modules: s.modules }),
+      skipHydration: true,
+      merge: (persisted, current) => ({
+        ...current,
+        modules: mergeModules((persisted as { modules?: NavigationStore["modules"] } | undefined)?.modules, current.modules),
+      }),
+    }
+  )
+);

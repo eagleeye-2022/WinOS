@@ -29,7 +29,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { ChecklistChip } from "@/features/sop-checklists/components/checklist-chip";
 import { cn } from "@/lib/utils";
 import { SubtaskTree } from "@/components/shared/subtask-tree";
-import { useUrlState, writeSearchParam } from "@/lib/navigation/use-url-state";
+import { useUrlState, writeSearchParam, usePageViewSet, usePageViewState } from "@/lib/navigation/use-url-state";
 import {
   ProjectTemplate,
   SOPSubtaskSeed,
@@ -371,7 +371,7 @@ function TemplateBoard({
   const [newListName, setNewListName] = useState("");
   const [renamingPhase, setRenamingPhase] = useState<number | null>(null);
   const [listMenuPhase, setListMenuPhase] = useState<number | null>(null);
-  const [collapsedPhases, setCollapsedPhases] = useState<Set<number>>(new Set());
+  const [collapsedPhases, setCollapsedPhases] = usePageViewSet<number>(`TemplateBoard:${templateId ?? "new"}:collapsedPhases`);
   // Ticked cards for the bulk bar, as "list:task" positions.
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [ownerOptions, setOwnerOptions] = useState<OwnerUserOption[]>([]);
@@ -1677,7 +1677,7 @@ function TemplateTaskCard({
   onDrop: (e: React.DragEvent) => void;
 }) {
   const [isRenaming, setIsRenaming] = useState(false);
-  const [showSubtasks, setShowSubtasks] = useState(inSidebar);
+  const [showSubtasks, setShowSubtasks] = usePageViewState(`TemplateTaskCard:${code}:${inSidebar ? "sidebar" : "board"}:showSubtasks`, inSidebar);
   const [isAddingSubtask, setIsAddingSubtask] = useState(false);
   const [menu, setMenu] = useState<"more" | "move" | null>(null);
   const subtasks = task.subtasks ?? [];

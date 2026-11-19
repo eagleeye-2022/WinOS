@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { ChevronDown, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { renderTextWithMentions } from "@/components/shared/mention-text";
@@ -16,6 +15,7 @@ import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TaskTableHead, Prio
 import { projectTaskHref } from "@/lib/project-task-href";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
 import { StandupLearningSection } from "./standup-learning-section";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 type StandupDayCardProps = {
   entry: EntryWithDetails;
@@ -30,7 +30,7 @@ const PRIORITY_COLORS = {
 
 export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
   const isToday = relativeDayLabel(entry.date) === "Today";
-  const [open, setOpen] = useState(defaultOpen ?? isToday);
+  const [open, setOpen] = usePageViewState(`StandupDayCard:${entry.id}:open`, defaultOpen ?? isToday);
 
   const review = reviewStatus({
     status: entry.status,

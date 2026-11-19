@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useHadPageDraftOnMount, usePageDraft } from "@/lib/navigation/use-url-state";
 import {
   Calendar,
   LogIn,
@@ -61,10 +62,19 @@ export function RegularizeAttendanceFormPage({
   maxDate,
   onBehalfOf,
 }: RegularizeAttendanceFormPageProps) {
-  const [attendanceDate, setAttendanceDate] = useState(initialDate);
+  // What is typed is kept as a page draft until it is submitted or the form is left with Back.
+  const draftKey = `regularize-page:${onBehalfOf?.id ?? "me"}`;
+  const [attendanceDate, setAttendanceDate] = usePageDraft(draftKey, "attendanceDate", initialDate);
   const [existing, setExisting] = useState<AttendanceRecord | null>(null);
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
-  const form = useRegularizationForm();
+  const form = useRegularizationForm(draftKey);
+  // Coming back to a draft: keep its fields instead of re-filling them from the loaded day once.
+  const hadDraft = useHadPageDraftOnMount(draftKey);
+  const keepDraftRef = useRef(hadDraft);
+  const back = () => {
+    form.clearDraft();
+    onBack();
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -82,7 +92,8 @@ export function RegularizeAttendanceFormPage({
         if (cancelled) return;
         const rec = data.records.find((r) => r.date === attendanceDate) ?? null;
         setExisting(rec);
-        form.reset(issueOf(rec), rec?.checkInTime);
+        if (keepDraftRef.current) keepDraftRef.current = false;
+        else form.reset(issueOf(rec), rec?.checkInTime);
       })
       .catch(() => !cancelled && setExisting(null))
       .finally(() => !cancelled && setIsLoadingExisting(false));
@@ -121,6 +132,7 @@ export function RegularizeAttendanceFormPage({
         setError(res.message);
         return;
       }
+      form.clearDraft();
       onSubmitSuccess?.();
     } catch (err: unknown) {
       console.error("Failed to submit regularization:", err);
@@ -204,7 +216,7 @@ export function RegularizeAttendanceFormPage({
             <div className="flex items-center justify-end gap-2 bg-muted/30 px-5 py-3">
               <button
                 type="button"
-                onClick={onBack}
+                onClick={back}
                 className="h-9 rounded-md border border-border/80 bg-background px-4 text-xs font-semibold text-foreground transition-colors hover:bg-accent"
               >
                 Cancel

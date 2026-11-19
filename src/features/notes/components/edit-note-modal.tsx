@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { X, Plus, Loader2, History } from "lucide-react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { updateBoardNote } from "../actions/update-board-note";
 import { NoteTimelineDrawer } from "./note-timeline";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 const RichTextEditor = dynamic(() => import("@/components/RichTextEditor"), {
   ssr: false,
@@ -68,7 +69,7 @@ export function EditNoteModal<T extends EditNoteModalData>({
   showTimeline = false,
 }: EditNoteModalProps<T>) {
   const [isPending, startTransition] = useTransition();
-  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineOpen, setTimelineOpen] = usePageViewState("EditNoteModal:timelineOpen", false);
   const isReadOnly = !canEdit;
 
   const handleSubmit = (e: React.FormEvent) => {

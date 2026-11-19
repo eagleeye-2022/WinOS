@@ -16,14 +16,15 @@ import { UsersTableView } from "@/features/projects/components/views/users-table
 import { InviteMemberModal, InviteFormSubmission } from "@/features/projects/components/modals/invite-member-modal";
 import { InviteClientModal } from "@/features/projects/components/modals/invite-client-modal";
 import { MemberRoleTier, ProfileRoleValue, Project, ProjectUser, UserType } from "@/features/projects/types";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 export function ProjectsUsersClient() {
   const [users, setUsers] = useState<ProjectUser[]>([]);
   const [invitations, setInvitations] = useState<ClientInvitationListItem[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isInviteMemberOpen, setIsInviteMemberOpen] = useState(false);
-  const [isInviteClientOpen, setIsInviteClientOpen] = useState(false);
+  const [isInviteMemberOpen, setIsInviteMemberOpen] = usePageViewState("ProjectsUsersClient:isInviteMemberOpen", false);
+  const [isInviteClientOpen, setIsInviteClientOpen] = usePageViewState("ProjectsUsersClient:isInviteClientOpen", false);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);

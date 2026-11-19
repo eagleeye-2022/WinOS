@@ -39,6 +39,7 @@ import { UserDetailDrawer } from "../modals/user-detail-drawer";
 import { RemoveUserReassignModal } from "../modals/remove-user-reassign-modal";
 import { toast } from "@/components/shared/toast";
 import { getAvatarColor, getInitials } from "@/lib/avatar";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 interface ProjectUsersViewProps {
   projectId: string;
@@ -69,8 +70,8 @@ export function ProjectUsersView({
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
   const [viewMode, setViewMode] = useState<"GRID" | "TABLE">("TABLE");
 
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [selectedDrawerUserId, setSelectedDrawerUserId] = useState<string | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = usePageViewState("ProjectUsersView:isAddModalOpen", false);
+  const [selectedDrawerUserId, setSelectedDrawerUserId] = usePageViewState<string | null>("ProjectUsersView:selectedDrawerUserId", null);
   const [userToRemove, setUserToRemove] = useState<ProjectMemberUser | null>(null);
   const [isManager, setIsManager] = useState(false);
 

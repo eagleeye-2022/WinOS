@@ -1,5 +1,6 @@
 "use client";
 
+import { usePageDraft, useClearPageDraft } from "@/lib/navigation/use-url-state";
 import React, { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -113,7 +114,11 @@ export function ApplyLeaveForm({
 
   // Managers can apply for a team member: the leave types and balances are then that person's.
   const [applicantOptions, setApplicantOptions] = useState<{ id: string; name: string }[]>([]);
-  const [forUserId, setForUserId] = useState(initialForUserId ?? "");
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = `apply-leave-form:${initialForUserId ?? "me"}:${initialDate ?? ""}`;
+  const clearDraft = useClearPageDraft(draft);
+  const [forUserId, setForUserId] = usePageDraft(draft, "forUserId", initialForUserId ?? "");
   const [otherTypes, setOtherTypes] = useState<LeaveTypeConfig[] | null>(null);
   useEffect(() => {
     getLeaveApplicantOptionsAction()
@@ -162,18 +167,18 @@ export function ApplyLeaveForm({
   // Form State
   // Empty until picked: the list can still be loading when the form mounts, and `selectedType`
   // falls back to the first leave type.
-  const [selectedTypeCode, setSelectedTypeCode] = useState<string>("");
+  const [selectedTypeCode, setSelectedTypeCode] = usePageDraft<string>(draft, "selectedTypeCode", "");
   // Full-day leave is always a From – To range (From = To for a single day), so it opens on that.
-  const [dayType, setDayType] = useState<DayType>("MULTIPLE_DAYS");
-  const [date, setDate] = useState<string>(initialDate || defaultDate);
-  const [fromDate, setFromDate] = useState<string>(initialDate || defaultDate);
-  const [toDate, setToDate] = useState<string>(initialDate || defaultDate);
+  const [dayType, setDayType] = usePageDraft<DayType>(draft, "dayType", "MULTIPLE_DAYS");
+  const [date, setDate] = usePageDraft<string>(draft, "date", initialDate || defaultDate);
+  const [fromDate, setFromDate] = usePageDraft<string>(draft, "fromDate", initialDate || defaultDate);
+  const [toDate, setToDate] = usePageDraft<string>(draft, "toDate", initialDate || defaultDate);
   const [formError, setFormError] = useState<string | null>(null);
-  const [session, setSession] = useState<HalfDaySession>("FIRST_HALF");
+  const [session, setSession] = usePageDraft<HalfDaySession>(draft, "session", "FIRST_HALF");
   // Early leave defaults to the last two hours of the configured shift.
-  const [fromTime, setFromTime] = useState<string>(() => formatTime12h((parseTime12h(SHIFT_END) ?? 1110) - 120));
-  const [toTime, setToTime] = useState<string>(SHIFT_END);
-  const [reason, setReason] = useState<string>("");
+  const [fromTime, setFromTime] = usePageDraft<string>(draft, "fromTime", formatTime12h((parseTime12h(SHIFT_END) ?? 1110) - 120));
+  const [toTime, setToTime] = usePageDraft<string>(draft, "toTime", SHIFT_END);
+  const [reason, setReason] = usePageDraft<string>(draft, "reason", "");
   const [attachments, setAttachments] = useState<LeaveAttachment[]>([]);
   /** The picked files, by attachment id — uploaded on submit. */
   const [attachmentFiles, setAttachmentFiles] = useState<Record<string, File>>({});
@@ -419,6 +424,7 @@ export function ApplyLeaveForm({
       };
 
       setIsSubmitting(false);
+      clearDraft();
       setSubmittedSuccess(true);
       onSubmitLeave(newRequest);
     } catch (err) {
@@ -966,7 +972,11 @@ export function ApplyLeaveForm({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => (onCancel ? onCancel() : router.push("/pulse/leave"))}
+                  onClick={() => {
+                    clearDraft();
+                    if (onCancel) onCancel();
+                    else router.push("/pulse/leave");
+                  }}
                   className="h-9 rounded-md px-5 text-xs font-semibold"
                 >
                   Cancel

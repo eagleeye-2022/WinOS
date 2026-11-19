@@ -14,7 +14,7 @@ const DEFAULT_CLIENT_PERMISSIONS = [
   { key: "PROJECT_OVERVIEW", label: "Project Overview", enabled: true },
   { key: "TASKS", label: "Tasks", enabled: true },
   { key: "TASK_DETAILS", label: "Task Details", enabled: true },
-  { key: "TASK_COMMENTS", label: "Task Comments", enabled: true },
+  { key: "TASK_COMMENTS", label: "Task Notes", enabled: true },
   { key: "DOCUMENTS", label: "Documents", enabled: true },
   { key: "DISCUSSIONS", label: "Discussions", enabled: true },
   { key: "PROJECT_CHAT", label: "Project Chat", enabled: true },

@@ -18,6 +18,7 @@ import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
 import { AdditionalWorkTable } from "@/features/dsm/components/yesterday-additional-work";
 import { LearnedTick, ReportLearningTable } from "./report-learning-table";
 import { formatMinutes, projectLinkKeys, usableRecordingUrl } from "../reporting";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 /** Zoho Cliq recording link, time logged, "how was the day" and suggestions from the submit modal. */
 export function ReportRecordingBlock({ entry, showCliqStatus = false }: { entry: DsrEntryData; showCliqStatus?: boolean }) {
@@ -78,10 +79,10 @@ export function DsrHistoryCard({
   /** Pass when rendering another user's report (manager review) — omit for the current user's own. */
   memberId?: string;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = usePageViewState(`DsrHistoryCard:${entry.id}:open`, defaultOpen);
   const [projectLinks, setProjectLinks] = useState<Record<string, ProjectLinkSummary>>({});
   const [hasProjectsAccess, setHasProjectsAccess] = useState(true);
-  const [openDetailId, setOpenDetailId] = useState<string | null>(null);
+  const [openDetailId, setOpenDetailId] = usePageViewState<string | null>(`DsrHistoryCard:${entry.id}:openDetailId`, null);
   // That day's DSM tasks the saved report doesn't have (added to the DSM after the report was
   // saved — e.g. by the manager after review). Listed as not done so the report shows every task.
   const [missingDsmTasks, setMissingDsmTasks] = useState<{ text: string; priority: string | null }[]>([]);

@@ -61,6 +61,7 @@ import { projectTaskHref } from "@/lib/project-task-href";
 import { useFormDraft } from "@/hooks/use-form-draft";
 import { fetchUserProjectsWithTasksAction, fetchDailyTimeSummaryAction } from "@/features/dsm/actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "@/features/dsm/queries";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 /** Resolves the selected project-task's code/project-name by walking the cascading tree. */
 function findSelectedTaskMeta(
@@ -1427,7 +1428,7 @@ function TaskRow({
 }) {
   const [editing, setEditing] = useState(false);
   // ▸ panel under the row: the linked task's time, recent logs and remarks.
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = usePageViewState(`TaskRow:${task.id}:detailOpen`, false);
   const [state, action, pending] = useActionState<EditTaskState, FormData>(editTask, {});
   const [, deleteAction, deleting] = useActionState<DeleteTaskState, FormData>(deleteTask, {});
 
@@ -2020,7 +2021,7 @@ function SummaryTaskRow({
   cascadingProjects: CascadingProjectOption[];
 }) {
   const [editing, setEditing] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = usePageViewState(`SummaryTaskRow:${entryId}:${task.id}:detailOpen`, false);
   // Optimistic tick so the checkbox responds instantly; server revalidation reconciles.
   const [done, setDone] = useState(isDone);
   const [toggling, startToggle] = useTransition();
@@ -2200,7 +2201,7 @@ function LoggedSummaryRow({
   onToggled: (taskId: string, done: boolean) => void;
 }) {
   const [toggling, setToggling] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = usePageViewState(`LoggedSummaryRow:${task.taskId}:detailOpen`, false);
   const href = projectTaskHref(task.projectId, task.code);
 
   const toggle = async () => {
@@ -3549,7 +3550,7 @@ function TodayEntryCard({
   parkedTasks?: ParkedTask[];
   cascadingProjects?: CascadingProjectOption[];
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = usePageViewState(`TodayEntryCard:${entry.id}:expanded`, true);
   const review = reviewStatus({
     status: entry.status,
     date: entry.date,
@@ -3650,7 +3651,7 @@ function DayCardCollapsed({
   parkedTasks?: ParkedTask[];
   cascadingProjects?: CascadingProjectOption[];
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = usePageViewState(`DayCardCollapsed:${entry.id}:open`, defaultOpen);
   const review = reviewStatus({
     status: entry.status,
     date: entry.date,

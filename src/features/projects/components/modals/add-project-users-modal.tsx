@@ -1,7 +1,8 @@
 "use client";
 
+import { usePageDraft, useClearPageDraft, useHadPageDraftOnMount } from "@/lib/navigation/use-url-state";
 import { UserAvatar } from "@/components/shared/user-avatar";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Search, X, UserPlus, Check, Loader2, Shield, Users } from "lucide-react";
 import {
   getAvailableUsersForProjectAction,
@@ -24,8 +25,19 @@ export function AddProjectUsersModal({
   onUsersAdded,
 }: AddProjectUsersModalProps) {
   const [availableUsers, setAvailableUsers] = useState<ProjectMemberUser[]>([]);
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = `add-project-users:${projectId}`;
+  const clearDraft = useClearPageDraft(draft);
+  const close = () => {
+    clearDraft();
+    onClose();
+  };
+  const [selectedUserIds, setSelectedUserIds] = usePageDraft<string[]>(draft, "selectedUserIds", []);
+  const [searchQuery, setSearchQuery] = usePageDraft(draft, "searchQuery", "");
+  // Opening it again starts fresh — except right after coming back to a draft that was left open.
+  const hadDraft = useHadPageDraftOnMount(draft);
+  const keepDraftRef = useRef(hadDraft);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,8 +47,11 @@ export function AddProjectUsersModal({
       async function loadAvailableUsers() {
         setIsLoading(true);
         setError(null);
-        setSelectedUserIds([]);
-        setSearchQuery("");
+        if (keepDraftRef.current) keepDraftRef.current = false;
+        else {
+          setSelectedUserIds([]);
+          setSearchQuery("");
+        }
         try {
           const users = await getAvailableUsersForProjectAction(projectId);
           setAvailableUsers(users);
@@ -84,7 +99,7 @@ export function AddProjectUsersModal({
     try {
       await addProjectMembersAction(projectId, selectedUserIds);
       onUsersAdded();
-      onClose();
+      close();
     } catch (err) {
       console.error("Failed to assign users to project:", err);
       setError("Failed to assign selected users.");
@@ -111,7 +126,7 @@ export function AddProjectUsersModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
           >
             <X size={18} />
@@ -228,7 +243,7 @@ export function AddProjectUsersModal({
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               disabled={isSubmitting}
               className="rounded-lg border border-input bg-background px-4 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors disabled:opacity-50"
             >

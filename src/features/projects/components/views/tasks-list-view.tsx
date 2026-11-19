@@ -20,6 +20,7 @@ import {
 import { getAllUserOptionsAction } from "@/features/users/actions/user-actions";
 import { parseDurationMinutes, formatMinutesToHHMM } from "../../utils/time-helpers";
 import { useConfirm } from "@/components/shared/confirm-dialog";
+import { useModuleViewState } from "@/lib/navigation/use-url-state";
 
 interface TasksListViewProps {
   tasks: TaskItem[];
@@ -31,6 +32,8 @@ interface TasksListViewProps {
 }
 
 type GroupMode = "PROJECT" | "TASK_LIST" | "STATUS" | "PRIORITY" | "NONE";
+
+const NO_COLLAPSED_GROUPS: string[] = [];
 
 export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
   const router = useRouter();
@@ -191,15 +194,16 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
 
   // Grouping, Zoho "Group by: Task List" style.
   const [groupMode, setGroupMode] = useState<GroupMode>("PROJECT");
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  // Collapsed groups are kept in the module's navigation slice, so opening a task and coming back
+  // shows the list exactly as it was left.
+  const [collapsedGroupList, setCollapsedGroupList] = useModuleViewState<string[]>(
+    `my-tasks:collapsed:${groupMode}`,
+    NO_COLLAPSED_GROUPS
+  );
+  const collapsedGroups = useMemo(() => new Set(collapsedGroupList), [collapsedGroupList]);
 
   const toggleGroupCollapse = (key: string) => {
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setCollapsedGroupList((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
   };
 
   const groups = useMemo(() => {
@@ -452,7 +456,8 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
         */}
 
         {/* Table */}
-        <div className="flex-1 min-h-0 overflow-auto pb-24">
+        {/* data-scroll-key: a stable id so coming back from a task restores this scroll position. */}
+        <div data-scroll-key="my-tasks-list" className="flex-1 min-h-0 overflow-auto pb-24">
           {displayTasks.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground gap-2 p-10">
               <ListChecks size={32} className="opacity-40" />

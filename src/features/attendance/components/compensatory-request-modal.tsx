@@ -1,5 +1,6 @@
 "use client";
 
+import { usePageDraft, useClearPageDraft } from "@/lib/navigation/use-url-state";
 import React, { useState } from "react";
 import { X, Calendar, Check, Loader2, Award, AlertCircle } from "lucide-react";
 import { AttendanceRecord } from "../types";
@@ -19,7 +20,15 @@ export function CompensatoryRequestModal({
   record,
   onSubmitSuccess,
 }: CompensatoryRequestModalProps) {
-  const [reason, setReason] = useState("");
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = `comp-off:${record?.date ?? ""}`;
+  const clearDraft = useClearPageDraft(draft);
+  const close = () => {
+    clearDraft();
+    onClose();
+  };
+  const [reason, setReason] = usePageDraft(draft, "reason", "");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,7 +57,7 @@ export function CompensatoryRequestModal({
         return;
       }
       onSubmitSuccess?.();
-      onClose();
+      close();
     } catch (err: unknown) {
       console.error("Failed to submit comp-off:", err);
       setError("Failed to submit compensatory off request");
@@ -76,7 +85,7 @@ export function CompensatoryRequestModal({
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={close}
             className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent"
           >
             <X className="w-5 h-5" />
@@ -115,7 +124,7 @@ export function CompensatoryRequestModal({
           <div className="pt-3 flex items-center justify-end gap-3 border-t border-border">
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="px-4 py-2 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-accent transition-colors"
             >
               Cancel

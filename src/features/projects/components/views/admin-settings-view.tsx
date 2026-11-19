@@ -8,10 +8,11 @@ import { DEFAULT_PROJECT_TEMPLATES } from "../../data/sop-templates";
 import { ProjectTemplatesModal } from "../modals/project-templates-modal";
 import { toast } from "@/components/shared/toast";
 import { PageTitle, PageDescription } from "@/components/shared/page-header";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 export function AdminSettingsView() {
   const [activeTab, setActiveTab] = useState<"DEPARTMENTS" | "TEMPLATES" | "HOURS">("DEPARTMENTS");
-  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
+  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = usePageViewState("AdminSettingsView:isTemplatesModalOpen", false);
 
   const [users, setUsers] = useState<ProjectUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);

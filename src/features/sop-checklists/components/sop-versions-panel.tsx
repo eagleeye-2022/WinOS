@@ -14,6 +14,7 @@ import {
 import { docFromItems } from "../doc";
 import { diffSopSnapshots, type SopVersionSnapshot } from "../sop-versions";
 import type { SopTemplate } from "../types";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 /** Read-only render of the SOP document (TipTap needs the browser). */
 const SopDocView = dynamic(() => import("../editor/sop-doc-view"), {
@@ -35,7 +36,7 @@ export function SopVersionsPanel({
 }) {
   const [list, setList] = useState<{ currentVersion: number; versions: SopVersionListItem[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState<number | null>(null);
+  const [open, setOpen] = usePageViewState<number | null>("SopVersionsPanel:open", null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {

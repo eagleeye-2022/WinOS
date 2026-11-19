@@ -34,6 +34,7 @@ import {
 import { MentionInput } from "@/components/shared/mention-input";
 import { localWeekday, withLocalWeekday, type RecurrenceRule } from "../recurrence";
 import type { CalendarEventView } from "../queries";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 type InternalUser = { id: string; name: string | null; email: string };
 
@@ -168,7 +169,7 @@ export function EventDialog({
   const [isRecording, setIsRecording] = useState(false);
 
   // Advanced toggles
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(true);
+  const [isAdvancedOpen, setIsAdvancedOpen] = usePageViewState("EventDialog:isAdvancedOpen", true);
   const [assignToTab, setAssignToTab] = useState<"participants" | "conversation">("participants");
   const [participantEmail, setParticipantEmail] = useState("");
   const [meetingLink, setMeetingLink] = useState("");

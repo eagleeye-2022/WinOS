@@ -75,6 +75,7 @@ import {
   reorderSubtaskAtPath,
 } from "../../template-utils";
 import { toast } from "@/components/shared/toast";
+import { usePageViewState, usePageViewSet } from "@/lib/navigation/use-url-state";
 
 /** TipTap rich document view - loaded on demand in the browser. */
 const SopDocView = dynamic(() => import("@/features/sop-checklists/editor/sop-doc-view"), {
@@ -351,7 +352,7 @@ function TemplateChecklistCard({
   canManage: boolean;
   onDetach: () => void;
 }) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = usePageViewState(`TemplateChecklistCard:${sopRef.id}:open`, true);
   const name = sopDetail?.name ?? pickerOption?.name ?? sopRef.name;
   const department = sopDetail?.department ?? pickerOption?.department;
   const totalSteps = sopDetail?.items?.length ?? pickerOption?.stepCount ?? 0;
@@ -504,14 +505,14 @@ export function TemplateTaskPage({
 
   // Local state
   const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
-  const [isExpandedView, setIsExpandedView] = useState(false);
+  const [isExpandedView, setIsExpandedView] = usePageViewState("TemplateTaskPage:isExpandedView", false);
   const [title, setTitle] = useState(currentTitle);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState(currentDesc ?? "");
   const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [descriptionOpen, setDescriptionOpen] = useState(true);
-  const [checklistOpen, setChecklistOpen] = useState(true);
-  const [taskInfoOpen, setTaskInfoOpen] = useState(true);
+  const [descriptionOpen, setDescriptionOpen] = usePageViewState("TemplateTaskPage:descriptionOpen", true);
+  const [checklistOpen, setChecklistOpen] = usePageViewState("TemplateTaskPage:checklistOpen", true);
+  const [taskInfoOpen, setTaskInfoOpen] = usePageViewState("TemplateTaskPage:taskInfoOpen", true);
   const [activeTab, setActiveTab] = useState<
     "SUBTASKS" | "COMMENTS" | "LOG_HOURS" | "DOCUMENTS" | "STATUS_TIMELINE" | "STANDUP_ACTIVITY"
   >("COMMENTS");
@@ -519,12 +520,12 @@ export function TemplateTaskPage({
   // Subtask quick add & drawer
   const [newSubtask, setNewSubtask] = useState("");
   // Subtask rows whose own subtasks are folded away in the table.
-  const [collapsedSubtasks, setCollapsedSubtasks] = useState<Set<string>>(new Set());
+  const [collapsedSubtasks, setCollapsedSubtasks] = usePageViewSet<string>("TemplateTaskPage:collapsedSubtasks");
   // Drag to reorder: the row whose grip is held, the row being dragged, and where it would land.
   const [dragReadyCode, setDragReadyCode] = useState<string | null>(null);
   const [draggingSubtaskCode, setDraggingSubtaskCode] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ code: string; after: boolean } | null>(null);
-  const [isAddSubtaskOpen, setIsAddSubtaskOpen] = useState(false);
+  const [isAddSubtaskOpen, setIsAddSubtaskOpen] = usePageViewState("TemplateTaskPage:isAddSubtaskOpen", false);
 
   // Menus
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -669,7 +670,7 @@ export function TemplateTaskPage({
     };
     setCommentsList((prev) => [newComment, ...prev]);
     setCommentText("");
-    toast.success("Comment saved");
+    toast.success("Task Note saved");
   };
 
   const attachSop = (id: string) => {
@@ -1343,7 +1344,7 @@ export function TemplateTaskPage({
             <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 text-xs font-semibold dark:border-zinc-800">
               <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
                 {[
-                  { key: "COMMENTS", label: "Comments" },
+                  { key: "COMMENTS", label: "Task Notes" },
                   { key: "SUBTASKS", label: "Subtasks" },
                   { key: "LOG_HOURS", label: "Log Hours (0.00)" },
                   { key: "DOCUMENTS", label: "Documents" },
@@ -1620,7 +1621,7 @@ export function TemplateTaskPage({
                       rows={3}
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
-                      placeholder="Write a comment or note on this template task..."
+                      placeholder="Write a task note on this template task..."
                       className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none resize-y font-sans dark:text-zinc-100 dark:placeholder-zinc-500"
                     />
                     <div className="flex items-center justify-end pt-2.5 border-t border-border/60 dark:border-zinc-800/60">
@@ -1631,7 +1632,7 @@ export function TemplateTaskPage({
                         className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
                       >
                         <Send size={13} />
-                        <span>Save Comment</span>
+                        <span>Save Task Note</span>
                       </button>
                     </div>
                   </div>
@@ -1639,7 +1640,7 @@ export function TemplateTaskPage({
                   <div className="space-y-3 pt-1">
                     {commentsList.length === 0 ? (
                       <div className="py-8 text-center text-xs text-muted-foreground italic dark:text-zinc-400">
-                        No comments yet. Write a comment above to document this task.
+                        No task notes yet. Write a task note above to document this task.
                       </div>
                     ) : (
                       commentsList.map((c) => (

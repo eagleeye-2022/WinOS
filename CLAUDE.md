@@ -120,6 +120,15 @@ custom templates and saved edits of built-in ones (same id as the built-in, whic
 `src/features/projects/template-utils.ts`) with phase codes `P1`, `P2`… so the task board shows only
 their own columns.
 
+**Remembered screen state**: pages come back exactly as they were left (Back/Forward, sidebar, refresh)
+via the navigation store (`src/stores/navigation-store.ts`, saved to the tab's sessionStorage, hydrated
+by `NavigationStateTracker`). Scroll is tracked automatically (give important scroll containers a stable
+`data-scroll-key`). For expand/collapse toggles and open panels/modals use `usePageViewState` /
+`usePageViewSet` (`src/lib/navigation/use-url-state.ts`) instead of `useState`; for form modals use
+`usePageDraft` + `useClearPageDraft` (clear on save / Cancel / ✕, keep on navigation) and
+`useHadPageDraftOnMount` to skip a reset-on-open effect once. Values must be JSON-safe (store ids, not
+objects with `Date`s). Don't persist dropdowns, popovers, confirm/success steps, or the check-in camera.
+
 **Two rich-text editor stacks** are present: TipTap 3 (`@tiptap/*`, extensive custom component tree
 under `src/components/tiptap-*`) is the one actually used throughout the app; `@ckeditor/ckeditor5-react`
 is a dependency but has no meaningful component footprint — treat TipTap as the default for any new

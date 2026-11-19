@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { MANDATORY_HOLIDAY } from "../attendance-data";
 import { compOffCredit, compOffExpiry } from "@/features/leave/leave-rules";
 import { reverseGeocode } from "@/lib/reverse-geocode";
+import { ROUTES } from "@/constants/routes";
 import { canManageUser, isSelfAction } from "../team-scope";
 import { approverIdsFor, loadRequester, notify } from "@/features/leave/approval-flow";
 import {
@@ -74,39 +75,27 @@ const COORDS_ONLY = /^\s*-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?\s*$/;
 /** Only selfies saved through our own upload route. */
 const PHOTO_URL = /^\/api\/uploads\/[^/?#]+\.(jpe?g|png|webp)$/i;
 
-/**
- * Worst GPS accuracy accepted for a check-in, in metres. Browsers without a real fix (e.g. Windows with
- * Location services off) report an IP-based guess with accuracy in the thousands of km.
- * Keep in sync with MAX_ACCURACY_M in check-in-capture-modal.
- */
-const MAX_LOCATION_ACCURACY_M = 1000;
-
 /** Refusal message when a check-in/out capture is missing its photo, else null. Location is optional. */
 function captureError(payload: { photo?: string } | undefined, verb: string): string | null {
   if (!payload?.photo || !PHOTO_URL.test(payload.photo)) return `Take a photo to ${verb}.`;
   return null;
 }
 
-/**
- * The location to save, or undefined. Location is optional, so one that can't be read or isn't a
- * precise GPS fix is dropped (saved as "Not recorded") instead of blocking the check-in/out.
- */
-function usableLocation(loc: CheckInLocation | undefined): CheckInLocation | undefined {
-  if (!loc || !validLocation(loc)) return undefined;
-  // A missing accuracy fails this too (NaN <= n is false).
-  return Number(loc.accuracy) <= MAX_LOCATION_ACCURACY_M ? loc : undefined;
-}
-
-/** No location shared: nothing saved, so it shows as "Not recorded". */
+/** No (valid) location shared: nothing saved, so it shows as "Not recorded". */
 const NO_LOCATION = { place: null, locationName: null, address: null } as const;
 
+/** Location name + address for the shared fix, or NO_LOCATION when none / an invalid one was sent. */
+async function describeOptionalLocation(loc: CheckInLocation | undefined, opts?: { lookup?: boolean }) {
+  return loc && validLocation(loc) ? describeLocation(loc, opts) : NO_LOCATION;
+}
+
 /**
- * Location name + address line for a GPS fix: the OpenStreetMap area name when found (coordinates
+ * Location name + address line for a GPS fix: the TomTom area name when found (coordinates
  * kept in the address for the map link), else the bare coordinates.
  */
 async function describeLocation(loc: CheckInLocation, { lookup = true } = {}) {
   const coords = formatCoords(loc);
-  const accuracy = loc.accuracy && Number.isFinite(loc.accuracy) ? `±${Math.round(loc.accuracy)} m` : null;
+  const accuracy = loc.accuracy && Number.isFinite(loc.accuracy) ? `±${Math.round(loc.accuracy).toLocaleString("en-IN")} m` : null;
   const place = lookup ? await reverseGeocode(loc.latitude, loc.longitude) : null;
   return {
     place,
@@ -129,7 +118,7 @@ export async function lookupPlaceAction(loc: CheckInLocation) {
 export async function checkInAction(payload?: {
   workMode?: "OFFICE" | "REMOTE";
   source?: string;
-  /** Optional: where the employee is when checking in (left out when they check in without it). */
+  /** Optional: where the employee is when checking in (saved as "Not recorded" when left out). */
   location?: CheckInLocation;
   /** Required: selfie URL from POST /api/uploads. */
   photo?: string;
@@ -149,8 +138,11 @@ export async function checkInAction(payload?: {
     where: { userId_date: { userId: user.id, date: today } },
   });
 
+  // After checking in, managers land on their own standup, everyone else on the standup page.
+  const redirectTo = user.role === "MANAGER" ? ROUTES.dsmMy : ROUTES.dsm;
+
   if (existing?.isLive) {
-    return { success: true as const, message: "Already checked in", record: existing };
+    return { success: true as const, message: "Already checked in", record: existing, redirectTo };
   }
 
   // A full-day leave would hide the day's work (attendance shows the leave), so the leave has to go
@@ -183,10 +175,7 @@ export async function checkInAction(payload?: {
   // Resuming the day keeps the first check-in's location, so no lookup is needed then — except a
   // first check-in saved before place names existed (coordinates only), which gets one now.
   const keepExisting = Boolean(existing?.checkInLocationName) && !COORDS_ONLY.test(existing!.checkInLocationName!);
-  const location = usableLocation(payload.location);
-  const { place, locationName, address } = location
-    ? await describeLocation(location, { lookup: !keepExisting })
-    : NO_LOCATION;
+  const { place, locationName, address } = await describeOptionalLocation(payload.location, { lookup: !keepExisting });
 
   // Checking in again after a check-out resumes the day: the first check-in time is kept,
   // the check-out is cleared and the worked minutes so far are carried forward.
@@ -225,7 +214,7 @@ export async function checkInAction(payload?: {
   });
 
   revalidateAttendance();
-  return { success: true as const, record };
+  return { success: true as const, record, redirectTo };
 }
 
 // ── 1b. TODAY'S CHECK-IN STATUS (top-bar button + reminder) ──────────────────
@@ -282,7 +271,7 @@ export async function getMyCheckInStatusAction(): Promise<MyCheckInStatus | null
 
 export async function checkOutAction(payload?: {
   source?: string;
-  /** Optional: where the employee is when checking out (left out when they check out without it). */
+  /** Optional: where the employee is when checking out (saved as "Not recorded" when left out). */
   location?: CheckInLocation;
   /** Required: selfie URL from POST /api/uploads. */
   photo?: string;
@@ -309,8 +298,7 @@ export async function checkOutAction(payload?: {
     ? Math.max(0, Math.floor((now.getTime() - existing.liveSince.getTime()) / 60_000))
     : workedMinutesBetween(existing.checkInTime, timeStr) ?? 0;
 
-  const location = usableLocation(payload.location);
-  const { locationName, address } = location ? await describeLocation(location) : NO_LOCATION;
+  const { locationName, address } = await describeOptionalLocation(payload.location);
 
   const record = await db.dailyAttendance.update({
     where: { userId_date: { userId: user.id, date: today } },

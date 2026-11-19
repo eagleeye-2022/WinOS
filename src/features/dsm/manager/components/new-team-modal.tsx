@@ -1,5 +1,6 @@
 "use client";
 
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 import { useActionState, useState, useEffect, useRef } from "react";
 import {
   X, Search, Users, ChevronDown, Pencil, Check,
@@ -434,8 +435,11 @@ function TeamForm({
 // ── Modal shell ───────────────────────────────────────────────────────────────
 
 export function NewTeamModal({ teams, allUsers, onClose }: Props) {
-  const [selectedTeam, setSelectedTeam] = useState<TeamWithMembers | null>(null);
-  const [teamSearch, setTeamSearch] = useState("");
+  // Remembered (by id) with the search, so coming back to the page reopens the same team.
+  const [selectedTeamId, setSelectedTeamId] = usePageViewState<string | null>("NewTeamModal:selectedTeamId", null);
+  const selectedTeam = teams.find((t) => t.id === selectedTeamId) ?? null;
+  const setSelectedTeam = (t: TeamWithMembers | null) => setSelectedTeamId(t?.id ?? null);
+  const [teamSearch, setTeamSearch] = usePageViewState("NewTeamModal:teamSearch", "");
 
   const filtered = teams.filter((t) =>
     t.name.toLowerCase().includes(teamSearch.toLowerCase())

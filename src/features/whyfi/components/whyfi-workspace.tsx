@@ -34,6 +34,7 @@ import { SubtaskTree } from "@/components/shared/subtask-tree";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/components/shared/toast";
 import { useConfirm } from "@/components/shared/confirm-dialog";
+import { useModuleViewState } from "@/lib/navigation/use-url-state";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
 import { RichDescriptionEditor, RichDescriptionView, isEmptyDescription } from "@/components/shared/rich-description";
 import { ActiveTimerProvider } from "@/features/projects/context/active-timer-context";
@@ -295,12 +296,14 @@ function LearningCard({
   run: RunFn;
 }) {
   const { confirm, ConfirmDialog } = useConfirm();
-  const [expanded, setExpanded] = useState(false);
+  // Details / subtasks open-state is kept in the module's navigation slice, so opening a card's page
+  // and coming back shows the board exactly as it was left.
+  const [expanded, setExpanded] = useModuleViewState(`whyfi:card:${task.id}:details`, false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const [dueDate, setDueDate] = useState(task.dueDate);
-  const [showSubtasks, setShowSubtasks] = useState(false);
+  const [showSubtasks, setShowSubtasks] = useModuleViewState(`whyfi:card:${task.id}:subtasks`, false);
   const [addingSub, setAddingSub] = useState(false);
   const [subTitle, setSubTitle] = useState("");
   const [savingSub, setSavingSub] = useState(false);
@@ -976,7 +979,7 @@ function ListColumn({
       </div>
 
       {/* Cards */}
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-xl pr-1">
+      <div data-scroll-key={`whyfi-list-${list.id}`} className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-xl pr-1">
         {adding && (
           // Theme colours (it was always dark, even in light mode); dark mode keeps the old look.
           <div className="animate-in fade-in zoom-in-95 space-y-2.5 rounded-xl border border-border bg-card p-3 shadow-md duration-150 dark:border-zinc-700/80 dark:bg-[#16181d]">
@@ -1361,10 +1364,16 @@ function LearningTimeline({ workspace }: { workspace: WhyfiWorkspaceData }) {
 
 type Tab = "TASKS" | "LEARNERS" | "EFFORT";
 
+const NO_COLLAPSED_LISTS: string[] = [];
+
 export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
   const [workspace, setWorkspace] = useState(initial);
-  const [tab, setTab] = useState<Tab>("TASKS");
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  // Tab, collapsed lists and (in LearningCard) open cards survive opening a card and coming back.
+  const [tab, setTab] = useModuleViewState<Tab>("whyfi:tab", "TASKS");
+  const [collapsedIdList, setCollapsedIdList] = useModuleViewState<string[]>("whyfi:collapsed-lists", NO_COLLAPSED_LISTS);
+  const collapsedIds = useMemo(() => new Set(collapsedIdList), [collapsedIdList]);
+  const setCollapsedIds = (next: Set<string> | ((prev: Set<string>) => Set<string>)) =>
+    setCollapsedIdList((prev) => [...(typeof next === "function" ? next(new Set(prev)) : next)]);
   const [addingListId, setAddingListId] = useState<string | null>(null);
   const [isAddingList, setIsAddingList] = useState(false);
   const [newListName, setNewListName] = useState("");
@@ -1595,7 +1604,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
               </div>
 
               {/* Board */}
-              <div ref={boardRef} className="dsm-columns-scrollbar min-h-0 flex-1 overflow-x-auto bg-zinc-50/50 p-3 sm:p-4.5 dark:bg-background/40">
+              <div ref={boardRef} data-scroll-key="whyfi-board" className="dsm-columns-scrollbar min-h-0 flex-1 overflow-x-auto bg-zinc-50/50 p-3 sm:p-4.5 dark:bg-background/40">
                 <div data-col-scope className="flex h-full items-stretch gap-3.5">
                   {orderedLists.map((list) => (
                     <ListColumn

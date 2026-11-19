@@ -62,7 +62,7 @@ const STATUS_LOOK: Record<string, { label: string; tone: PulseTone }> = {
 };
 
 type StatusCounts = { pending: number; approved: number; rejected: number; cancelled: number; total: number };
-import { useUrlState } from "@/lib/navigation/use-url-state";
+import { useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
 import { PeriodNav, currentPeriod, overlapsPeriod, type Period } from "@/components/shared/period-nav";
 
 const TEAM_LEAVE_LIST_TABS = [
@@ -155,7 +155,7 @@ export function TeamLeaveWorkspace({
   );
   const [isCreatingLeaveType, setIsCreatingLeaveType] = useState(initialTab === "create-leave-type");
   /** Set while the wizard is editing an existing leave type (null = creating a new one). */
-  const [editingLeaveTypeId, setEditingLeaveTypeId] = useState<string | null>(null);
+  const [editingLeaveTypeId, setEditingLeaveTypeId] = usePageViewState<string | null>("TeamLeaveWorkspace:editingLeaveTypeId", null);
   const activeTab: TeamLeaveListTab | "create-leave-type" = isCreatingLeaveType ? "create-leave-type" : listTab;
   const setActiveTab = (tab: TeamLeaveListTab | "create-leave-type") => {
     if (tab === "create-leave-type") {

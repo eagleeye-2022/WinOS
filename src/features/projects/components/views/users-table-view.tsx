@@ -29,6 +29,7 @@ import {
 import { ClientPermissionsModal } from "../modals/client-permissions-modal";
 import { toast } from "@/components/shared/toast";
 import { PageTitle } from "@/components/shared/page-header";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 const ROLE_BADGE_CONFIG: Record<MemberRoleTier, { label: string; className: string }> = {
   ADMIN: { label: "ADMINISTRATOR", className: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400" },
@@ -67,7 +68,7 @@ export function UsersTableView({
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  const [permissionModalUser, setPermissionModalUser] = useState<ProjectUser | null>(null);
+  const [permissionModalUser, setPermissionModalUser] = usePageViewState<ProjectUser | null>("UsersTableView:permissionModalUser", null);
   const [actionLoading, setActionLoading] = useState(false);
 
   const filteredUsers = users

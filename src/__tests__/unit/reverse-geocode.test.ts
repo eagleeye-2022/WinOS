@@ -1,78 +1,77 @@
 import { describe, it, expect } from "vitest";
-import { formatNominatimAddress } from "@/lib/reverse-geocode";
+import { formatTomTomAddress } from "@/lib/reverse-geocode";
 
-describe("formatNominatimAddress", () => {
-  it("uses area + village/town as the name", () => {
+// Address objects below are trimmed from real TomTom reverseGeocode replies.
+describe("formatTomTomAddress", () => {
+  it("uses colony + locality as the name (Wagholi, Pune)", () => {
     expect(
-      formatNominatimAddress({
-        suburb: "Ubale Nagar",
-        village: "Wagholi",
-        county: "Haveli",
-        state: "Maharashtra",
-        postcode: "412207",
+      formatTomTomAddress({
+        street: "Wagholi Manjri Road",
+        municipalitySecondarySubdivision: "Siddhi Park",
+        municipalitySubdivision: "Wagholi",
+        municipality: "Pune",
+        countrySubdivisionName: "Maharashtra",
+        postalCode: "412207",
+        freeformAddress: "Wagholi Manjri Road, Siddhi Park, Wagholi, Pune 412207, Maharashtra",
       })
-    ).toEqual({ name: "Ubale Nagar, Wagholi", address: "Ubale Nagar, Wagholi, Haveli, Maharashtra 412207" });
+    ).toEqual({
+      name: "Siddhi Park, Wagholi",
+      address: "Wagholi Manjri Road, Siddhi Park, Wagholi, Pune 412207, Maharashtra",
+    });
   });
 
-  it("falls back to the city when there is no village", () => {
-    expect(formatNominatimAddress({ neighbourhood: "Vijay Nagar", city: "Indore", state: "Madhya Pradesh" })?.name).toBe(
-      "Vijay Nagar, Indore"
+  it("uses locality + city when there is no colony (Rajwada, Indore)", () => {
+    expect(
+      formatTomTomAddress({
+        streetNameAndNumber: "660, Mahatma Gandhi Road",
+        street: "Mahatma Gandhi Road",
+        municipalitySubdivision: "Rajwada",
+        municipality: "Indore",
+        countrySubdivisionName: "Madhya Pradesh",
+        postalCode: "452007",
+        freeformAddress: "660, Mahatma Gandhi Road, Rajwada, Indore 452007, Madhya Pradesh",
+      })
+    ).toEqual({
+      name: "Rajwada, Indore",
+      address: "660, Mahatma Gandhi Road, Rajwada, Indore 452007, Madhya Pradesh",
+    });
+  });
+
+  it("uses the neighbourhood when there is no colony (Westminster, London)", () => {
+    expect(
+      formatTomTomAddress({
+        streetNameAndNumber: "10 Downing Street",
+        neighbourhood: "Saint James's",
+        municipalitySubdivision: "Westminster",
+        municipality: "London",
+        freeformAddress: "10 Downing Street, Westminster, London, SW1A 2AA",
+      })?.name
+    ).toBe("Saint James's, Westminster");
+  });
+
+  it("leads with the street when only the city is known", () => {
+    expect(formatTomTomAddress({ street: "Satna Umaria Road", municipality: "Unchahara" })?.name).toBe(
+      "Satna Umaria Road, Unchahara"
     );
   });
 
-  it("drops repeated parts", () => {
-    expect(formatNominatimAddress({ suburb: "Indore", city: "Indore", state: "Madhya Pradesh" })).toEqual({
-      name: "Indore",
-      address: "Indore, Madhya Pradesh",
-    });
-  });
-
-  it("uses the display name when the address has no area or locality", () => {
-    expect(formatNominatimAddress({ state: "Goa" }, "NH66, Pernem, Goa, India")?.name).toBe("NH66, Pernem");
-  });
-
-  it("uses the road when there is no neighbourhood (real Nominatim reply for Rajwada, Indore)", () => {
+  it("builds the address when TomTom sends no freeform line", () => {
     expect(
-      formatNominatimAddress({
-        road: "Rajwada Square",
-        city_district: "Indore City",
-        city: "Indore",
-        county: "Juni Indore Tahsil",
-        state_district: "Indore",
-        state: "Madhya Pradesh",
-        postcode: "452001",
+      formatTomTomAddress({
+        street: "MG Road",
+        municipalitySubdivision: "Vijay Nagar",
+        municipality: "Indore",
+        countrySubdivisionName: "Madhya Pradesh",
+        postalCode: "452010",
       })
-    ).toEqual({ name: "Rajwada Square, Indore", address: "Rajwada Square, Indore, Madhya Pradesh 452001" });
+    ).toEqual({ name: "Vijay Nagar, Indore", address: "MG Road, Vijay Nagar, Indore, Madhya Pradesh 452010" });
   });
 
-  it("puts the exact spot (building, house number + road) first in the full address", () => {
-    expect(
-      formatNominatimAddress(
-        {
-          amenity: "Eagle Eye Digital",
-          house_number: "12",
-          road: "MG Road",
-          neighbourhood: "Vijay Nagar",
-          city: "Indore",
-          state: "Madhya Pradesh",
-          postcode: "452010",
-        },
-        undefined,
-        "Eagle Eye Digital"
-      )
-    ).toEqual({
-      name: "Vijay Nagar, Indore",
-      address: "Eagle Eye Digital, 12 MG Road, Vijay Nagar, Indore, Madhya Pradesh 452010",
-    });
-  });
-
-  it("adds the road to the address even without a building", () => {
-    expect(
-      formatNominatimAddress({ road: "Nagar Road", suburb: "Ubale Nagar", village: "Wagholi", state: "Maharashtra" })
-    ).toEqual({ name: "Ubale Nagar, Wagholi", address: "Nagar Road, Ubale Nagar, Wagholi, Maharashtra" });
+  it("drops repeated parts", () => {
+    expect(formatTomTomAddress({ municipalitySubdivision: "Indore", municipality: "Indore" })?.name).toBe("Indore");
   });
 
   it("returns null when there is nothing to name", () => {
-    expect(formatNominatimAddress({})).toBeNull();
+    expect(formatTomTomAddress({})).toBeNull();
   });
 });

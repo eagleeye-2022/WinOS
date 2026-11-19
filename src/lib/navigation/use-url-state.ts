@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { resolveNavModule, type NavModuleId } from "./modules";
 import { useNavigationStore } from "@/stores/navigation-store";
@@ -101,11 +101,16 @@ export function useCurrentNavModule(): NavModuleId {
 
 /**
  * useState for ephemeral UI that shouldn't clutter the URL (expanded panels, collapsed groups).
- * Stored in the current module's slice of the in-memory navigation store, so it survives
- * switching modules and coming back, but resets on full refresh or Reset view. Pick a `key`
- * that's unique within the module (include record ids where relevant).
+ * Stored in the current module's slice of the navigation store (saved to the tab's
+ * sessionStorage), so it survives leaving the page, switching modules and refreshing, and resets
+ * on Reset view or in a new tab. Pick a `key` that's unique within the module (include record
+ * ids where relevant) — or use usePageViewState, which scopes the key to the current page.
+ * The value must be JSON-safe.
  */
-export function useModuleViewState<T>(key: string, defaultValue: T): [T, (next: Updater<T>) => void] {
+export function useModuleViewState<T>(key: string, initialDefault: T): [T, (next: Updater<T>) => void] {
+  // Like useState's initial value: the first default is kept, so a literal `{}` / `[]` passed on
+  // every render doesn't hand out a new object (and re-run effects) each time.
+  const [defaultValue] = useState(initialDefault);
   const moduleId = useCurrentNavModule();
   const stored = useNavigationStore((s) => s.modules[moduleId]?.view[key]);
   const setView = useNavigationStore((s) => s.setView);
@@ -122,4 +127,65 @@ export function useModuleViewState<T>(key: string, defaultValue: T): [T, (next: 
   );
 
   return [value, setValue];
+}
+
+/**
+ * useModuleViewState scoped to the current page (pathname): a drop-in for useState on
+ * expand/collapse toggles, open panels and modals, so the page looks the same when the user comes
+ * back to it (after visiting another page, Back/Forward, or a refresh). The same component on two
+ * pages (e.g. two different tasks) keeps separate state. The value must be JSON-safe.
+ */
+export function usePageViewState<T>(key: string, defaultValue: T): [T, (next: Updater<T>) => void] {
+  const pathname = usePathname();
+  return useModuleViewState<T>(`${pathname}::${key}`, defaultValue);
+}
+
+const NO_ITEMS: never[] = [];
+
+/** usePageViewState for a Set (stored as an array): a drop-in for useState<Set<T>>. */
+export function usePageViewSet<T extends string | number>(
+  key: string
+): [Set<T>, (next: Set<T> | ((prev: Set<T>) => Set<T>)) => void] {
+  const [list, setList] = usePageViewState<T[]>(key, NO_ITEMS);
+  const set = useMemo(() => new Set(list), [list]);
+  const update = useCallback(
+    (next: Set<T> | ((prev: Set<T>) => Set<T>)) =>
+      setList((prev) => [...(typeof next === "function" ? next(new Set(prev)) : next)]),
+    [setList]
+  );
+  return [set, update];
+}
+
+/**
+ * A form's draft field (kept like usePageViewState under `draft:<form>:<field>`), so a half-filled
+ * form modal comes back as it was left. Clear the whole draft with useClearPageDraft on submit /
+ * cancel.
+ */
+export function usePageDraft<T>(form: string, field: string, defaultValue: T): [T, (next: Updater<T>) => void] {
+  return usePageViewState<T>(`draft:${form}:${field}`, defaultValue);
+}
+
+/** Returns a function that forgets every draft field of `form` on the current page. */
+export function useClearPageDraft(form: string): () => void {
+  const pathname = usePathname();
+  const moduleId = useCurrentNavModule();
+  return useCallback(
+    () => useNavigationStore.getState().clearViewPrefix(moduleId, `${pathname}::draft:${form}:`),
+    [moduleId, pathname, form]
+  );
+}
+
+/**
+ * Whether `form` had a saved draft on this page when the component mounted — lets a form's
+ * "reset the fields when it opens" effect skip its first run, so a restored draft isn't wiped.
+ */
+export function useHadPageDraftOnMount(form: string): boolean {
+  const pathname = usePathname();
+  const moduleId = useCurrentNavModule();
+  const [had] = useState(() => {
+    const prefix = `${pathname}::draft:${form}:`;
+    const view = useNavigationStore.getState().modules[moduleId]?.view ?? {};
+    return Object.keys(view).some((k) => k.startsWith(prefix));
+  });
+  return had;
 }

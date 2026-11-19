@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import Link from "next/link";
 import { Users, Clock, AlertCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import type { AllDsmStats } from "../queries";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 export type StatMember = {
   userId: string;
@@ -109,7 +110,7 @@ export function AllDsmStatsRow({
 }: Props) {
   const { totalSubmitted, totalExpected, blockerCount, pendingCount, pendingReviewCount, supportNeededCount } = stats;
 
-  const [openCard, setOpenCard] = useState<"submitted" | "pending" | "blockers" | "supportNeeded" | "pendingReview" | "status" | null>(null);
+  const [openCard, setOpenCard] = usePageViewState<"submitted" | "pending" | "blockers" | "supportNeeded" | "pendingReview" | "status" | null>("AllDsmStatsRow:openCard", null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

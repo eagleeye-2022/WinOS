@@ -35,6 +35,8 @@ import { CheckInCaptureModal } from "@/features/attendance/components/check-in-c
 import type { ActionRequiredItem } from "@/features/attendance/types";
 import { SHIFT_END, SHIFT_START } from "@/features/attendance/utils";
 import { ROUTES } from "@/constants/routes";
+import { getActiveTimerAction } from "@/features/projects/actions/active-timer-actions";
+import { projectTaskHref } from "@/lib/project-task-href";
 import { cn } from "@/lib/utils";
 import type { PulseHomeData, PulsePerson } from "../queries";
 import type { DayTone } from "../utils";
@@ -69,22 +71,99 @@ function personLabel(p: Pick<PulsePerson, "employeeId" | "name">) {
   );
 }
 
-const pad = (n: number) => String(n).padStart(2, "0");
+// ── Active task timer (above the check-in / check-out button) ────────────────
 
-/** Today's worked time as [hh, mm, ss], ticking every second while checked in. */
-function useWorkedClock(bankedMinutes: number, liveSince: string | null): [string, string, string] {
-  // Null until mounted, so the server render and the first client render agree.
+type RunningTimer = {
+  startedAt: string;
+  taskTitle: string;
+  taskCode: string;
+  projectId: string;
+  projectName: string;
+};
+
+const TIMER_POLL_MS = 30_000;
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * The project-task timer the user has running (started from any task), ticking every second.
+ * Re-read every 30s and when the tab regains focus, so starting / stopping it elsewhere shows up.
+ * Hidden when no timer is running.
+ */
+function ActiveTaskTimer() {
+  const [timer, setTimer] = useState<RunningTimer | null>(null);
   const [now, setNow] = useState<number | null>(null);
+
   useEffect(() => {
+    let cancelled = false;
+    const load = () =>
+      getActiveTimerAction()
+        .then((res) => {
+          if (cancelled) return;
+          const t = res.success ? res.data : null;
+          setTimer(
+            t
+              ? {
+                  startedAt: new Date(t.startedAt).toISOString(),
+                  taskTitle: t.task?.title ?? "Task",
+                  taskCode: t.task?.code ?? "",
+                  projectId: t.project?.id ?? t.projectId,
+                  projectName: t.project?.name ?? "",
+                }
+              : null
+          );
+        })
+        .catch(() => {});
+    load();
+    const poll = setInterval(load, TIMER_POLL_MS);
+    const onFocus = () => document.visibilityState === "visible" && load();
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      cancelled = true;
+      clearInterval(poll);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!timer) return;
     setNow(Date.now());
-    if (!liveSince) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [liveSince]);
+  }, [timer]);
 
-  let seconds = bankedMinutes * 60;
-  if (liveSince && now !== null) seconds += Math.max(0, Math.floor((now - new Date(liveSince).getTime()) / 1000));
-  return [pad(Math.floor(seconds / 3600)), pad(Math.floor((seconds % 3600) / 60)), pad(seconds % 60)];
+  if (!timer || now === null) return null;
+
+  const seconds = Math.max(0, Math.floor((now - new Date(timer.startedAt).getTime()) / 1000));
+  const elapsed = `${pad2(Math.floor(seconds / 3600))}:${pad2(Math.floor((seconds % 3600) / 60))}:${pad2(seconds % 60)}`;
+  const href = projectTaskHref(timer.projectId, timer.taskCode);
+  const body = (
+    <>
+      <span className="relative flex h-2 w-2 shrink-0">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-foreground">
+        {timer.taskCode || "Task"}
+      </span>
+      {/* Fixed width + tabular digits, so the time doesn't shift as it ticks. */}
+      <span className="w-[8ch] shrink-0 text-right font-mono text-sm font-semibold tabular-nums text-foreground">
+        {elapsed}
+      </span>
+    </>
+  );
+  const className =
+    "mt-3 flex w-full items-center gap-2.5 rounded-md border border-emerald-500/40 bg-emerald-500/5 px-3 py-2 transition-colors";
+  const tooltip = [timer.taskTitle, timer.projectName].filter(Boolean).join(" · ");
+
+  return href ? (
+    <Link href={href} title={tooltip} className={cn(className, "hover:bg-emerald-500/10")}>
+      {body}
+    </Link>
+  ) : (
+    <div title={tooltip} className={className}>
+      {body}
+    </div>
+  );
 }
 
 // ── Left column ──────────────────────────────────────────────────────────────
@@ -97,7 +176,6 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
   /** Which punch the camera + location dialog is open for (both check-in and check-out capture). */
   const [captureMode, setCaptureMode] = useState<"check-in" | "check-out" | null>(null);
   const [isRefreshing, startRefresh] = useTransition();
-  const [hh, mm, ss] = useWorkedClock(today.bankedMinutes, today.liveSince);
   const busy = isRefreshing;
 
   return (
@@ -123,24 +201,7 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
         </StatusPill>
       </div>
 
-      {/* Worked time today */}
-      <div className="mt-2.5 flex items-start justify-center gap-1.5">
-        {[
-          [hh, "Hrs"],
-          [mm, "Min"],
-          [ss, "Sec"],
-        ].map(([value, unit], i) => (
-          <React.Fragment key={unit}>
-            {i > 0 && <span className="pt-1.5 text-lg font-semibold text-muted-foreground">:</span>}
-            <div className="flex flex-col items-center">
-              <span className="min-w-11 rounded-md border border-border/70 bg-muted/60 px-2 py-1.5 font-mono text-lg font-semibold tabular-nums text-foreground">
-                {value}
-              </span>
-              <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{unit}</span>
-            </div>
-          </React.Fragment>
-        ))}
-      </div>
+      <ActiveTaskTimer />
 
       {today.isLive ? (
         <button
@@ -154,23 +215,22 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
         </button>
       ) : (
         <div className="mt-3 space-y-2">
-          {!today.checkedIn && (
-            <div className="grid grid-cols-2 rounded-md border border-border/70 bg-muted/50 p-0.5 text-xs font-semibold">
-              {(["REMOTE", "OFFICE"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => setWorkMode(mode)}
-                  className={cn(
-                    "rounded px-3 py-1.5 transition-colors",
-                    workMode === mode ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {mode === "OFFICE" ? "Office" : "Remote"}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Shown for the first check-in and for "Check-in again" after a check-out. */}
+          <div className="grid grid-cols-2 rounded-md border border-border/70 bg-muted/50 p-0.5 text-xs font-semibold">
+            {(["REMOTE", "OFFICE"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setWorkMode(mode)}
+                className={cn(
+                  "rounded px-3 py-1.5 transition-colors",
+                  workMode === mode ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {mode === "OFFICE" ? "Office" : "Remote"}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             disabled={busy}
@@ -197,6 +257,12 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
               : await checkInAction({ workMode, source: "Web", photo, location });
           if (!res.success) return ("message" in res && res.message) || "That didn't go through. Please try again.";
           setError(null);
+          const redirectTo = "redirectTo" in res ? res.redirectTo : undefined;
+          if (typeof redirectTo === "string") {
+            // Checked in: straight to the standup (managers: their own one).
+            router.push(redirectTo);
+            return null;
+          }
           startRefresh(() => router.refresh());
           return null;
         }}

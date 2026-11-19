@@ -12,6 +12,7 @@ import { useSetuStore } from "../store";
 import type { Referral, ReferralDirection } from "../types";
 import { formatDate } from "../utils";
 import { EmptyState, Field, IconTile, Pill, SetuAvatar, SetuButton, SetuSection } from "./setu-ui";
+import { usePageViewState, usePageDraft, useClearPageDraft } from "@/lib/navigation/use-url-state";
 
 /** Status pill: received referrals by how far they got; given ones are simply "Given". */
 function statusOf(r: Referral): { label: string; dot: string } {
@@ -24,7 +25,7 @@ function statusOf(r: Referral): { label: string; dot: string } {
 export function ReferralsWorkspace() {
   const referrals = useSetuStore((s) => s.referrals);
   const prospects = useSetuStore((s) => s.prospects);
-  const [logOpen, setLogOpen] = useState(false);
+  const [logOpen, setLogOpen] = usePageViewState("ReferralsWorkspace:logOpen", false);
 
   const sorted = [...referrals].sort((a, b) => b.date.localeCompare(a.date));
 
@@ -88,10 +89,18 @@ export function ReferralsWorkspace() {
 
 function LogReferralDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const addReferral = useSetuStore((s) => s.addReferral);
-  const [direction, setDirection] = useState<ReferralDirection>("RECEIVED");
-  const [memberName, setMemberName] = useState("");
-  const [referralName, setReferralName] = useState("");
-  const [service, setService] = useState("");
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = "log-referral";
+  const clearDraft = useClearPageDraft(draft);
+  const close = () => {
+    clearDraft();
+    onClose();
+  };
+  const [direction, setDirection] = usePageDraft<ReferralDirection>(draft, "direction", "RECEIVED");
+  const [memberName, setMemberName] = usePageDraft(draft, "memberName", "");
+  const [referralName, setReferralName] = usePageDraft(draft, "referralName", "");
+  const [service, setService] = usePageDraft(draft, "service", "");
   const [error, setError] = useState("");
 
   const save = () => {
@@ -109,11 +118,11 @@ function LogReferralDialog({ open, onClose }: { open: boolean; onClose: () => vo
     setReferralName("");
     setService("");
     setError("");
-    onClose();
+    close();
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && close()}>
       <DialogContent className="setu-scope setu-dialog max-w-md p-7">
         <DialogHeader className="flex-row items-center gap-4 space-y-0">
           <IconTile icon={GitMerge} size={44} glow iconClassName="setu-accent-text" />
@@ -158,7 +167,7 @@ function LogReferralDialog({ open, onClose }: { open: boolean; onClose: () => vo
           {error && <p className="text-xs font-medium text-red-500">{error}</p>}
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <SetuButton variant="ghost" onClick={onClose}>
+          <SetuButton variant="ghost" onClick={close}>
             Cancel
           </SetuButton>
           <SetuButton variant="primary" onClick={save}>

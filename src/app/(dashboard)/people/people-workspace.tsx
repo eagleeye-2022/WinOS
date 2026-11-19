@@ -23,6 +23,7 @@ import {
   Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 // Helper to render file icon based on extension
 function FileIcon({ fileName, size = 16 }: { fileName: string; size?: number }) {
@@ -77,9 +78,9 @@ export default function PeopleWorkspace({ currentUser }: PeopleWorkspaceProps) {
   const itemsPerPage = 8;
 
   // View States
-  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = usePageViewState("PeopleWorkspace:showUploadModal", false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [viewingDocId, setViewingDocId] = useState<string | null>(null);
+  const [viewingDocId, setViewingDocId] = usePageViewState<string | null>("PeopleWorkspace:viewingDocId", null);
 
   // Upload Form States
   const [newComment, setNewComment] = useState("");

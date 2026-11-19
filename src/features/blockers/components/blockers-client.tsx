@@ -10,7 +10,7 @@ import { UserName } from "@/components/shared/user-card";
 import { formatFullDate } from "@/features/dsm/utils";
 import { formatEventTime } from "@/features/dsr/utils";
 import { daysOpen, filterBlockers, type BlockerStatusFilter, type BlockerPriorityFilter } from "../utils";
-import { useUrlNumberState, useUrlSelection, useUrlState } from "@/lib/navigation/use-url-state";
+import { useUrlNumberState, useUrlSelection, useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
 import { markBlockerResolved, type MarkBlockerResolvedState } from "../actions/mark-resolved";
 import { createBlocker, type CreateBlockerState } from "../actions/create-blocker";
 import { sendBlockerReminder, type BlockerReminderState } from "../actions/send-reminder";
@@ -569,7 +569,7 @@ export function BlockersClient({ items, itemsForMe, teamMembers, currentUserId, 
   const [priorityFilter, setPriorityFilter] = useUrlState<BlockerPriorityFilter>("priority", "all");
   const [search, setSearch] = useUrlState("q", "");
   const [page, setPage] = useUrlNumberState("page", 1);
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = usePageViewState("BlockersClient:showModal", false);
 
   const activeItems = useMemo(() => {
     if (viewMode === "all") return items;
