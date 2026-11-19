@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { calculateAge } from "@/lib/fmt";
-import { DEPARTMENTS, EMPLOYMENT_TYPES, LOCATIONS } from "@/features/users/constants";
+import { DEPARTMENTS, DOCUMENT_FIELDS, EMPLOYMENT_TYPES, LOCATIONS, PARENT_RELATIONSHIPS } from "@/features/users/constants";
 import { ROUTES } from "@/constants/routes";
 import type { ManagerOption, MemberDetails } from "@/features/users/actions/user-actions";
 import {
@@ -40,16 +40,6 @@ interface MemberFormProps {
   currentUserRole?: string;
   currentUserId?: string;
 }
-
-const DOCUMENT_FIELDS: { key: string; label: string }[] = [
-  { key: "HIGHEST_DEGREE", label: "Highest Degree Marksheet" },
-  { key: "TWELFTH_MARKSHEET", label: "12th Marksheet" },
-  { key: "TENTH_MARKSHEET", label: "10th Marksheet" },
-  { key: "PAN_CARD", label: "PAN Card" },
-  { key: "AADHAR_CARD", label: "Aadhar Card" },
-  { key: "EXPERIENCE_LETTER", label: "Experience/Internship Letter" },
-  { key: "BANK_PASSBOOK", label: "Bank Account Passbook" },
-];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -79,6 +69,18 @@ function Field({
   );
 }
 
+/** Mobile fields start with the India code so only the number needs typing. */
+const DEFAULT_PHONE_PREFIX = "+91 ";
+
+function withPhonePrefix(value: string | null | undefined): string {
+  return value?.trim() ? value : DEFAULT_PHONE_PREFIX;
+}
+
+/** A field left at just "+91" counts as empty. */
+function cleanPhone(value: string): string {
+  return value.trim() === DEFAULT_PHONE_PREFIX.trim() ? "" : value.trim();
+}
+
 function emptyForm() {
   return {
     firstName: "",
@@ -97,10 +99,11 @@ function emptyForm() {
     dateOfBirth: "",
     gender: "",
     maritalStatus: "",
-    workMobile: "",
-    personalMobile: "",
+    workMobile: DEFAULT_PHONE_PREFIX,
+    personalMobile: DEFAULT_PHONE_PREFIX,
     parentGuardianName: "",
-    parentGuardianMobile: "",
+    parentGuardianRelationship: "",
+    parentGuardianMobile: DEFAULT_PHONE_PREFIX,
     permanentAddress: "",
     personalEmail: "",
     aadharNumber: "",
@@ -127,10 +130,11 @@ function formFromDetails(details: MemberDetails) {
     dateOfBirth: details.dateOfBirth,
     gender: details.gender,
     maritalStatus: details.maritalStatus || "",
-    workMobile: details.workMobile || "",
-    personalMobile: details.personalMobile,
+    workMobile: withPhonePrefix(details.workMobile),
+    personalMobile: withPhonePrefix(details.personalMobile),
     parentGuardianName: details.parentGuardianName || "",
-    parentGuardianMobile: details.parentGuardianMobile || "",
+    parentGuardianRelationship: details.parentGuardianRelationship || "",
+    parentGuardianMobile: withPhonePrefix(details.parentGuardianMobile),
     permanentAddress: details.permanentAddress || "",
     personalEmail: details.personalEmail || "",
     aadharNumber: details.aadharNumber || "",
@@ -173,7 +177,10 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers, curr
     if (!form.reportingToId) missing.push("Reporting Manager");
     if (!form.gender) missing.push("Gender");
     if (!form.dateOfBirth) missing.push("Date of Birth");
-    if (!form.personalMobile.trim()) missing.push("Personal Mobile Number");
+    if (!cleanPhone(form.personalMobile)) missing.push("Permanent Mobile Number");
+    if (!form.parentGuardianName.trim()) missing.push("Parent/Guardian Name");
+    if (!form.parentGuardianRelationship) missing.push("Parent/Guardian Relationship");
+    if (!cleanPhone(form.parentGuardianMobile)) missing.push("Parent/Guardian Mobile Number");
     if (!form.location) missing.push("Location");
     return missing;
   }, [form]);
@@ -291,6 +298,9 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers, curr
         const payload = {
           ...form,
           role: form.role as "TEAM_MEMBER" | "MANAGER",
+          workMobile: cleanPhone(form.workMobile),
+          personalMobile: cleanPhone(form.personalMobile),
+          parentGuardianMobile: cleanPhone(form.parentGuardianMobile),
           reportingToId: form.reportingToId === NO_MANAGER_VALUE ? "" : form.reportingToId,
         };
         let targetId: string;
@@ -352,13 +362,15 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers, curr
   }
 
   return (
-    <div className="h-full w-full overflow-y-auto p-6 pb-8">
-      <div className="sticky top-0 z-20 -mx-6 mb-6 flex items-center justify-between gap-3 bg-background/95 px-6 py-2.5 backdrop-blur-xs border-b">
+    // No top padding on the scroller: a sticky bar sticks inside the padding, which let the form
+    // scroll through the gap above it. The bar carries that spacing itself instead.
+    <div className="h-full w-full overflow-y-auto px-6 pb-8">
+      <div className="sticky top-0 z-30 -mx-6 mb-6 flex items-center justify-between gap-3 border-b bg-background px-6 py-3">
         <Button
           type="button"
           variant="outline"
           size="sm"
-          className="gap-1.5 text-muted-foreground shadow-2xs"
+          className="gap-1.5 text-muted-foreground hover:text-foreground"
           onClick={() => router.push(isReadOnlyNonPersonal ? ROUTES.dashboard : ROUTES.settingsUsers)}
         >
           <ArrowLeft size={16} />
@@ -528,9 +540,9 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers, curr
               </SelectContent>
             </Select>
           </Field>
-          <Field label="Employment Type">
+          <Field label="Member Type">
             <Select value={form.employmentType} onValueChange={(v) => update("employmentType", v)} disabled={isReadOnlyNonPersonal}>
-              <SelectTrigger className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}><SelectValue placeholder="Select employment type" /></SelectTrigger>
+              <SelectTrigger className={isReadOnlyNonPersonal ? "bg-muted/50 text-muted-foreground cursor-not-allowed" : ""}><SelectValue placeholder="Select member type" /></SelectTrigger>
               <SelectContent>
                 {/* Same list the leave-type wizard filters on. */}
                 {EMPLOYMENT_TYPES.map((t) => (
@@ -699,21 +711,31 @@ export function MemberForm({ mode, userId, initialData, managers, allUsers, curr
 
         <Section title="Contact Details">
           <Field label="Work Mobile Number">
-            <Input value={form.workMobile} onChange={(e) => update("workMobile", e.target.value)} placeholder="9876543210" />
+            <Input type="tel" value={form.workMobile} onChange={(e) => update("workMobile", e.target.value)} placeholder="+91 9876543210" />
           </Field>
-          <Field label="Personal Mobile Number" required>
-            <Input value={form.personalMobile} onChange={(e) => update("personalMobile", e.target.value)} placeholder="9876543210" />
+          <Field label="Permanent Mobile Number" required>
+            <Input type="tel" value={form.personalMobile} onChange={(e) => update("personalMobile", e.target.value)} placeholder="+91 9876543210" />
           </Field>
-          <Field label="Parent/Guardian Name">
+          <Field label="Parent/Guardian Name" required>
             <Input value={form.parentGuardianName} onChange={(e) => update("parentGuardianName", e.target.value)} placeholder="e.g. Doe" />
           </Field>
-          <Field label="Parent/Guardian Mobile Number">
-            <Input value={form.parentGuardianMobile} onChange={(e) => update("parentGuardianMobile", e.target.value)} placeholder="9876543210" />
+          <Field label="Parent/Guardian Relationship" required>
+            <Select value={form.parentGuardianRelationship} onValueChange={(v) => update("parentGuardianRelationship", v)}>
+              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+              <SelectContent>
+                {PARENT_RELATIONSHIPS.map((r) => (
+                  <SelectItem key={r} value={r}>{r}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <Field label="Parent/Guardian Mobile Number" required>
+            <Input type="tel" value={form.parentGuardianMobile} onChange={(e) => update("parentGuardianMobile", e.target.value)} placeholder="+91 9876543210" />
           </Field>
           <Field label="Permanent Address">
             <Input value={form.permanentAddress} onChange={(e) => update("permanentAddress", e.target.value)} placeholder="e.g. Doe" />
           </Field>
-          <Field label="Personal E-mail address">
+          <Field label="Permanent E-mail Address">
             <Input type="email" value={form.personalEmail} onChange={(e) => update("personalEmail", e.target.value)} placeholder="e.g. Doe" />
           </Field>
         </Section>

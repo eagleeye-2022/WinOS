@@ -27,7 +27,7 @@ export const PROFILE_CONFIG: Record<ProfileType, ProfileTypeConfig> = {
   USER: {
     label: "User Profile",
     roles: [
-      { role: "EMPLOYEE", label: "Employee", sub: "(Default)" },
+      { role: "EMPLOYEE", label: "Member", sub: "(Default)" },
       { role: "MANAGER", label: "Manager", elevated: true },
       { role: "CONTRACTOR", label: "Contractor" },
     ],

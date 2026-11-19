@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useRef, useTransition } from "react";
 import {
   Users,
   CheckCircle2,
@@ -17,7 +17,14 @@ import {
   Loader2,
 } from "lucide-react";
 import { PeriodNav } from "@/components/shared/period-nav";
-import { StatusPill, TONE_DOT, TONE_SOFT, type PulseTone } from "@/components/pulse/pulse-ui";
+import {
+  PulseStatTiles,
+  StatusPill,
+  TONE_DOT,
+  scrollToList,
+  type PulseStat,
+  type PulseTone,
+} from "@/components/pulse/pulse-ui";
 import { TeamMemberAttendance } from "../types";
 import { getTeamAttendanceData } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
@@ -32,6 +39,8 @@ interface TeamAttendanceViewProps {
 export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  /** The table the stat tiles jump to. */
+  const tableRef = useRef<HTMLDivElement>(null);
   const [departmentFilter, setDepartmentFilter] = useState("All");
   const [workModeFilter, setWorkModeFilter] = useState("All");
   const [dateKey, setDateKey] = useState(() => istDateKey());
@@ -94,18 +103,25 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
     "Day Off": "gray",
   };
 
-  const stats: { label: string; value: number; tone: PulseTone; icon: React.ReactNode; note?: string }[] = [
+  // Click a tile to filter the table to that status and jump to it (again, or Total Members, to clear).
+  const pickStatus = (status: string) => () => {
+    setStatusFilter(status !== "All" && statusFilter === status ? "All" : status);
+    scrollToList(tableRef.current);
+  };
+  const stats: PulseStat[] = [
     {
       label: "Total Members",
       value: counts.total,
       tone: "blue",
       icon: <Users className="h-4 w-4" />,
       note: counts.dayOff > 0 ? `${counts.dayOff} on a day off` : undefined,
+      onClick: pickStatus("All"),
+      active: statusFilter === "All",
     },
-    { label: "Working Now", value: counts.workingNow, tone: "blue", icon: <Clock className="h-4 w-4" /> },
-    { label: "Completed", value: counts.completed, tone: "green", icon: <CheckCircle2 className="h-4 w-4" /> },
-    { label: "On Leave", value: counts.onLeave, tone: "amber", icon: <CalendarCheck className="h-4 w-4" /> },
-    { label: "Absent", value: counts.absent, tone: "red", icon: <UserX className="h-4 w-4" /> },
+    { label: "Working Now", value: counts.workingNow, tone: "blue", icon: <Clock className="h-4 w-4" />, onClick: pickStatus("Working Now"), active: statusFilter === "Working Now" },
+    { label: "Completed", value: counts.completed, tone: "green", icon: <CheckCircle2 className="h-4 w-4" />, onClick: pickStatus("Completed"), active: statusFilter === "Completed" },
+    { label: "On Leave", value: counts.onLeave, tone: "amber", icon: <CalendarCheck className="h-4 w-4" />, onClick: pickStatus("On Leave"), active: statusFilter === "On Leave" },
+    { label: "Absent", value: counts.absent, tone: "red", icon: <UserX className="h-4 w-4" />, onClick: pickStatus("Absent"), active: statusFilter === "Absent" },
   ];
 
   const selectCls =
@@ -121,25 +137,11 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
         <PeriodNav modes={["day"]} value={dateKey} label={dateLabel} onChange={setDateKey} />
       </div>
 
-      {/* Summary tiles */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        {stats.map((s) => (
-          <div
-            key={s.label}
-            className="flex items-center gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
-          >
-            <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", TONE_SOFT[s.tone])}>{s.icon}</span>
-            <div className="min-w-0">
-              <p className="text-xl font-bold tabular-nums text-foreground">{s.value}</p>
-              <p className="truncate text-xs text-muted-foreground">{s.label}</p>
-              {s.note && <p className="truncate text-[11px] text-muted-foreground">{s.note}</p>}
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Summary tiles — clickable filters */}
+      <PulseStatTiles items={stats} />
 
-      {/* Table card with its filter bar */}
-      <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      {/* Table card with its filter bar (tiles scroll here; scroll-mt clears the sticky tabs) */}
+      <div ref={tableRef} className="scroll-mt-24 overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
           <div className="flex flex-wrap items-center gap-2">
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectCls}>

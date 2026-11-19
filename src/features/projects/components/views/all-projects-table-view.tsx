@@ -598,9 +598,9 @@ export function AllProjectsTableView({
   const [categoryParam, setCategoryTab] = useUrlState<"DIGITAL" | "SMM" | "TEMPLATES">("category", "DIGITAL", {
     allowed: PROJECT_CATEGORIES,
   });
-  // Project Template: internal SOPs, so not for client logins.
-  const canViewTemplates = (userRole as string) !== "CLIENT";
-  const categoryTab = categoryParam === "TEMPLATES" && !canViewTemplates ? "DIGITAL" : categoryParam;
+  // Project Template: managers only (team members and clients never see the tab).
+  const canViewTemplates = userRole === "ADMIN";
+  const requestedCategoryTab = categoryParam === "TEMPLATES" && !canViewTemplates ? "DIGITAL" : categoryParam;
   const [customTemplates, setCustomTemplates] = useState<ProjectTemplate[]>([]);
   const [templatesStatus, setTemplatesStatus] = useState<"LOADING" | "LOADED" | "FAILED">("LOADING");
   useEffect(() => {
@@ -916,6 +916,9 @@ export function AllProjectsTableView({
   const smmProjects = localProjects.filter((p) => isSMM(p));
   const digitalProjectsCount = digitalProjects.length;
   const smmProjectsCount = smmProjects.length;
+  // The SMM Projects tab is hidden when there are none, so fall back to Digital.
+  const showSmmTab = smmProjectsCount > 0;
+  const categoryTab = requestedCategoryTab === "SMM" && !showSmmTab ? "DIGITAL" : requestedCategoryTab;
 
   const currentCategoryProjects = categoryTab === "DIGITAL" ? digitalProjects : smmProjects;
 
@@ -1459,6 +1462,7 @@ export function AllProjectsTableView({
               {digitalProjectsCount}
             </span>
           </button>
+          {showSmmTab && (
           <button
             type="button"
             onClick={() => setCategoryTab("SMM")}
@@ -1477,6 +1481,7 @@ export function AllProjectsTableView({
               {smmProjectsCount}
             </span>
           </button>
+          )}
           {canViewTemplates && (
             <button
               type="button"

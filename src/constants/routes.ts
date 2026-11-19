@@ -23,6 +23,8 @@ export const ROUTES = {
   settingsUsers: "/settings/users",
   settingsUsersNew: "/settings/users/member/new",
   settingsUsersEdit: (userId: string) => `/settings/users/member/${userId}/edit` as const,
+  /** The full member form (photo, documents) — the page above shows the profile view by default. */
+  settingsUsersEditForm: (userId: string) => `/settings/users/member/${userId}/edit?form=full` as const,
   settingsProfileAccess: "/settings/profile-access",
   pulseHome: "/pulse/home",
   pulseLeave: "/pulse/leave",
@@ -32,6 +34,8 @@ export const ROUTES = {
   pulseRegularization: "/pulse/regularization",
   pulseReports: "/pulse/reports",
   pulseProfile: "/pulse/profile",
+  pulseMemberProfile: (userId: string) => `/pulse/profile/${userId}` as const,
+  pulseAddMember: "/pulse/profile/new",
   setu: "/setu",
   setuMeetings: "/setu/meetings",
   setuPipeline: "/setu/pipeline",

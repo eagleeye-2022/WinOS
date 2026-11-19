@@ -33,10 +33,11 @@ const PulseCrumbsContext = createContext<{
  * Adds page-level steps (tab, sub-view…) after the route's own steps. Called on every render of
  * the page, so the trail always shows the latest labels and click handlers.
  */
-export function usePulseCrumbs(crumbs: PulseCrumb[]) {
+export function usePulseCrumbs(crumbs: PulseCrumb[] | null) {
   const ctx = useContext(PulseCrumbsContext);
   useEffect(() => {
-    if (!ctx) return;
+    // null: a workspace embedded in another page (e.g. a profile tab) leaves the trail to its host.
+    if (!ctx || !crumbs) return;
     const token = {};
     ctx.register(token, crumbs);
     return () => ctx.unregister(token);
@@ -69,7 +70,9 @@ function routeCrumbs(pathname: string): PulseCrumb[] {
   if (p === "/pulse/leave/adjust") return [PULSE, TEAM_LEAVE, { label: "Adjust Balance" }];
   if (p === "/pulse/leave" || p.startsWith("/pulse/leave/")) return [PULSE, { label: "My Leaves", href: "/pulse/leave" }];
   if (p === "/pulse/reports" || p === "/pulse/team-leave-payroll") return [PULSE, { label: "Reports", href: "/pulse/reports" }];
-  if (p === "/pulse/profile") return [PULSE, { label: "Profile", href: "/pulse/profile" }];
+  if (p === "/pulse/profile") return [PULSE, { label: "My Profile", href: "/pulse/profile" }];
+  // Another member's profile (managers): the page adds their name and the open section.
+  if (/^\/pulse\/profile\/[^/]+$/.test(p)) return [PULSE];
   if ((m = /^\/pulse\/whyfi-learning\/([^/]+)\/tasks\/[^/]+$/.exec(p)))
     return [PULSE, WHYFI, { label: "List", href: `/pulse/whyfi-learning/${m[1]}` }, { label: "Task" }];
   if ((m = /^\/pulse\/whyfi-learning\/([^/]+)$/.exec(p))) return [PULSE, WHYFI, { label: "List", href: `/pulse/whyfi-learning/${m[1]}` }];

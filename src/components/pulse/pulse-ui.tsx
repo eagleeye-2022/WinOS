@@ -181,6 +181,76 @@ export function PulseStickyTabs({ tabs, className }: { tabs: PulseTab[]; classNa
   );
 }
 
+// ── Stat tiles ───────────────────────────────────────────────────────────────
+
+export interface PulseStat {
+  label: string;
+  value: number;
+  tone: PulseTone;
+  icon: ReactNode;
+  /** Small extra line under the label. */
+  note?: string;
+  /** Makes the tile a button — e.g. apply the matching filter and scroll to the list. */
+  onClick?: () => void;
+  /** This tile's filter is the one applied — highlighted. */
+  active?: boolean;
+}
+
+/**
+ * Row of compact stat tiles (icon circle · number · label). Tiles with `onClick` are buttons: click
+ * one to filter the list below by it (see scrollToList), click it again to clear.
+ */
+export function PulseStatTiles({ items, className }: { items: PulseStat[]; className?: string }) {
+  return (
+    <div className={cn("grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5", className)}>
+      {items.map((s) => {
+        const body = (
+          <>
+            <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", TONE_SOFT[s.tone])}>{s.icon}</span>
+            <span className="min-w-0 text-left">
+              <span className="block text-xl font-bold tabular-nums text-foreground">{s.value}</span>
+              <span className="block truncate text-xs text-muted-foreground">{s.label}</span>
+              {s.note && <span className="block truncate text-[11px] text-muted-foreground">{s.note}</span>}
+            </span>
+          </>
+        );
+        const base =
+          "flex items-center gap-3 rounded-lg border bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+        return s.onClick ? (
+          <button
+            key={s.label}
+            type="button"
+            onClick={s.onClick}
+            aria-pressed={Boolean(s.active)}
+            title={s.active ? `Showing ${s.label} — click to clear` : `Show ${s.label}`}
+            className={cn(
+              base,
+              "cursor-pointer transition-colors hover:border-blue-400/60 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40",
+              s.active ? "border-blue-500 ring-1 ring-blue-500/40" : "border-border/70"
+            )}
+          >
+            {body}
+          </button>
+        ) : (
+          <div key={s.label} className={cn(base, "border-border/70")}>
+            {body}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Smoothly scrolls a list (or its filter bar) into view after a stat tile applies a filter. Give the
+ * target a `scroll-mt-*` class so a sticky tab bar doesn't cover it.
+ */
+export function scrollToList(el: HTMLElement | null) {
+  if (!el) return;
+  // Next frame, so the filtered list has rendered before measuring.
+  requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "start" }));
+}
+
 // ── Pills ────────────────────────────────────────────────────────────────────
 
 export function StatusPill({ tone, children, className }: { tone: PulseTone; children: ReactNode; className?: string }) {

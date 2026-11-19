@@ -28,6 +28,7 @@ import { toast } from "@/components/shared/toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ChecklistChip } from "@/features/sop-checklists/components/checklist-chip";
 import { cn } from "@/lib/utils";
+import { SubtaskTree } from "@/components/shared/subtask-tree";
 import { useUrlState, writeSearchParam } from "@/lib/navigation/use-url-state";
 import {
   ProjectTemplate,
@@ -2021,13 +2022,10 @@ function TemplateSubtaskList({
   };
 
   return (
-    <div
-      className="relative ml-2.5 mt-1 space-y-2 border-l-2 border-cyan-400/70 dark:border-cyan-500/50 pl-3"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {subtasks.map((subtask, index) => (
-        <div key={index} className="relative">
-          <span className="absolute -left-3 top-4 w-3 border-t-2 border-cyan-400/70 dark:border-cyan-500/50" />
+    <SubtaskTree
+      items={subtasks.map((subtask, index) => ({
+        key: index,
+        content: (
           <TemplateSubtaskCard
             subtask={subtask}
             code={`${parentCode}.${index + 1}`}
@@ -2044,9 +2042,10 @@ function TemplateSubtaskList({
             otherTemplates={otherTemplates}
             onMoveToTemplate={onMoveToTemplate}
           />
-        </div>
-      ))}
-      {isAdding && (
+        ),
+      }))}
+      after={
+        isAdding && (
         <input
           type="text"
           autoFocus
@@ -2065,8 +2064,9 @@ function TemplateSubtaskList({
           aria-label="New subtask name"
           className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary"
         />
-      )}
-    </div>
+        )
+      }
+    />
   );
 }
 

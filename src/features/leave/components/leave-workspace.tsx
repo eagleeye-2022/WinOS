@@ -22,7 +22,7 @@ import { LeaveRequestDetailsView } from "./leave-request-details-view";
 import { CompensatoryDetailsView } from "./compensatory-details-view";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { PULSE_PAGE_BG, PulseStickyTabs, StatusPill } from "@/components/pulse/pulse-ui";
+import { PULSE_PAGE_BG, PulseStickyTabs, PulseTabs, StatusPill } from "@/components/pulse/pulse-ui";
 import { useUrlState } from "@/lib/navigation/use-url-state";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 import { toast } from "@/components/shared/toast";
@@ -56,6 +56,8 @@ interface LeaveWorkspaceProps {
    * not-found fallback go back to the Team Leave lists instead of the manager's own leave.
    */
   teamView?: boolean;
+  /** Shown as a tab inside another page (the profile): no page frame, no sticky tabs, no breadcrumb. */
+  embedded?: boolean;
 }
 
 /** The Team Leave tab each detail view belongs to. */
@@ -69,6 +71,7 @@ export function LeaveWorkspace({
   initialSelectedRequestId,
   initialSelectedCompRequestId,
   teamView = false,
+  embedded = false,
 }: LeaveWorkspaceProps) {
   const router = useRouter();
   // List tabs live in the URL (restored on return, Back/Forward-able). Form / detail views depend
@@ -106,7 +109,7 @@ export function LeaveWorkspace({
   const subView = SUB_VIEW[activeTab];
   const crumbTab: ListTab = subView ? subView.parent : (activeTab as ListTab);
   const teamList = teamView && (crumbTab === "requests" || crumbTab === "compensatory") ? TEAM_LIST[crumbTab] : null;
-  usePulseCrumbs([
+  usePulseCrumbs(embedded ? null : [
     teamList
       ? { label: teamList.label, href: teamList.href }
       : { label: LIST_LABEL[crumbTab], onClick: () => setActiveTab(crumbTab) },
@@ -276,8 +279,18 @@ export function LeaveWorkspace({
     );
   }
 
+  const LeaveTabs = embedded ? PulseTabs : PulseStickyTabs;
+
   return (
-    <div ref={scrollRef} className={cn("flex flex-col h-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6 space-y-4 select-none", PULSE_PAGE_BG)}>
+    <div
+      ref={scrollRef}
+      className={cn(
+        "flex flex-col space-y-4 select-none",
+        // Embedded: the host page already scrolls and has its own background and padding.
+        !embedded && "h-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6",
+        !embedded && PULSE_PAGE_BG
+      )}
+    >
       {/* 1. APPLY LEAVE VIEW */}
       {activeTab === "apply" && (
         <ApplyLeaveForm
@@ -339,7 +352,7 @@ export function LeaveWorkspace({
         activeTab !== "compensatory-details" && (
           <>
             {/* Top Navigation Tabs — sticky (not fixed): pinned to the top while this page scrolls. */}
-            <PulseStickyTabs
+            <LeaveTabs
               tabs={[
                 { label: "Overview", active: activeTab === "overview", onClick: () => setActiveTab("overview") },
                 { label: "Leave Request", active: activeTab === "requests", onClick: () => setActiveTab("requests") },

@@ -154,7 +154,7 @@ export function UsersTableView({
       `"${u.email}"`,
       `"${u.userType}"`,
       `"${u.role}"`,
-      `"${u.portalProfile || "Employee"}"`,
+      `"${u.portalProfile || "Member"}"`,
       `"${u.projects || "All"}"`,
     ]);
     const csvContent =
@@ -342,7 +342,7 @@ export function UsersTableView({
                         </td>
 
                         {/* <td className="py-3 px-4 border-r text-foreground font-medium whitespace-nowrap">
-                          {user.portalProfile || "Employee"}
+                          {user.portalProfile || "Member"}
                         </td> */}
 
                         <td className="py-3 px-4 text-center whitespace-nowrap">

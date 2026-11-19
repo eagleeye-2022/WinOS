@@ -156,8 +156,12 @@ export async function getPulseHomeData(userId: string): Promise<PulseHomeData | 
   const lopRange = previousMonthRange(todayKey);
   const monthStartKey = `${todayKey.slice(0, 7)}-01`;
 
-  // Department colleagues; without a department, fall back to people sharing the same manager.
-  const peerWhere = me.department
+  // Managers see every member. Everyone else sees department colleagues; without a department,
+  // people sharing the same manager.
+  const isManagerView = canManageAttendance(me);
+  const peerWhere = isManagerView
+    ? {}
+    : me.department
     ? { department: me.department }
     : me.reportingToId
     ? { reportingToId: me.reportingToId }
@@ -187,7 +191,7 @@ export async function getPulseHomeData(userId: string): Promise<PulseHomeData | 
   const manager = me.reportingTo?.isActive ? me.reportingTo : null;
   const others = [...(manager ? [manager] : []), ...peers];
   const othersRange = others.length
-    ? await loadAttendanceRange(others.map((u) => u.id), todayKey, todayKey)
+    ? await loadAttendanceRange([...new Set(others.map((u) => u.id))], todayKey, todayKey)
     : null;
   const presenceOf = (id: string) => {
     const [day] = othersRange!.daysFor(id, [todayKey]);
@@ -273,19 +277,20 @@ export async function getPulseHomeData(userId: string): Promise<PulseHomeData | 
 
   return {
     greeting: istGreeting(),
-    canManage: canManageAttendance(me),
+    canManage: isManagerView,
     me: { ...toPerson(me, presenceLabel(labelInput(todayDay, todayKey))), department: me.department },
     today: {
       key: todayKey,
       isLive,
       checkedIn: Boolean(att?.checkInTime),
       checkedOut: Boolean(att?.checkOutTime) && !isLive,
-      workMode: att?.workMode === "REMOTE" ? "REMOTE" : "OFFICE",
+      // Remote by default; once checked in, the mode they picked.
+      workMode: att?.checkInTime && att.workMode === "OFFICE" ? "OFFICE" : "REMOTE",
       bankedMinutes: isLive ? att!.workedMinutes : workedMinutesOf(todayDay, todayKey),
       liveSince: isLive ? att!.liveSince!.toISOString() : null,
     },
     manager: manager ? toPerson(manager, presenceOf(manager.id)) : null,
-    departmentLabel: me.department ? "Department Members" : "Team Members",
+    departmentLabel: isManagerView ? "All Members" : me.department ? "Department Members" : "Team Members",
     members: peers.map((p) => toPerson(p, presenceOf(p.id))),
     todayLabel: `${FULL_DAY_NAMES[dateFromKey(todayKey)!.getUTCDay()]}, ${formatLongDate(todayKey)}`,
     todaySummary,

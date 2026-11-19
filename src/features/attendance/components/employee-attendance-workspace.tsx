@@ -20,7 +20,11 @@ import { addDaysToKey, istDateKey } from "../utils";
 import { EmployeeAttendanceView } from "./employee-attendance-view";
 import { RegularizeAttendanceFormPage } from "./regularize-attendance-form-page";
 
-export function EmployeeAttendanceWorkspace({ userId }: { userId: string }) {
+/**
+ * `embedded`: shown as a tab inside the member's profile — no page frame, no breadcrumb, and no
+ * member switcher (the profile header already says who this is).
+ */
+export function EmployeeAttendanceWorkspace({ userId, embedded = false }: { userId: string; embedded?: boolean }) {
   const router = useRouter();
   const [employee, setEmployee] = useState<EmployeeProfile | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,17 +43,20 @@ export function EmployeeAttendanceWorkspace({ userId }: { userId: string }) {
   const name = employee?.name ?? "Team Member";
   usePulseCrumbs(
     useMemo(
-      () => [
-        { label: name, onClick: () => setRegularizing(false) },
-        ...(regularizing ? [{ label: "Regularize on Behalf" }] : [{ label: "Attendance Log" }]),
-      ],
-      [name, regularizing]
+      () =>
+        embedded
+          ? null
+          : [
+              { label: name, onClick: () => setRegularizing(false) },
+              ...(regularizing ? [{ label: "Regularize on Behalf" }] : [{ label: "Attendance Log" }]),
+            ],
+      [name, regularizing, embedded]
     )
   );
 
   useEffect(() => {
-    document.title = `${name} · Attendance | WinOS`;
-  }, [name]);
+    if (!embedded) document.title = `${name} · Attendance | WinOS`;
+  }, [name, embedded]);
 
   if (error) {
     return (
@@ -70,8 +77,26 @@ export function EmployeeAttendanceWorkspace({ userId }: { userId: string }) {
 
   const todayKey = istDateKey();
 
+  const regularizeButton = (
+    <Button
+      type="button"
+      onClick={() => setRegularizing(true)}
+      className="h-8 gap-1.5 rounded-md bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700"
+    >
+      <UserPlus className="h-3.5 w-3.5" />
+      Regularize on Behalf
+    </Button>
+  );
+
   return (
-    <div className={cn("flex h-full select-none flex-col space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6", PULSE_PAGE_BG)}>
+    <div
+      className={cn(
+        "flex select-none flex-col space-y-4",
+        // Embedded: the host page already scrolls and has its own background and padding.
+        !embedded && "h-full overflow-y-auto px-4 py-4 sm:px-6 sm:py-6",
+        !embedded && PULSE_PAGE_BG
+      )}
+    >
       {regularizing ? (
         <RegularizeAttendanceFormPage
           onBack={() => setRegularizing(false)}
@@ -86,6 +111,9 @@ export function EmployeeAttendanceWorkspace({ userId }: { userId: string }) {
         />
       ) : (
         <>
+          {embedded ? (
+            <div className="flex justify-end">{regularizeButton}</div>
+          ) : (
           <EmployeeSwitcherHeader
             employee={{
               id: employee.id,
@@ -105,17 +133,11 @@ export function EmployeeAttendanceWorkspace({ userId }: { userId: string }) {
                     Leave
                   </Link>
                 </Button>
-                <Button
-                  type="button"
-                  onClick={() => setRegularizing(true)}
-                  className="h-8 gap-1.5 rounded-md bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700"
-                >
-                  <UserPlus className="h-3.5 w-3.5" />
-                  Regularize on Behalf
-                </Button>
+                {regularizeButton}
               </>
             }
           />
+          )}
           <EmployeeAttendanceView
             key={version}
             employee={employee}

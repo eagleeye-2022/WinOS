@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -10,7 +11,9 @@ import {
   Loader2,
   LogIn,
   LogOut,
+  Search,
   TreePalm,
+  UserPlus,
   Users,
   WalletCards,
 } from "lucide-react";
@@ -153,7 +156,7 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
         <div className="mt-3 space-y-2">
           {!today.checkedIn && (
             <div className="grid grid-cols-2 rounded-md border border-border/70 bg-muted/50 p-0.5 text-xs font-semibold">
-              {(["OFFICE", "REMOTE"] as const).map((mode) => (
+              {(["REMOTE", "OFFICE"] as const).map((mode) => (
                 <button
                   key={mode}
                   type="button"
@@ -202,7 +205,7 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
   );
 }
 
-function PersonRow({ person }: { person: PulsePerson }) {
+function PersonRow({ person, profileHref }: { person: PulsePerson; profileHref?: string }) {
   const tone = TONE[person.presence.tone];
   return (
     <div className="flex items-center gap-3">
@@ -229,6 +232,15 @@ function PersonRow({ person }: { person: PulsePerson }) {
         </p>
         <p className={cn("text-xs", TONE_TEXT[tone])}>{person.presence.label}</p>
       </div>
+      {/* Managers: open this member's profile (details, attendance, leave). */}
+      {profileHref && (
+        <Link
+          href={profileHref}
+          className="ml-auto shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50 hover:text-foreground dark:text-blue-400 dark:hover:bg-blue-500/10"
+        >
+          Profile
+        </Link>
+      )}
     </div>
   );
 }
@@ -502,6 +514,151 @@ function SunriseBanner() {
   );
 }
 
+// ── Member search (managers) ─────────────────────────────────────────────────
+
+const MAX_RESULTS = 8;
+
+/**
+ * Find a team member by name, member ID, email or designation and open their profile. Searches the
+ * member list this page already loaded (managers get everyone), so typing makes no extra requests.
+ */
+function MemberSearch({ members }: { members: PulsePerson[] }) {
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  /** Just a search icon until clicked; then the field appears. */
+  const [expanded, setExpanded] = useState(false);
+
+  const q = query.trim().toLowerCase();
+  const results = q
+    ? members
+        .filter((m) =>
+          [m.name, m.employeeId, m.email, m.title].some((v) => v && v.toLowerCase().includes(q))
+        )
+        .slice(0, MAX_RESULTS)
+    : [];
+
+  const openProfile = (m: PulsePerson) => {
+    setOpen(false);
+    setQuery("");
+    setExpanded(false);
+    router.push(`/pulse/profile/${m.id}`);
+  };
+
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        title="Search team members"
+        aria-label="Search team members"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        <Search className="h-4 w-4" />
+      </button>
+    );
+  }
+
+  const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setOpen(true);
+      setHighlight((h) => Math.min(h + 1, results.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Enter" && results[highlight]) {
+      e.preventDefault();
+      openProfile(results[highlight]);
+    } else if (e.key === "Escape") {
+      setOpen(false);
+      setQuery("");
+      setExpanded(false);
+    }
+  };
+
+  return (
+    <div className="relative w-48 shrink-0 sm:w-60">
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setHighlight(0);
+          setOpen(true);
+        }}
+        autoFocus
+        onFocus={() => setOpen(true)}
+        // Delay so a click on a result lands before the list closes; with nothing typed, fold back to the icon.
+        onBlur={() =>
+          setTimeout(() => {
+            setOpen(false);
+            if (!query.trim()) setExpanded(false);
+          }, 120)
+        }
+        onKeyDown={onKeyDown}
+        placeholder="Search team members…"
+        aria-label="Search team members"
+        role="combobox"
+        aria-expanded={open && q.length > 0}
+        aria-controls="pulse-member-search-results"
+        className="h-9 w-full rounded-md border border-border/70 bg-background pl-9 pr-3 text-sm text-foreground shadow-[0_1px_2px_rgba(15,23,42,0.04)] outline-none transition-colors placeholder:text-muted-foreground focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+      />
+
+      {open && q && (
+        <ul
+          id="pulse-member-search-results"
+          role="listbox"
+          className="absolute right-0 z-30 mt-2 max-h-96 w-80 overflow-y-auto rounded-lg border border-border/70 bg-popover p-1 shadow-lg"
+        >
+          {results.length === 0 ? (
+            <li className="px-3 py-6 text-center text-xs text-muted-foreground">No team member matches “{query.trim()}”.</li>
+          ) : (
+            results.map((m, i) => (
+              <li key={m.id} role="option" aria-selected={i === highlight}>
+                <button
+                  type="button"
+                  // mousedown (not click) so the input's blur doesn't close the list first.
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    openProfile(m);
+                  }}
+                  onMouseEnter={() => setHighlight(i)}
+                  className={cn(
+                    "flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors",
+                    i === highlight ? "bg-accent" : "hover:bg-accent/60"
+                  )}
+                >
+                  <UserAvatar
+                    name={m.name}
+                    email={m.email}
+                    image={m.image}
+                    className="h-9 w-9 rounded-full bg-blue-50 text-xs font-bold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300"
+                  >
+                    {initials(m.name)}
+                  </UserAvatar>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm text-foreground">
+                      {m.employeeId && <span className="text-muted-foreground">{m.employeeId} - </span>}
+                      <span className="font-medium">{m.name}</span>
+                    </span>
+                    <span className="block truncate text-xs text-muted-foreground">{m.title || m.email}</span>
+                  </span>
+                  <span className={cn("shrink-0 text-[11px] font-medium", TONE_TEXT[TONE[m.presence.tone]])}>
+                    {m.presence.label}
+                  </span>
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export function PulseHomeView({ data }: { data: PulseHomeData }) {
@@ -542,7 +699,7 @@ export function PulseHomeView({ data }: { data: PulseHomeData }) {
             >
               <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
                 {data.members.map((m) => (
-                  <PersonRow key={m.id} person={m} />
+                  <PersonRow key={m.id} person={m} profileHref={data.canManage ? `/pulse/profile/${m.id}` : undefined} />
                 ))}
               </div>
             </PulseCard>
@@ -552,7 +709,24 @@ export function PulseHomeView({ data }: { data: PulseHomeData }) {
         {/* Right column */}
         {/* pt-16 drops the tab strip just below the banner instead of over it. */}
         <main className="min-w-0 space-y-4 pt-16">
-          <PulseTabs tabs={tabs} />
+          {data.canManage ? (
+            // Managers: a search icon right after the last tab, inside the same strip.
+            <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-card pr-2 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+              <PulseTabs tabs={tabs} className="min-w-0 border-0 bg-transparent shadow-none" />
+              <MemberSearch members={data.members} />
+              <Link
+                href={ROUTES.pulseAddMember}
+                title="Add team member"
+                aria-label="Add team member"
+                className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-2.5 text-[13px] font-semibold text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-500/10"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span className="hidden xl:inline">Add Member</span>
+              </Link>
+            </div>
+          ) : (
+            <PulseTabs tabs={tabs} />
+          )}
           <GreetingCard data={data} />
           <AbsentDaysCard days={data.absentDays} onApply={setApplyFor} />
           <WorkScheduleCard schedule={data.schedule} />

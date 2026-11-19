@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -42,7 +42,16 @@ import { CreateLeaveTypeWizard } from "./create-leave-type-wizard";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserName } from "@/components/shared/user-card";
-import { PULSE_PAGE_BG, PulseStickyTabs, StatusPill, TONE_DOT, TONE_SOFT, type PulseTone } from "@/components/pulse/pulse-ui";
+import {
+  PULSE_PAGE_BG,
+  PulseStatTiles,
+  PulseStickyTabs,
+  StatusPill,
+  TONE_DOT,
+  scrollToList,
+  type PulseStat,
+  type PulseTone,
+} from "@/components/pulse/pulse-ui";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 
 const STATUS_LOOK: Record<string, { label: string; tone: PulseTone }> = {
@@ -52,22 +61,7 @@ const STATUS_LOOK: Record<string, { label: string; tone: PulseTone }> = {
   CANCELLED: { label: "Cancelled", tone: "gray" },
 };
 
-/** Row of compact stat tiles (icon circle · number · label). */
-function MetricTiles({ items }: { items: { label: string; value: number; tone: PulseTone; icon: React.ReactNode }[] }) {
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-      {items.map((s) => (
-        <div key={s.label} className="flex items-center gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3">
-          <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", TONE_SOFT[s.tone])}>{s.icon}</span>
-          <div>
-            <p className="text-xl font-bold tabular-nums text-foreground">{s.value}</p>
-            <p className="text-xs text-muted-foreground">{s.label}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+type StatusCounts = { pending: number; approved: number; rejected: number; cancelled: number; total: number };
 import { useUrlState } from "@/lib/navigation/use-url-state";
 import { PeriodNav, currentPeriod, overlapsPeriod, type Period } from "@/components/shared/period-nav";
 
@@ -198,6 +192,23 @@ export function TeamLeaveWorkspace({
   const [period, setPeriod] = useUrlState<Period>("month", currentPeriod("month"));
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
+
+  // Stat tiles: click one to set the Status filter to it and jump to the list (again to clear).
+  const requestsFilterRef = useRef<HTMLDivElement>(null);
+  const compFilterRef = useRef<HTMLDivElement>(null);
+  const statusTiles = (m: StatusCounts, list: "requests" | "compensatory"): PulseStat[] => {
+    const pick = (status: string) => () => {
+      setSelectedStatus(status !== "ALL" && selectedStatus === status ? "ALL" : status);
+      scrollToList((list === "requests" ? requestsFilterRef : compFilterRef).current);
+    };
+    return [
+      { label: "Pending", value: m.pending, tone: "amber", icon: <Clock className="h-4 w-4" />, onClick: pick("PENDING"), active: selectedStatus === "PENDING" },
+      { label: "Approved", value: m.approved, tone: "green", icon: <CheckCircle2 className="h-4 w-4" />, onClick: pick("APPROVED"), active: selectedStatus === "APPROVED" },
+      { label: "Rejected", value: m.rejected, tone: "red", icon: <XCircle className="h-4 w-4" />, onClick: pick("REJECTED"), active: selectedStatus === "REJECTED" },
+      { label: "Cancelled", value: m.cancelled, tone: "gray", icon: <Ban className="h-4 w-4" />, onClick: pick("CANCELLED"), active: selectedStatus === "CANCELLED" },
+      { label: "Total In Period", value: m.total, tone: "blue", icon: <Calendar className="h-4 w-4" />, onClick: pick("ALL"), active: selectedStatus === "ALL" },
+    ];
+  };
   /** The request the approve-with-note dialog is open for. */
   const [approveTarget, setApproveTarget] = useState<{ kind: "leave" | "comp"; id: string; label: string } | null>(null);
 
@@ -427,18 +438,10 @@ export function TeamLeaveWorkspace({
             <h1 className="text-lg font-semibold text-foreground">All Leave Requests</h1>
           </div>
 
-          <MetricTiles
-            items={[
-              { label: "Pending", value: metrics.pending, tone: "amber", icon: <Clock className="h-4 w-4" /> },
-              { label: "Approved", value: metrics.approved, tone: "green", icon: <CheckCircle2 className="h-4 w-4" /> },
-              { label: "Rejected", value: metrics.rejected, tone: "red", icon: <XCircle className="h-4 w-4" /> },
-              { label: "Cancelled", value: metrics.cancelled, tone: "gray", icon: <Ban className="h-4 w-4" /> },
-              { label: "Total In Period", value: metrics.total, tone: "blue", icon: <Calendar className="h-4 w-4" /> },
-            ]}
-          />
+          <PulseStatTiles items={statusTiles(metrics, "requests")} />
 
-          {/* Filter Bar */}
-          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          {/* Filter Bar (stat tiles scroll here; scroll-mt clears the sticky tabs) */}
+          <div ref={requestsFilterRef} className="scroll-mt-24 space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
             <div className="flex flex-wrap gap-3 items-center">
               {/* Search */}
               <div className="relative flex-1 min-w-[200px]">
@@ -686,18 +689,10 @@ export function TeamLeaveWorkspace({
             </Button>
           </div>
 
-          <MetricTiles
-            items={[
-              { label: "Pending", value: compMetrics.pending, tone: "amber", icon: <Clock className="h-4 w-4" /> },
-              { label: "Approved", value: compMetrics.approved, tone: "green", icon: <CheckCircle2 className="h-4 w-4" /> },
-              { label: "Rejected", value: compMetrics.rejected, tone: "red", icon: <XCircle className="h-4 w-4" /> },
-              { label: "Cancelled", value: compMetrics.cancelled, tone: "gray", icon: <Ban className="h-4 w-4" /> },
-              { label: "Total In Period", value: compMetrics.total, tone: "blue", icon: <Calendar className="h-4 w-4" /> },
-            ]}
-          />
+          <PulseStatTiles items={statusTiles(compMetrics, "compensatory")} />
 
-          {/* Filter Bar */}
-          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          {/* Filter Bar (stat tiles scroll here; scroll-mt clears the sticky tabs) */}
+          <div ref={compFilterRef} className="scroll-mt-24 space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
             <div className="flex flex-wrap gap-3 items-center">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />

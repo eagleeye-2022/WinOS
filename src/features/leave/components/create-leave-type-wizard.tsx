@@ -1221,18 +1221,19 @@ export function CreateLeaveTypeWizard({
                 </Select>
               </div>
 
-              {/* Employment Type */}
+              {/* Member Type (stored as the member's employment type) */}
               <div className="space-y-1.5">
                 <label className="font-semibold text-foreground">
-                  Employment Type
+                  Member Type
                 </label>
                 <Select value={employmentType} onValueChange={setEmploymentType}>
                   <SelectTrigger className="h-10 rounded-md text-xs bg-background font-medium">
-                    <SelectValue placeholder="All Employment Types" />
+                    <SelectValue placeholder="All Member Types" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="All Employment Types">All Employment Types</SelectItem>
-                    {/* Same list as a member's Employment Type in User Management. */}
+                    {/* The value stays "All Employment Types" — the wizard's "no restriction" marker. */}
+                    <SelectItem value="All Employment Types">All Member Types</SelectItem>
+                    {/* Same list as a member's Member Type in User Management. */}
                     {EMPLOYMENT_TYPES.map((t) => (
                       <SelectItem key={t} value={t}>
                         {t}

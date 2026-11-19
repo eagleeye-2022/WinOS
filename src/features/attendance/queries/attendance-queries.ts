@@ -708,14 +708,73 @@ export async function getTeamLeavePayrollData(monthIndex?: number, year?: number
 
 // ── 10. GET MY PROFILE DATA ──────────────────────────────────────────────────
 
+const profilePersonSelect = { id: true, name: true, email: true, image: true, employeeId: true, title: true } as const;
+
+/**
+ * Everything the Pulse profile shows — the same details as User Management's member form, never
+ * the password hash. Aadhaar / bank / documents are included here and blanked by the caller when
+ * the viewer may not see them.
+ */
+const profileSelect = {
+  ...profilePersonSelect,
+  role: true,
+  profileRole: true,
+  isActive: true,
+  department: true,
+  location: true,
+  employmentType: true,
+  dateOfJoining: true,
+  dateOfConfirmation: true,
+  dateOfBirth: true,
+  gender: true,
+  maritalStatus: true,
+  workMobile: true,
+  personalMobile: true,
+  parentGuardianName: true,
+  parentGuardianRelationship: true,
+  parentGuardianMobile: true,
+  permanentAddress: true,
+  personalEmail: true,
+  aadharNumber: true,
+  bankAccountNumber: true,
+  ifscCode: true,
+  documents: { select: { id: true, kind: true, fileName: true, fileUrl: true }, orderBy: { createdAt: "asc" as const } },
+  reportingToId: true,
+  secondaryReportingToId: true,
+  reportingTo: { select: profilePersonSelect },
+  secondaryReportingTo: { select: profilePersonSelect },
+} as const;
+
 export async function getMyProfileData() {
   const session = await requireSession();
 
-  return db.user.findUnique({
-    where: { id: session.user.id },
-    include: {
-      reportingTo: true,
-      secondaryReportingTo: true,
-    },
-  });
+  const user = await db.user.findUnique({ where: { id: session.user.id }, select: profileSelect });
+  // Your own Aadhaar / bank / documents are always yours to see.
+  return user ? { ...user, canSeeSensitive: true as boolean } : null;
+}
+
+// ── 11. GET A TEAM MEMBER'S PROFILE (manager view) ──────────────────────────
+
+/**
+ * Another member's profile for the Pulse profile page, for managers who manage them (the same people
+ * who can edit it inline — see updateProfileFieldAction). Anyone else is refused before any read.
+ */
+export async function getMemberProfileData(userId: string) {
+  const session = await requireSession();
+  const viewer = await viewerOf(session.user.id!);
+  if (!viewer || !(await canManageUser(viewer, userId))) throw new Error("Forbidden");
+
+  const user = await db.user.findUnique({ where: { id: userId }, select: profileSelect });
+  if (!user) return null;
+  // Managers who can open this profile can also see (and edit) its bank / identity details.
+  const canSeeSensitive: boolean = canManageAttendance(viewer);
+  const hide = !canSeeSensitive;
+  return {
+    ...user,
+    canSeeSensitive,
+    aadharNumber: hide ? null : user.aadharNumber,
+    bankAccountNumber: hide ? null : user.bankAccountNumber,
+    ifscCode: hide ? null : user.ifscCode,
+    documents: hide ? ([] as typeof user.documents) : user.documents,
+  };
 }
