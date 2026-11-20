@@ -30,6 +30,8 @@ type Props = {
   parkedTasks?: ParkedTask[];
   reportConfig: ReportConfig;
   timeSummary?: ReportTimeSummary;
+  /** Unmet submit rules (DSM, half-day hours, learning time) — see getReportSubmitBlockers. */
+  submitBlockers?: string[];
   memberName?: string | null;
 };
 
@@ -48,6 +50,7 @@ export function DsrPageClient({
   parkedTasks = [],
   reportConfig,
   timeSummary,
+  submitBlockers = [],
   memberName,
 }: Props) {
   const [cascadingProjects, setCascadingProjects] = useState<CascadingProjectOption[]>([]);
@@ -70,6 +73,8 @@ export function DsrPageClient({
   const canEditExisting = isSubmittedNotReviewed;
   // The report no longer waits for the DSM review — members can fill and submit it any time.
   const editable = (canSubmit || isSubmittedNotReviewed || isEditing) && !isReviewed;
+  // First submission waits for the submit rules; saving changes to a submitted report doesn't.
+  const submitBlocked = canSubmit && submitBlockers.length > 0;
   const showForm = editable || justSubmitted || isReviewed;
   // The report being filled (stays on yesterday until the next-morning cut-off).
   const now = isoToUtcDate(todayDateStr);
@@ -164,6 +169,21 @@ export function DsrPageClient({
           </div>
         )}
 
+        {/* What still stops the first submit (checked again on the server when submitting). */}
+        {editable && submitBlocked && (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3.5">
+            <p className="text-sm font-semibold text-foreground">Before you can submit this report</p>
+            <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-sm text-muted-foreground">
+              {submitBlockers.map((b) => (
+                <li key={b}>{b}</li>
+              ))}
+            </ul>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              You can keep filling it in meanwhile — refresh the page once these are done.
+            </p>
+          </div>
+        )}
+
         {memberUserId && (
           <ParkingLotSection
             memberUserId={memberUserId}
@@ -191,6 +211,7 @@ export function DsrPageClient({
             timeSummary={timeSummary}
             memberName={memberName}
             userId={memberUserId}
+            submitBlockedReason={submitBlocked ? submitBlockers.join(" ") : undefined}
           />
         ) : (
           <>
@@ -266,7 +287,8 @@ export function DsrPageClient({
           <div className="shrink-0 border-t bg-card p-4 shadow-lg">
             <button
               type="button"
-              disabled={isSubmitting}
+              disabled={isSubmitting || submitBlocked}
+              title={submitBlocked ? submitBlockers.join(" ") : undefined}
               onClick={handlePanelSubmit}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 shadow-md disabled:opacity-50"
             >

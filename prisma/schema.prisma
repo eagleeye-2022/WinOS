@@ -1984,6 +1984,24 @@ model DailyAttendance {
   @@index([date, status])
 }
 
+/// One manager edit of a member's check-in / check-out times (editAttendanceTimesAction): the old and
+/// new times, who changed them and their note. Append-only history; no relations so it's additive.
+model AttendanceEdit {
+  id           String   @id @default(cuid())
+  userId       String
+  date         DateTime // Normalized to YYYY-MM-DDT00:00:00.000Z, like DailyAttendance.date
+  oldCheckIn   String?
+  oldCheckOut  String?
+  newCheckIn   String
+  newCheckOut  String
+  note         String?
+  editedById   String
+  editedByName String
+  createdAt    DateTime @default(now())
+
+  @@index([userId, date])
+}
+
 // ── 9. COMPANY HOLIDAYS ──────────────────────────────────────────────────────
 
 model Holiday {

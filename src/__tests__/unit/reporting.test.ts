@@ -12,9 +12,35 @@ import {
   getReportCutoff,
   getReportCutoffDayOffset,
   isReportLate,
+  reportSubmitBlockers,
   usableRecordingUrl,
   validateRecordingUrl,
 } from "@/features/dsr/reporting";
+
+describe("reportSubmitBlockers", () => {
+  const ok = { dsmSubmitted: true, isHalfDay: false, projectMinutes: 0, learningMinutes: 10 };
+
+  it("allows a full day with a submitted DSM and some learning time (no hours minimum)", () => {
+    expect(reportSubmitBlockers(ok)).toEqual([]);
+  });
+
+  it("needs the DSM submitted", () => {
+    expect(reportSubmitBlockers({ ...ok, dsmSubmitted: false })).toHaveLength(1);
+  });
+
+  it("needs learning time", () => {
+    expect(reportSubmitBlockers({ ...ok, learningMinutes: 0 })[0]).toMatch(/learning/i);
+  });
+
+  it("needs 4h on own tasks on a half day", () => {
+    expect(reportSubmitBlockers({ ...ok, isHalfDay: true, projectMinutes: 239 })[0]).toMatch(/4h.*3h 59m/);
+    expect(reportSubmitBlockers({ ...ok, isHalfDay: true, projectMinutes: 240 })).toEqual([]);
+  });
+
+  it("lists every unmet rule", () => {
+    expect(reportSubmitBlockers({ dsmSubmitted: false, isHalfDay: true, projectMinutes: 0, learningMinutes: 0 })).toHaveLength(3);
+  });
+});
 
 // ── Cut-off / late ────────────────────────────────────────────────────────────
 

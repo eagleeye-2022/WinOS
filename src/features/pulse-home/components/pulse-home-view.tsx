@@ -85,13 +85,32 @@ type RunningTimer = {
 const TIMER_POLL_MS = 30_000;
 const pad2 = (n: number) => String(n).padStart(2, "0");
 
+/** Today's total on all tasks as a boxed green clock: HH : MM : SS. */
+function TodayTotalClock({ totalSeconds }: { totalSeconds: number }) {
+  const parts = [Math.floor(totalSeconds / 3600), Math.floor((totalSeconds % 3600) / 60), totalSeconds % 60].map(pad2);
+  return (
+    <span className="flex items-center justify-center gap-1" aria-label={`Total today ${parts.join(":")}`}>
+      {parts.map((part, i) => (
+        <React.Fragment key={i}>
+          {i > 0 && <span className="text-sm font-bold text-muted-foreground">:</span>}
+          <span className="flex h-7 min-w-[2rem] items-center justify-center rounded-md border border-border/70 bg-muted/60 px-1.5 text-sm font-bold tabular-nums text-muted-foreground">
+            {part}
+          </span>
+        </React.Fragment>
+      ))}
+    </span>
+  );
+}
+
 /**
- * The project-task timer the user has running (started from any task), ticking every second.
+ * The project-task timer the user has running (started from any task), ticking every second,
+ * with today's total time on all tasks below it. With no timer running, only today's total shows.
  * Re-read every 30s and when the tab regains focus, so starting / stopping it elsewhere shows up.
- * Hidden when no timer is running.
  */
 function ActiveTaskTimer() {
   const [timer, setTimer] = useState<RunningTimer | null>(null);
+  /** Time logged today on all tasks / projects (billable + non-billable), not counting a running session. */
+  const [todayMinutes, setTodayMinutes] = useState<number | null>(null);
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
@@ -100,6 +119,7 @@ function ActiveTaskTimer() {
       getActiveTimerAction()
         .then((res) => {
           if (cancelled) return;
+          if (res.success && "todayLoggedMinutes" in res) setTodayMinutes(Number(res.todayLoggedMinutes) || 0);
           const t = res.success ? res.data : null;
           setTimer(
             t
@@ -132,32 +152,51 @@ function ActiveTaskTimer() {
     return () => clearInterval(id);
   }, [timer]);
 
-  if (!timer || now === null) return null;
+  const cardClass = "mt-3 flex w-full flex-col gap-1.5 py-1";
+
+  // No timer running: just today's total (it doesn't tick).
+  if (!timer) {
+    if (todayMinutes === null) return null;
+    return (
+      <div title="Total time logged today on all tasks" className="mt-3 flex w-full flex-col py-1">
+
+        <TodayTotalClock totalSeconds={todayMinutes * 60} />
+      </div>
+    );
+  }
+  if (now === null) return null;
 
   const seconds = Math.max(0, Math.floor((now - new Date(timer.startedAt).getTime()) / 1000));
   const elapsed = `${pad2(Math.floor(seconds / 3600))}:${pad2(Math.floor((seconds % 3600) / 60))}:${pad2(seconds % 60)}`;
+  // Today's total on all tasks and projects = time logged today + the running session (ticks with it).
+  const totalSeconds = (todayMinutes ?? 0) * 60 + seconds;
   const href = projectTaskHref(timer.projectId, timer.taskCode);
   const body = (
     <>
-      <span className="relative flex h-2 w-2 shrink-0">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+      <span className="flex w-full items-center gap-2.5">
+        <span className="relative flex h-2 w-2 shrink-0">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-muted-foreground opacity-50" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-muted-foreground" />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-muted-foreground">
+          {timer.taskCode || "Task"}
+        </span>
+        {/* Fixed width + tabular digits, so the time doesn't shift as it ticks. */}
+        <span className="w-[8ch] shrink-0 text-right font-mono text-sm font-semibold tabular-nums text-muted-foreground">
+          {elapsed}
+        </span>
       </span>
-      <span className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-foreground">
-        {timer.taskCode || "Task"}
-      </span>
-      {/* Fixed width + tabular digits, so the time doesn't shift as it ticks. */}
-      <span className="w-[8ch] shrink-0 text-right font-mono text-sm font-semibold tabular-nums text-foreground">
-        {elapsed}
+      {/* Today's total on all tasks as a big boxed clock: HH : MM : SS. */}
+      <span className="flex w-full flex-col items-center border-t border-border/70 pt-2">
+        <TodayTotalClock totalSeconds={totalSeconds} />
       </span>
     </>
   );
-  const className =
-    "mt-3 flex w-full items-center gap-2.5 rounded-md border border-emerald-500/40 bg-emerald-500/5 px-3 py-2 transition-colors";
+  const className = cardClass;
   const tooltip = [timer.taskTitle, timer.projectName].filter(Boolean).join(" · ");
 
   return href ? (
-    <Link href={href} title={tooltip} className={cn(className, "hover:bg-emerald-500/10")}>
+    <Link href={href} title={tooltip} className={cn(className, "hover:opacity-80")}>
       {body}
     </Link>
   ) : (
@@ -400,13 +439,14 @@ function WorkScheduleCard({ schedule }: { schedule: PulseHomeData["schedule"] })
       }
     >
       <div className="overflow-x-auto">
-        <div className="relative grid min-w-[680px] grid-cols-7">
-          {/* Timeline through the date circles (day label 16px + gap 8px + half of the 32px circle). */}
-          <div className="absolute left-4 right-4 top-10 h-px bg-border" />
+        <div className="relative grid min-w-[620px] grid-cols-7">
+          {/* Timeline from the first to the last date circle (each centred in an equal-width column;
+              top = day label 16px + gap 8px + half of the 32px circle). */}
+          <div className="absolute left-[calc(100%/14)] right-[calc(100%/14)] top-10 h-px bg-border" />
           {schedule.days.map((day) => {
             const tone = day.status ? TONE[day.status.tone] : "gray";
             return (
-              <div key={day.key} className="relative flex flex-col items-start pr-3">
+              <div key={day.key} className="relative flex min-w-0 flex-col items-center px-1.5 text-center">
                 <p
                   className={cn(
                     "mb-2 h-4 text-[11px] font-semibold uppercase tracking-wide",
@@ -431,7 +471,15 @@ function WorkScheduleCard({ schedule }: { schedule: PulseHomeData["schedule"] })
                   {day.dayNum}
                 </span>
                 {day.status && (
-                  <p className={cn("mt-2 text-xs font-semibold", TONE_TEXT[tone])}>{day.status.label}</p>
+                  // Check labels always take two lines: "Missing / Check-out", "Yet to / Check-in".
+                  <p
+                    className={cn(
+                      "mt-2 w-full whitespace-pre-line break-words text-xs font-semibold leading-snug",
+                      TONE_TEXT[tone]
+                    )}
+                  >
+                    {day.status.label.replace(/\s+(check)/i, "\n$1")}
+                  </p>
                 )}
                 {day.hours && <p className="mt-1 text-xs font-semibold text-foreground">{day.hours}</p>}
               </div>

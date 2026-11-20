@@ -50,6 +50,8 @@ export type WhyfiList = {
   name: string;
   description: string;
   createdAt: string;
+  /** Hidden by a manager — only managers receive these lists (see HIDDEN_LIST_STATUS). */
+  isHidden?: boolean;
   members: WhyfiUser[];
   tasks: WhyfiTask[];
 };
@@ -102,13 +104,22 @@ function toInitials(name: string): string {
 const DELETED_LIST_STATUS = "DELETED";
 const LIVE_LIST = { status: { not: DELETED_LIST_STATUS } };
 
-/** A learning list the actor may see: managers see every list, members only lists shared with them. */
+/**
+ * A list a manager hid (Hide list): gone from everyone's board and the DSM learning pickers until a
+ * manager unhides it. Managers still get it (flagged `isHidden`) so they can unhide it; its cards,
+ * time logs and already-linked DSM lines are untouched. Unhiding sets it back to ACTIVE.
+ */
+const HIDDEN_LIST_STATUS = "HIDDEN";
+const SHOWN_LIST = { status: { notIn: [DELETED_LIST_STATUS, HIDDEN_LIST_STATUS] } };
+
+/** A learning list the actor may see: managers see every list (hidden ones too), members only
+ *  shown lists shared with them. */
 async function findVisibleList(projectId: string, actor: { id: string; isManager: boolean }) {
   return d.project.findFirst({
     where: {
       id: projectId,
       projectCategory: LEARNING_PROJECT_CATEGORY,
-      ...LIVE_LIST,
+      ...(actor.isManager ? LIVE_LIST : SHOWN_LIST),
       ...(actor.isManager ? {} : { members: { some: { userId: actor.id } } }),
     },
     select: { id: true, code: true, name: true },
@@ -150,7 +161,8 @@ export async function getWhyfiWorkspaceAction(): Promise<WhyfiWorkspace | null> 
   const projects = await d.project.findMany({
     where: {
       projectCategory: LEARNING_PROJECT_CATEGORY,
-      ...LIVE_LIST,
+      // Managers also get hidden lists (shown under "Hidden lists" so they can unhide them).
+      ...(actor.isManager ? LIVE_LIST : SHOWN_LIST),
       ...(actor.isManager ? {} : { members: { some: { userId: actor.id } } }),
     },
     orderBy: { createdAt: "asc" },
@@ -159,6 +171,7 @@ export async function getWhyfiWorkspaceAction(): Promise<WhyfiWorkspace | null> 
       code: true,
       name: true,
       description: true,
+      status: true,
       createdAt: true,
       members: {
         select: { user: { select: { id: true, name: true, email: true } } },
@@ -218,6 +231,7 @@ export async function getWhyfiWorkspaceAction(): Promise<WhyfiWorkspace | null> 
       name: p.name,
       description: p.description || "",
       createdAt: p.createdAt.toISOString(),
+      isHidden: p.status === HIDDEN_LIST_STATUS,
       members: p.members.map((m: any) => toUser(m.user)),
       tasks: buildTaskTree(
         p.tasks.map(
@@ -308,7 +322,8 @@ export async function getMyWhyfiTasksAction(forUserId?: string): Promise<WhyfiPi
       status: { notIn: LEARNING_DONE_STATUSES },
       project: {
         projectCategory: LEARNING_PROJECT_CATEGORY,
-        ...LIVE_LIST,
+        // Hidden lists' cards aren't offered in the DSM pickers (for managers either).
+        ...SHOWN_LIST,
         ...(scopeUserId ? { members: { some: { userId: scopeUserId } } } : {}),
       },
       // A manager on a member's DSM review (/dsm/member/<id>) sees only that member's cards:
@@ -596,6 +611,21 @@ export async function deleteWhyfiListAction(projectId: string): Promise<ActionRe
   }
 
   await d.project.delete({ where: { id: projectId } });
+  revalidatePath(WHYFI_PATH);
+  return { success: true, data: undefined };
+}
+
+/** Hides a list from everyone's board and the DSM pickers, or shows it again (managers only). */
+export async function setWhyfiListHiddenAction(projectId: string, hidden: boolean): Promise<ActionResult> {
+  const actor = await getActor();
+  if (!actor) return { success: false, error: "Unauthorized" };
+  if (!actor.isManager) return { success: false, error: "Only a manager can hide or unhide a learning task list." };
+  if (!(await findVisibleList(projectId, actor))) return { success: false, error: "Task list not found." };
+
+  await d.project.update({
+    where: { id: projectId },
+    data: { status: hidden ? HIDDEN_LIST_STATUS : "ACTIVE" },
+  });
   revalidatePath(WHYFI_PATH);
   return { success: true, data: undefined };
 }

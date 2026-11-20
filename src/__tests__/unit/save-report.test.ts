@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
   const db = {
     user: { findUnique: vi.fn() },
     standupEntry: { findUnique: vi.fn() },
+    leaveRequest: { findFirst: vi.fn() },
     standupTask: { findMany: vi.fn(), update: vi.fn() },
     dsrEntry: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn() },
     dsrPlannedTask: { deleteMany: vi.fn(), createMany: vi.fn() },
@@ -69,9 +70,10 @@ beforeEach(() => {
   mocks.db.dsrEntry.findUnique.mockResolvedValue(null);
   mocks.db.dsrEntry.upsert.mockResolvedValue({ id: "e1" });
   mocks.db.dsrTimelineEvent.findFirst.mockResolvedValue(null);
+  mocks.db.leaveRequest.findFirst.mockResolvedValue(null);
   mocks.getDayEffort.mockResolvedValue([
     { taskId: "t1", minutes: 120, task: null },
-    { taskId: "t2", minutes: 45, task: null },
+    { taskId: "t2", minutes: 45, task: null, isLearning: true },
   ]);
   mocks.postToCliq.mockResolvedValue({ ok: true });
   mocks.auth.mockResolvedValue({ user: { id: "u1u1u1u1u1", role: "TEAM_MEMBER", name: "Asha" } });
@@ -182,12 +184,77 @@ describe("saveDsr: end-of-day report", () => {
     expect(mocks.redirect).toHaveBeenCalledWith("/report?submitted=1");
   });
 
-  it("lets the report be submitted when there is no DSM for the day", async () => {
+  it("refuses the submit when the day's DSM isn't submitted, and writes nothing", async () => {
     mocks.db.standupEntry.findUnique.mockResolvedValue(null);
+
+    const res = await saveDsr({}, form());
+
+    expect(res.message).toMatch(/DSM/);
+    expect(mocks.db.dsrEntry.upsert).not.toHaveBeenCalled();
+    expect(mocks.postToCliq).not.toHaveBeenCalled();
+  });
+
+  it("refuses the submit when the DSM is still a draft", async () => {
+    mocks.db.standupEntry.findUnique.mockResolvedValue({ status: "DRAFT", blockers: [], supportNeeds: [] });
+
+    const res = await saveDsr({}, form());
+
+    expect(res.message).toMatch(/DSM/);
+    expect(mocks.db.dsrEntry.upsert).not.toHaveBeenCalled();
+  });
+
+  it("refuses the submit with no learning time that day", async () => {
+    mocks.getDayEffort.mockResolvedValue([{ taskId: "t1", minutes: 480, task: null }]);
+
+    const res = await saveDsr({}, form());
+
+    expect(res.message).toMatch(/learning/i);
+    expect(mocks.db.dsrEntry.upsert).not.toHaveBeenCalled();
+  });
+
+  it("on a half day, refuses the submit under 4h on own tasks (learning time doesn't count)", async () => {
+    mocks.db.leaveRequest.findFirst.mockResolvedValue({ id: "l1" });
+    mocks.getDayEffort.mockResolvedValue([
+      { taskId: "t1", minutes: 200, task: null },
+      { taskId: "t2", minutes: 120, task: null, isLearning: true },
+    ]);
+
+    const res = await saveDsr({}, form());
+
+    expect(res.message).toMatch(/half day/i);
+    expect(mocks.db.dsrEntry.upsert).not.toHaveBeenCalled();
+  });
+
+  it("on a half day, submits once 4h are logged on own tasks", async () => {
+    mocks.db.leaveRequest.findFirst.mockResolvedValue({ id: "l1" });
+    mocks.getDayEffort.mockResolvedValue([
+      { taskId: "t1", minutes: 240, task: null },
+      { taskId: "t2", minutes: 30, task: null, isLearning: true },
+    ]);
 
     await saveDsr({}, form());
 
     expect(mocks.db.dsrEntry.upsert).toHaveBeenCalled();
+    expect(mocks.redirect).toHaveBeenCalledWith("/report?submitted=1");
+  });
+
+  it("doesn't re-check the rules when saving changes to an already-submitted report", async () => {
+    mocks.db.dsrEntry.findUnique.mockResolvedValue({ status: "SUBMITTED", submittedAt: new Date("2026-10-06T12:00:00Z") });
+    mocks.db.standupEntry.findUnique.mockResolvedValue(null);
+    mocks.getDayEffort.mockResolvedValue([]);
+
+    await saveDsr({}, form());
+
+    expect(mocks.db.dsrEntry.upsert).toHaveBeenCalled();
+  });
+
+  it("lets a draft be saved without meeting the submit rules", async () => {
+    mocks.db.standupEntry.findUnique.mockResolvedValue(null);
+    mocks.getDayEffort.mockResolvedValue([]);
+
+    const res = await saveDsr({}, form({ action: "draft" }));
+
+    expect(res).toEqual({ message: "saved" });
   });
 
   it("bails with a friendly message when the session user no longer exists", async () => {

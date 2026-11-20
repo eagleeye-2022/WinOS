@@ -235,11 +235,13 @@ export async function getMyLeaveTrackerDataAction(year = istYear(), forUserId?: 
   const eligible = (t: Parameters<typeof checkEligibility>[0]) => !facts || checkEligibility(t, facts, asOfKey) === null;
 
   // 1. Fetch balances. A balance row exists for every type at creation, so filter here too: a person
-  // only sees (and can apply for) the leave types that apply to them. Requests already made on a type
-  // that no longer applies still show in their request list below, where they can be viewed / cancelled.
+  // only sees (and can apply for) the leave types that apply to them — and only active ones: a type
+  // switched off in Leave Policy keeps its balance rows, but they're hidden until it's switched on
+  // again. Requests already made on a type that no longer applies (or was switched off) still show in
+  // their request list below, where they can be viewed / cancelled / approved.
   const userBalances = (
     await db.userLeaveBalance.findMany({
-      where: { userId, year },
+      where: { userId, year, leaveType: { isActive: true } },
       include: { leaveType: true },
       orderBy: { leaveType: { name: "asc" } },
     })
@@ -972,7 +974,8 @@ export async function getLeaveRequestByIdAction(requestId: string) {
       user: {
         include: {
           userLeaveBalances: {
-            where: { year: istYear() },
+            // Switched-off leave types (Leave Policy) aren't listed among the balances.
+            where: { year: istYear(), leaveType: { isActive: true } },
             include: { leaveType: true },
           },
         },

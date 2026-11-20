@@ -547,6 +547,178 @@ export async function reviewRegularizationAction(payload: {
   return { success: true };
 }
 
+// ── 4b. MANAGER EDITS A DAY'S CHECK-IN / CHECK-OUT TIMES ─────────────────────
+
+const EDIT_NOTE_MAX = 500;
+/** Source label on a time a manager changed (shown as "Attendance Source" in the details drawer). */
+const MANAGER_EDIT_SOURCE = "Edited by manager";
+
+/**
+ * A manager (or admin) sets a team member's check-in / check-out time for a day directly — no
+ * request/approval step. A note saying why is optional. Worked time is recalculated from the two
+ * times, the day is marked present, the edit is added to the day's history (AttendanceEdit) and the
+ * member is notified with the old and new times and the note. Not for their own attendance, not while
+ * the member is checked in (edit after they check out), and not for a future date.
+ */
+export async function editAttendanceTimesAction(payload: {
+  userId: string;
+  /** "YYYY-MM-DD" */
+  date: string;
+  checkInTime: string;
+  checkOutTime: string;
+  /** Why the times were changed — optional, shown to the member and kept in the history. */
+  note?: string;
+}): Promise<ActionResult> {
+  const actor = await currentUser();
+  if (!actor) return fail("Unauthorized");
+  if (!canManageAttendance(actor)) return fail("Only managers can edit attendance times.");
+  if (isSelfAction(actor, payload.userId)) {
+    return fail("You can't edit your own attendance — another manager or an admin has to.");
+  }
+  if (!(await canManageUser(actor, payload.userId))) {
+    return fail("You can only edit attendance for people in your team.");
+  }
+
+  const key = (payload.date || "").trim();
+  const date = dateFromKey(key);
+  if (!date) return fail("Pick a valid attendance date.");
+  if (key > istDateKey()) return fail("You can't edit a future date.");
+
+  const checkIn = normalizeTime(payload.checkInTime);
+  const checkOut = normalizeTime(payload.checkOutTime);
+  if (!checkIn || !checkOut) return fail("Enter both check-in and check-out times.");
+  const worked = workedMinutesBetween(checkIn, checkOut);
+  if (!worked) return fail("Check-out must be after check-in.");
+
+  const note = (payload.note || "").trim();
+  if (note.length > EDIT_NOTE_MAX) return fail(`Note must be under ${EDIT_NOTE_MAX} characters.`);
+
+  const [target, existing] = await Promise.all([
+    db.user.findUnique({ where: { id: payload.userId }, select: { id: true, isActive: true } }),
+    db.dailyAttendance.findUnique({ where: { userId_date: { userId: payload.userId, date } } }),
+  ]);
+  if (!target?.isActive) return fail("Team member not found.");
+  if (existing?.isLive) {
+    return fail("They're checked in right now — edit the times after they check out.");
+  }
+  if (existing?.checkInTime === checkIn && existing?.checkOutTime === checkOut) {
+    return fail("Those are already the recorded times.");
+  }
+
+  const inChanged = existing?.checkInTime !== checkIn;
+  const outChanged = existing?.checkOutTime !== checkOut;
+  await db.dailyAttendance.upsert({
+    where: { userId_date: { userId: payload.userId, date } },
+    create: {
+      userId: payload.userId,
+      date,
+      status: "PRESENT",
+      checkInTime: checkIn,
+      checkOutTime: checkOut,
+      checkInSource: MANAGER_EDIT_SOURCE,
+      checkOutSource: MANAGER_EDIT_SOURCE,
+      workMode: "OFFICE",
+      workedMinutes: worked,
+      isLive: false,
+    },
+    update: {
+      status: "PRESENT",
+      checkInTime: checkIn,
+      checkOutTime: checkOut,
+      // Only the side that changed is marked as edited; the other keeps its original source.
+      ...(inChanged && { checkInSource: MANAGER_EDIT_SOURCE }),
+      ...(outChanged && { checkOutSource: MANAGER_EDIT_SOURCE }),
+      workedMinutes: worked,
+      isLive: false,
+      liveSince: null,
+      actionRequiredType: null,
+      actionRequiredReason: null,
+    },
+  });
+
+  // History. Best-effort: until the AttendanceEdit table exists in the database the edit itself still
+  // goes through — only its history row is missing.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (db as any).attendanceEdit.create({
+      data: {
+        userId: payload.userId,
+        date,
+        oldCheckIn: existing?.checkInTime ?? null,
+        oldCheckOut: existing?.checkOutTime ?? null,
+        newCheckIn: checkIn,
+        newCheckOut: checkOut,
+        note: note || null,
+        editedById: actor.id,
+        editedByName: actor.name || "Manager",
+      },
+    });
+  } catch (err) {
+    console.error("[editAttendanceTimes] Couldn't save the edit history:", err instanceof Error ? err.message : err);
+  }
+
+  const day = key.split("-").reverse().join("/");
+  const before = existing?.checkInTime || existing?.checkOutTime
+    ? `${existing?.checkInTime || "—"} – ${existing?.checkOutTime || "—"}`
+    : "no times recorded";
+  await notify(actor.id, [
+    {
+      userId: payload.userId,
+      title: "Attendance times edited",
+      message: `${actor.name || "Your manager"} changed your attendance for ${day} from ${before} to ${checkIn} – ${checkOut}.${note ? ` Note: “${note}”` : ""}`,
+    },
+  ], { link: "/pulse/attendance" });
+
+  revalidateAttendance();
+  return { success: true };
+}
+
+export type AttendanceEditEntry = {
+  id: string;
+  oldCheckIn: string | null;
+  oldCheckOut: string | null;
+  newCheckIn: string;
+  newCheckOut: string;
+  note: string | null;
+  editedByName: string;
+  /** ISO timestamp of the edit. */
+  editedAt: string;
+};
+
+/**
+ * A day's manager edits, newest first. `userId` defaults to the signed-in user (their own day);
+ * someone else's needs the viewer to manage them. Empty when there are none — or the history table
+ * isn't in the database yet.
+ */
+export async function getAttendanceEditHistoryAction(dateKey: string, userId?: string): Promise<AttendanceEditEntry[]> {
+  const viewer = await currentUser();
+  if (!viewer) return [];
+  const targetId = userId || viewer.id;
+  if (targetId !== viewer.id && !(await canManageUser(viewer, targetId))) return [];
+  const date = dateFromKey((dateKey || "").trim());
+  if (!date) return [];
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rows: any[] = await (db as any).attendanceEdit.findMany({
+      where: { userId: targetId, date },
+      orderBy: { createdAt: "desc" },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      oldCheckIn: r.oldCheckIn,
+      oldCheckOut: r.oldCheckOut,
+      newCheckIn: r.newCheckIn,
+      newCheckOut: r.newCheckOut,
+      note: r.note,
+      editedByName: r.editedByName,
+      editedAt: r.createdAt.toISOString(),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // ── 5. CANCEL REGULARIZATION ACTION ──────────────────────────────────────────
 
 export async function cancelRegularizationAction(requestId: string): Promise<ActionResult> {

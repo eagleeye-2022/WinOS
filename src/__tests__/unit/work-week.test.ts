@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { isWeekendKey, normalizeSaturdaysOff, resolveDay } from "@/features/attendance/utils";
 import { countLeaveDays } from "@/features/leave/leave-rules";
-import { decodeSaturdaysOff, describeSaturdaysOff, encodeSaturdaysOff } from "@/features/users/work-week";
+import {
+  DEFAULT_WORK_WEEK,
+  decodeSaturdaysOff,
+  describeSaturdaysOff,
+  encodeSaturdaysOff,
+  WORK_WEEK_PRESETS,
+} from "@/features/users/work-week";
 import { parseProfileFieldValue } from "@/features/users/profile-fields";
 
 // November 2026: Saturdays are the 7th (1st), 14th (2nd), 21st (3rd), 28th (4th); Sundays 1, 8, 15…
@@ -55,6 +61,11 @@ describe("work-week form values", () => {
     expect(describeSaturdaysOff([1, 2, 3, 4, 5])).toBe("Saturday & Sunday off");
     expect(describeSaturdaysOff([])).toBe("Only Sunday off (all Saturdays working)");
     expect(describeSaturdaysOff([3, 4])).toBe("Sunday + 3rd & 4th Saturday off");
+  });
+
+  it("offers only 1st & 3rd and 3rd & 4th Saturday off; new members start on 1st & 3rd", () => {
+    expect(WORK_WEEK_PRESETS.map((p) => encodeSaturdaysOff(p.value))).toEqual(["1,3", "3,4"]);
+    expect(encodeSaturdaysOff(DEFAULT_WORK_WEEK)).toBe("1,3");
   });
 
   it("profile field parsing: empty = default, invalid = error", () => {

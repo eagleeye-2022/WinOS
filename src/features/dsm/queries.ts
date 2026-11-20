@@ -1371,6 +1371,8 @@ export type DayEffortRow = {
   taskId: string;
   minutes: number;
   task: { code: string; title: string; status?: string; dueDate?: string | null; project: { id: string; name: string } | null } | null;
+  /** Logged on a WhyFi School learning card (its project is a LEARNING list). */
+  isLearning?: boolean;
 };
 
 /**
@@ -1427,7 +1429,12 @@ export async function getDayEffort(userId: string, dStr: string): Promise<DayEff
             : null,
         }
       : null;
-    const row = byTask.get(log.taskId) ?? { taskId: log.taskId, minutes: 0, task };
+    const row = byTask.get(log.taskId) ?? {
+      taskId: log.taskId,
+      minutes: 0,
+      task,
+      isLearning: log.task?.project?.projectCategory === LEARNING_PROJECT_CATEGORY,
+    };
     row.minutes += log.duration;
     byTask.set(log.taskId, row);
   }

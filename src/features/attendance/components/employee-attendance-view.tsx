@@ -17,8 +17,10 @@ import { AttendanceWeekView } from "./attendance-week-view";
 import { AttendanceMonthView } from "./attendance-month-view";
 import { MonthlySummaryCard } from "./monthly-summary-card";
 import { ActionRequiredSection } from "./action-required-section";
-import { AttendanceDetailsDrawer } from "./attendance-details-drawer";
+import { AttendanceDetailsDrawer, type EditAttendanceTimes } from "./attendance-details-drawer";
 import { getMyAttendanceData } from "../queries/attendance-queries";
+import { editAttendanceTimesAction } from "../actions/attendance-actions";
+import { toast } from "@/components/shared/toast";
 import {
   MONTH_NAMES,
   dateFromKey,
@@ -61,6 +63,8 @@ export function EmployeeAttendanceView({
   const selected = dateFromKey(selectedDate)!;
   const monthIndex = selected.getUTCMonth();
   const year = selected.getUTCFullYear();
+  // Bumped after a manager edits a day's times, to reload the month.
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,6 +79,8 @@ export function EmployeeAttendanceView({
         setActionItems(data.actionRequired);
         setMonthlySummary(data.summary);
         setLoadError(null);
+        // The open drawer shows the reloaded day (e.g. the times just edited).
+        setSelectedRecordForDrawer((open) => (open && map[open.date] ? map[open.date] : open));
       })
       .catch((err) => {
         console.error("Failed to load employee attendance data:", err);
@@ -83,7 +89,21 @@ export function EmployeeAttendanceView({
     return () => {
       cancelled = true;
     };
-  }, [employee.id, monthIndex, year]);
+  }, [employee.id, monthIndex, year, reloadKey]);
+
+  // Manager edits the day's check-in / check-out (drawer → Edit times).
+  const handleEditTimes = async (record: AttendanceRecord, values: EditAttendanceTimes): Promise<string | null> => {
+    try {
+      const res = await editAttendanceTimesAction({ userId: employee.id, date: record.date, ...values });
+      if (!res.success) return res.message;
+      toast.success("Attendance times updated");
+      setReloadKey((k) => k + 1);
+      return null;
+    } catch (err) {
+      console.error("Failed to edit attendance times:", err);
+      return "Couldn't save the times — please try again.";
+    }
+  };
 
   const weekDates = weekKeysFor(selectedDate);
   const currentWeekRecords = weekDates.map((d) => recordsMap[d]).filter(Boolean);
@@ -265,6 +285,8 @@ export function EmployeeAttendanceView({
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         onRegularize={handleRegularizeDay}
+        onEditTimes={handleEditTimes}
+        historyUserId={employee.id}
       />
     </div>
   );

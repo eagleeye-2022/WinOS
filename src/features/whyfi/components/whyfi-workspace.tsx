@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Clock,
   Eye,
+  EyeOff,
   GraduationCap,
   GripVertical,
   Layers,
@@ -47,6 +48,7 @@ import {
   getWhyfiTimelineAction,
   getWhyfiWorkspaceAction,
   moveWhyfiTaskAction,
+  setWhyfiListHiddenAction,
   setWhyfiListMembersAction,
   updateWhyfiListAction,
   updateWhyfiTaskAction,
@@ -818,6 +820,23 @@ function ListColumn({
     if (ok) run(() => deleteWhyfiListAction(list.id), "Task list deleted");
   };
 
+  // Hidden for everyone (board + DSM pickers) until a manager unhides it from "Hidden lists".
+  const handleHide = async () => {
+    const ok = await confirm({
+      title: `Hide "${list.name}"?`,
+      description:
+        "The list disappears from everyone's WhyFi School board and from the DSM learning pickers. Its cards and logged time are kept. Unhide it any time from \"Hidden lists\" in the toolbar.",
+      confirmLabel: "Hide list",
+    });
+    if (!ok) return;
+    run(
+      () => setWhyfiListHiddenAction(list.id, true),
+      "Task list hidden",
+      undefined,
+      (ws) => ({ ...ws, lists: ws.lists.map((l) => (l.id === list.id ? { ...l, isHidden: true } : l)) })
+    );
+  };
+
   if (collapsed) {
     return (
       <div
@@ -947,6 +966,9 @@ function ListColumn({
                   </button>
                 }
               />
+              <button type="button" onClick={handleHide} className={ICON_BTN} title={`Hide ${list.name}`}>
+                <EyeOff size={14} />
+              </button>
               <button
                 type="button"
                 onClick={handleDelete}
@@ -1132,6 +1154,11 @@ function LearnersView({
                 <td className="px-4 py-3">
                   <span className="font-semibold text-foreground">{l.name}</span>
                   <span className="ml-2 font-mono text-xs text-muted-foreground">{l.code}</span>
+                  {l.isHidden && (
+                    <span className="ml-2 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-xs text-muted-foreground">
+                      <EyeOff size={11} /> Hidden
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   {l.members.length === 0 ? (
@@ -1446,6 +1473,16 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
     }
   }, [workspace.currentUserId]);
   const orderedLists = useMemo(() => orderLists(workspace.lists, listOrder), [workspace.lists, listOrder]);
+  // Hidden lists (only managers receive them) are left off the board, listed under "Hidden lists".
+  const shownLists = useMemo(() => orderedLists.filter((l) => !l.isHidden), [orderedLists]);
+  const hiddenLists = useMemo(() => orderedLists.filter((l) => l.isHidden), [orderedLists]);
+  const unhideList = (list: WhyfiList) =>
+    run(
+      () => setWhyfiListHiddenAction(list.id, false),
+      `"${list.name}" is visible again`,
+      undefined,
+      (ws) => ({ ...ws, lists: ws.lists.map((l) => (l.id === list.id ? { ...l, isHidden: false } : l)) })
+    );
 
   const [dragCard, setDragCard] = useState<BoardDnd["dragCard"]>(null);
   const [dropAt, setDropAt] = useState<BoardDnd["dropAt"]>(null);
@@ -1516,11 +1553,12 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
   };
 
   // Counts include subtasks at every depth, like the project board's totals.
-  const allTasks = workspace.lists.flatMap((l) => flattenTasks(l.tasks));
+  // Header numbers are for the lists on the board (hidden ones aren't counted).
+  const allTasks = shownLists.flatMap((l) => flattenTasks(l.tasks));
   const doneCount = allTasks.filter((t) => isTaskDone(t.status)).length;
   const completion = allTasks.length > 0 ? Math.round((doneCount / allTasks.length) * 100) : 0;
   const assignedToMe = allTasks.filter((t) => t.owners.some((o) => o.id === workspace.currentUserId)).length;
-  const allCollapsed = workspace.lists.length > 0 && workspace.lists.every((l) => collapsedIds.has(l.id));
+  const allCollapsed = shownLists.length > 0 && shownLists.every((l) => collapsedIds.has(l.id));
 
 
   return (
@@ -1539,7 +1577,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {workspace.isManager ? "Manager view" : "Shared with you"} &bull; Lists:{" "}
-                <span className="font-semibold text-foreground">{workspace.lists.length}</span> &bull;{" "}
+                <span className="font-semibold text-foreground">{shownLists.length}</span> &bull;{" "}
                 {doneCount}/{allTasks.length} Tasks Completed ({completion}%)
               </p>
             </div>
@@ -1573,7 +1611,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                   <button
                     type="button"
                     onClick={() =>
-                      setCollapsedIds(allCollapsed ? new Set() : new Set(workspace.lists.map((l) => l.id)))
+                      setCollapsedIds(allCollapsed ? new Set() : new Set(shownLists.map((l) => l.id)))
                     }
                     className="cursor-pointer rounded-md border border-border bg-card p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     title={allCollapsed ? "Expand All Lists" : "Collapse All Lists"}
@@ -1583,6 +1621,43 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
                   {pending && <Loader2 size={14} className="animate-spin text-muted-foreground" />}
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Lists a manager hid — unhide brings one back for everyone. */}
+                  {workspace.isManager && hiddenLists.length > 0 && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          type="button"
+                          className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                        >
+                          <EyeOff size={14} />
+                          <span>Hidden lists ({hiddenLists.length})</span>
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        side="bottom"
+                        align="end"
+                        className="z-50 w-72 border border-border bg-popover p-1.5 text-xs text-popover-foreground shadow-lg"
+                      >
+                        <p className="px-2.5 pb-1.5 pt-1 text-xs text-muted-foreground">
+                          Hidden from everyone&apos;s board and the DSM pickers.
+                        </p>
+                        {hiddenLists.map((l) => (
+                          <div key={l.id} className="flex items-center justify-between gap-2 rounded-md px-2.5 py-1.5 hover:bg-accent">
+                            <span className="truncate font-semibold uppercase tracking-wide" title={l.name}>
+                              {l.name}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => unhideList(l)}
+                              className="flex shrink-0 cursor-pointer items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
+                            >
+                              <Eye size={13} /> Unhide
+                            </button>
+                          </div>
+                        ))}
+                      </PopoverContent>
+                    </Popover>
+                  )}
                   {/* Same form as the dashed column at the end of the board — opens it and scrolls there. */}
                   {workspace.isManager && (
                     <button
@@ -1606,7 +1681,7 @@ export function WhyfiWorkspace({ initial }: { initial: WhyfiWorkspaceData }) {
               {/* Board */}
               <div ref={boardRef} data-scroll-key="whyfi-board" className="dsm-columns-scrollbar min-h-0 flex-1 overflow-x-auto bg-zinc-50/50 p-3 sm:p-4.5 dark:bg-background/40">
                 <div data-col-scope className="flex h-full items-stretch gap-3.5">
-                  {orderedLists.map((list) => (
+                  {shownLists.map((list) => (
                     <ListColumn
                       key={list.id}
                       dnd={dnd}
