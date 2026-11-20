@@ -18,6 +18,8 @@ const REMINDER_INTERVAL_MS = 5 * 60_000;
 const REMINDER_TICK_MS = 30_000;
 /** Shared by every open WinOS tab, so the reminder shows once per interval, not once per tab. */
 const REMINDER_LAST_SHOWN_KEY = "winos:checkin-reminder:last-shown";
+/** Fired on window after a check-in / check-out here, so every copy of the control re-reads its status. */
+export const CHECKIN_CHANGED_EVENT = "winos:checkin-changed";
 
 function readLastShown(): number {
   try {
@@ -40,8 +42,10 @@ function writeLastShown(at: number) {
  * selfie capture and actions as Pulse Home, so all attendance views stay in sync. On a working day,
  * until the person has checked in, a reminder pops up every 5 minutes.
  */
-export function CheckInChip() {
+export function CheckInChip({ variant = "chip" }: { variant?: "chip" | "switch" } = {}) {
   const router = useRouter();
+  /** Only the top-bar chip shows the 5-minute reminder, so it doesn't pop up twice. */
+  const remind = variant === "chip";
   const pathname = usePathname();
   const [status, setStatus] = useState<MyCheckInStatus | null>(null);
   const [captureMode, setCaptureMode] = useState<"check-in" | "check-out" | null>(null);
@@ -64,7 +68,12 @@ export function CheckInChip() {
   useEffect(() => {
     const onFocus = () => void loadStatus();
     window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    // The top-bar chip and the sidebar switch tell each other when one of them punches.
+    window.addEventListener(CHECKIN_CHANGED_EVENT, onFocus);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener(CHECKIN_CHANGED_EVENT, onFocus);
+    };
   }, [loadStatus]);
 
   // Reminder: re-checked every 30 s; shown when 5 minutes have passed since it last showed (in any tab).
@@ -73,7 +82,7 @@ export function CheckInChip() {
     busyRef.current = captureMode !== null || reminderOpen;
   }, [captureMode, reminderOpen]);
   useEffect(() => {
-    if (!status || status.checkedIn || !status.isWorkday) return;
+    if (!remind || !status || status.checkedIn || !status.isWorkday) return;
     let cancelled = false;
     const maybeRemind = async () => {
       if (busyRef.current || document.visibilityState !== "visible") return;
@@ -90,7 +99,7 @@ export function CheckInChip() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [status, loadStatus]);
+  }, [remind, status, loadStatus]);
 
   // Esc dismisses the reminder.
   useEffect(() => {
@@ -108,12 +117,46 @@ export function CheckInChip() {
     setCaptureMode("check-in");
   };
 
+  const openCheckOut = () => setCaptureMode("check-out");
+
   return (
     <>
-      {live ? (
+      {variant === "switch" ? (
+        // Sidebar: "Checked in" row with a toggle — on = checked in. Flipping it opens the selfie step.
         <button
           type="button"
-          onClick={() => setCaptureMode("check-out")}
+          role="switch"
+          aria-checked={live}
+          onClick={live ? openCheckOut : openCheckIn}
+          title={live ? "Check out" : status.checkedOut ? "Check in again" : "Check in"}
+          className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+        >
+          <span className="min-w-0 flex-1 truncate text-left">
+            {live ? "Checked in" : status.checkedOut ? "Checked out" : "Not checked in"}
+          </span>
+          {live ? (
+            <LogIn size={16} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+          ) : (
+            <LogOut size={16} className="shrink-0 text-muted-foreground/70" />
+          )}
+          <span
+            className={cn(
+              "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+              live ? "bg-emerald-500" : "bg-muted-foreground/30"
+            )}
+          >
+            <span
+              className={cn(
+                "inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform dark:bg-neutral-900",
+                live ? "translate-x-[18px]" : "translate-x-0.5"
+              )}
+            />
+          </span>
+        </button>
+      ) : live ? (
+        <button
+          type="button"
+          onClick={openCheckOut}
           title="Check out"
           // Checked in: just the Check-out button, sized to its label, in a light tint.
           className="flex w-fit shrink-0 items-center justify-center gap-1.5 rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
@@ -165,6 +208,7 @@ export function CheckInChip() {
               : await checkInAction({ workMode, source: "Web", photo, location });
           if (!res.success) return ("message" in res && res.message) || "That didn't go through. Please try again.";
           await loadStatus();
+          window.dispatchEvent(new Event(CHECKIN_CHANGED_EVENT));
           const redirectTo = "redirectTo" in res ? res.redirectTo : undefined;
           if (typeof redirectTo === "string") {
             // Checked in: straight to the standup (managers: their own one).

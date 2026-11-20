@@ -1401,7 +1401,7 @@ export function SingleTaskWorkspaceView({
 
   const handleAddComment = async () => {
     const text = commentText.trim();
-    if (!text) return;
+    if (isEmptyDescription(text)) return;
     setCommentText("");
     setIsSavingComment(true);
 
@@ -2145,19 +2145,14 @@ export function SingleTaskWorkspaceView({
                 <div className="space-y-4">
                   {/* Clean Comment Input Box with explicit Save button */}
                   <div className="space-y-3 rounded-xl border border-border bg-card p-3.5 shadow-2xs dark:border-zinc-800 dark:bg-[#141519]">
-                    <textarea
-                      rows={3}
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      placeholder={`Write a ${noteWord} or update on this task...`}
-                      className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none resize-y font-sans dark:text-zinc-100 dark:placeholder-zinc-500"
-                    />
+                    {/* Rich-text note (headings, lists, links, images…) — same editor as the description. */}
+                    <RichDescriptionEditor value={commentText} onChange={setCommentText} />
 
                     <div className="flex items-center justify-end pt-2.5 border-t border-border/60 dark:border-zinc-800/60">
                       <button
                         type="button"
                         onClick={handleAddComment}
-                        disabled={!commentText.trim() || isSavingComment}
+                        disabled={isEmptyDescription(commentText) || isSavingComment}
                         className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
                       >
                         {isSavingComment ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
@@ -2182,7 +2177,7 @@ export function SingleTaskWorkspaceView({
                             <span className="font-bold text-foreground dark:text-zinc-200">{c.author}</span>
                             <span className="text-xs text-muted-foreground dark:text-zinc-400">{c.time}</span>
                           </div>
-                          <p className="text-foreground/90 leading-relaxed dark:text-zinc-300">{c.text}</p>
+                          <RichDescriptionView value={c.text} />
                         </div>
                       ))
                     )}
