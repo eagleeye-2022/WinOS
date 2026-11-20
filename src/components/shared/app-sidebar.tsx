@@ -36,6 +36,7 @@ import { useNavigationStore } from "@/stores/navigation-store";
 import { shortProjectName } from "@/features/projects/utils/project-name";
 import { SETU_TABS } from "@/features/setu/components/setu-shell";
 import { useModuleViewState } from "@/lib/navigation/use-url-state";
+import { CheckInChip } from "@/features/attendance/components/check-in-chip";
 
 const NO_OPEN_GROUPS: Record<string, boolean> = {};
 
@@ -417,6 +418,10 @@ export function AppSidebar({
       </div>
 
       <div className="shrink-0">
+        {/* Check-in / check-out switch (same flow as the top-bar button). */}
+        <div className="border-t px-3 py-2">
+          <CheckInChip variant="switch" />
+        </div>
         {/* Footer / Secondary navigation */}
         <div className="border-t p-2 flex gap-1">
           <span

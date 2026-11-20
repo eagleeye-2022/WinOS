@@ -32,6 +32,7 @@ import {
 import { checkInAction, checkOutAction } from "@/features/attendance/actions/attendance-actions";
 import { ApplyLeaveModal } from "@/features/attendance/components/apply-leave-modal";
 import { CheckInCaptureModal } from "@/features/attendance/components/check-in-capture-modal";
+import { CHECKIN_CHANGED_EVENT } from "@/features/attendance/components/check-in-chip";
 import type { ActionRequiredItem } from "@/features/attendance/types";
 import { SHIFT_END, SHIFT_START } from "@/features/attendance/utils";
 import { ROUTES } from "@/constants/routes";
@@ -257,6 +258,8 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
               : await checkInAction({ workMode, source: "Web", photo, location });
           if (!res.success) return ("message" in res && res.message) || "That didn't go through. Please try again.";
           setError(null);
+          // Keep the top-bar button and sidebar switch in step.
+          window.dispatchEvent(new Event(CHECKIN_CHANGED_EVENT));
           const redirectTo = "redirectTo" in res ? res.redirectTo : undefined;
           if (typeof redirectTo === "string") {
             // Checked in: straight to the standup (managers: their own one).

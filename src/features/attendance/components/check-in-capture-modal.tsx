@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Camera, Loader2, LogIn, MapPin, RefreshCw, X } from "lucide-react";
 import { lookupPlaceAction, type CheckInLocation } from "../actions/attendance-actions";
 import { cn } from "@/lib/utils";
@@ -262,8 +263,10 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
 
   const canConfirm = Boolean(photo) && !isSubmitting;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+  // Portalled to <body>, so it covers the whole screen even when opened from inside the sidebar
+  // (whose box would otherwise clip it).
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="w-full max-w-md overflow-hidden rounded-2xl border bg-card shadow-2xl">
         <div className="flex items-center justify-between border-b px-5 py-4">
           <div>
@@ -419,6 +422,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -661,7 +661,7 @@ export function TemplateTaskPage({
   };
 
   const handleAddComment = () => {
-    if (!commentText.trim()) return;
+    if (isEmptyDescription(commentText)) return;
     const newComment = {
       id: `c-${Date.now()}`,
       author: "You",
@@ -1617,18 +1617,13 @@ export function TemplateTaskPage({
               {activeTab === "COMMENTS" && (
                 <div className="space-y-4">
                   <div className="space-y-3 rounded-xl border border-border bg-card p-3.5 shadow-2xs dark:border-zinc-800 dark:bg-[#141519]">
-                    <textarea
-                      rows={3}
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      placeholder="Write a task note on this template task..."
-                      className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground outline-none resize-y font-sans dark:text-zinc-100 dark:placeholder-zinc-500"
-                    />
+                    {/* Rich-text task note — same editor as the description. */}
+                    <RichDescriptionEditor value={commentText} onChange={setCommentText} />
                     <div className="flex items-center justify-end pt-2.5 border-t border-border/60 dark:border-zinc-800/60">
                       <button
                         type="button"
                         onClick={handleAddComment}
-                        disabled={!commentText.trim()}
+                        disabled={isEmptyDescription(commentText)}
                         className="flex items-center gap-1.5 rounded-md bg-primary px-4 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
                       >
                         <Send size={13} />
@@ -1652,7 +1647,7 @@ export function TemplateTaskPage({
                             <span className="font-bold text-foreground dark:text-zinc-200">{c.author}</span>
                             <span className="text-xs text-muted-foreground dark:text-zinc-400">{c.time}</span>
                           </div>
-                          <p className="text-foreground/90 leading-relaxed dark:text-zinc-300">{c.text}</p>
+                          <RichDescriptionView value={c.text} />
                         </div>
                       ))
                     )}
