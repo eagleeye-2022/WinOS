@@ -122,10 +122,11 @@ function LogIdChip({ log }: { log: TimeLogEntry }) {
 
 /** Log Title cell text: a link to the logged task (new tab, like the ⓘ task icon elsewhere);
  *  plain text when the log has no task code (`taskCode` falls back to the log id then). */
-function LogTitleLink({ log }: { log: TimeLogEntry }) {
+function LogTitleLink({ log, text }: { log: TimeLogEntry; text?: string }) {
   const code = log.taskCode && log.taskCode !== log.id ? log.taskCode : null;
   const href = projectTaskHref(log.projectId, code);
-  if (!href) return <span>{log.title}</span>;
+  const label = text ?? log.title;
+  if (!href) return <span>{label}</span>;
   return (
     <Link
       href={href}
@@ -135,8 +136,20 @@ function LogTitleLink({ log }: { log: TimeLogEntry }) {
       title={`Open task ${code} in a new tab`}
       className="hover:text-primary hover:underline underline-offset-2 transition-colors"
     >
-      {log.title}
+      {label}
     </Link>
+  );
+}
+
+/** Task/Subtask cell: the full title (a link to the task), wrapping inside the column — no "…". */
+function LogTitleCell({ log }: { log: TimeLogEntry }) {
+  return (
+    <div className="flex w-full min-w-0 max-w-full items-start gap-2">
+      <ClipboardList size={14} className="mt-0.5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 whitespace-normal break-words">
+        <LogTitleLink log={log} />
+      </span>
+    </div>
   );
 }
 
@@ -1554,7 +1567,7 @@ export function TimeTrackerView({
                 <th className="py-2.5 px-4 border-r border-border whitespace-nowrap">
                   TASK ID
                 </th>
-                <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[170px]">
+                <th className="w-[230px] min-w-[200px] max-w-[230px] py-2.5 px-4 border-r border-border whitespace-nowrap">
                   TASK/SUBTASK
                 </th>
                 <th className="py-2.5 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
@@ -1674,11 +1687,8 @@ export function TimeTrackerView({
                               <LogIdChip log={log} />
                             </td>
 
-                            <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
-                              <div className="flex items-center gap-2">
-                                <ClipboardList size={14} className="text-muted-foreground shrink-0" />
-                                <LogTitleLink log={log} />
-                              </div>
+                            <td className="w-[230px] min-w-[200px] max-w-[230px] py-2.5 px-4 border-r border-border text-foreground">
+                              <LogTitleCell log={log} />
                             </td>
 
                             {/* Task Notes (remarks) Column — opens a popup to read/edit */}
@@ -1831,7 +1841,7 @@ export function TimeTrackerView({
                   USER
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">TASK ID</th>
-                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
+                <th className="w-[230px] min-w-[200px] max-w-[230px] py-3 px-4 border-r border-border whitespace-nowrap">
                   TASK/SUBTASK
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">TASK NOTES</th>
@@ -1929,11 +1939,8 @@ export function TimeTrackerView({
                             <LogIdChip log={log} />
                           </td>
 
-                          <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <ClipboardList size={14} className="text-muted-foreground shrink-0" />
-                              <LogTitleLink log={log} />
-                            </div>
+                          <td className="w-[230px] min-w-[200px] max-w-[230px] py-2.5 px-4 border-r border-border text-foreground">
+                            <LogTitleCell log={log} />
                           </td>
 
                           {/* Task Notes (remarks) Column — opens a popup to read/edit */}
@@ -2054,7 +2061,7 @@ export function TimeTrackerView({
                   {projectLabel.toUpperCase()}
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap">TASK ID</th>
-                <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">
+                <th className="w-[230px] min-w-[200px] max-w-[230px] py-3 px-4 border-r border-border whitespace-nowrap">
                   TASK/SUBTASK
                 </th>
                 <th className="py-3 px-4 border-r border-border whitespace-nowrap min-w-[160px]">TASK NOTES</th>
@@ -2153,11 +2160,8 @@ export function TimeTrackerView({
                             <LogIdChip log={log} />
                           </td>
 
-                          <td className="py-2.5 px-4 border-r border-border text-foreground whitespace-nowrap">
-                            <div className="flex items-center gap-2">
-                              <ClipboardList size={14} className="text-muted-foreground shrink-0" />
-                              <LogTitleLink log={log} />
-                            </div>
+                          <td className="w-[230px] min-w-[200px] max-w-[230px] py-2.5 px-4 border-r border-border text-foreground">
+                            <LogTitleCell log={log} />
                           </td>
 
                           {/* Task Notes (remarks) Column — opens a popup to read/edit */}
