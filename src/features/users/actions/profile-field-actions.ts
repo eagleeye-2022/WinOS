@@ -11,8 +11,10 @@ import {
   parseProfileFieldValue,
   PROFILE_FIELDS,
   type ProfileField,
+  type ProfileFieldValue,
 } from "../profile-fields";
 import { DOCUMENT_FIELDS } from "../constants";
+import { encodeSaturdaysOff } from "../work-week";
 
 export type ProfileFieldSaveResult =
   | { ok: true; value: string | null }
@@ -75,7 +77,7 @@ export async function updateProfileFieldAction(
   revalidatePath(ROUTES.pulseProfile);
 
   const v = parsed.value;
-  return { ok: true, value: v instanceof Date ? v.toISOString() : v };
+  return { ok: true, value: v instanceof Date ? v.toISOString() : Array.isArray(v) ? encodeSaturdaysOff(v) : v };
 }
 
 // ── Add a member (profile-style Add Member page) ─────────────────────────────
@@ -94,7 +96,7 @@ export async function createMemberAction(values: Partial<Record<string, string>>
   if (!viewer) return { ok: false, error: "Please sign in again." };
   if (!viewer.isManager) return { ok: false, error: "Only managers can add team members." };
 
-  const data: Record<string, string | Date | null> = {};
+  const data: Record<string, ProfileFieldValue> = {};
   const fieldErrors: Partial<Record<ProfileField, string>> = {};
   for (const field of Object.keys(PROFILE_FIELDS) as ProfileField[]) {
     const parsed = parseProfileFieldValue(field, values[field] ?? "");
@@ -159,7 +161,7 @@ export async function updateMemberProfileAction(
   const target = await db.user.findUnique({ where: { id: targetUserId }, select: { id: true } });
   if (!target) return { ok: false, error: "Team member not found." };
 
-  const data: Record<string, string | Date | null> = {};
+  const data: Record<string, ProfileFieldValue> = {};
   const fieldErrors: Partial<Record<ProfileField, string>> = {};
   for (const [field, raw] of Object.entries(changes)) {
     if (!isProfileField(field)) return { ok: false, error: "Some of these fields can't be edited here." };

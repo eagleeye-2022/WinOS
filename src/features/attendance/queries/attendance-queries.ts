@@ -722,6 +722,7 @@ const profileSelect = {
   isActive: true,
   department: true,
   location: true,
+  saturdaysOff: true,
   employmentType: true,
   dateOfJoining: true,
   dateOfConfirmation: true,

@@ -78,7 +78,7 @@ import { useProjectWorkspace } from "../../context/project-workspace-context";
 import {
   updateTaskAction,
   getOpenSubtasksReasonAction,
-  createTaskAction,
+  duplicateTaskAction,
   deleteTaskAction,
   getTaskActivitiesAction,
   getTaskTimeLogsAction,
@@ -227,22 +227,16 @@ export function SingleTaskWorkspaceView({
   const handleDuplicateTask = async () => {
     setIsMoreMenuOpen(false);
     try {
-      const created = await createTaskAction(
-        {
-          title: `${activeTask.title} (Copy)`,
-          status: "Open",
-          priority: activeTask.priority,
-          description: activeTask.description,
-          startDate: activeTask.startDate,
-          dueDate: activeTask.dueDate,
-          phaseCode: activeTask.phaseCode,
-          phaseName: activeTask.phaseName,
-        },
-        projectId
-      );
-      if (created) {
-        showToast(`Task duplicated as ${created.code || created.id}`);
-        router.push(`${taskHrefBase}/${created.code || created.id}`);
+      // Same server copy as the board / sidebar ⋮ → Duplicate: placed right below the original
+      // (a subtask stays under the same parent), with its subtasks and owners.
+      const res = await duplicateTaskAction(activeTask.dbId || activeTask.id);
+      if (res.success) {
+        showToast(`Task duplicated as ${res.code}`);
+        // Load the copy into the page's task list first, so it shows (and opens) without a reload.
+        await refreshWorkspace();
+        router.push(`${taskHrefBase}/${res.code}`);
+      } else {
+        showToast(res.error);
       }
     } catch (err) {
       console.error("Failed to duplicate task:", err);
@@ -438,7 +432,16 @@ export function SingleTaskWorkspaceView({
     const previousStatus = taskStatus;
     setTaskStatus(newStatus);
     if (activeTask && activeTask.id) {
-      const updatedTask = { ...activeTask, status: newStatus };
+      // Keep completionPercentage in step with the status — a leftover 100 keeps it counted as done.
+      const updatedTask = {
+        ...activeTask,
+        status: newStatus,
+        completionPercentage: isTaskDone(newStatus)
+          ? 100
+          : (activeTask.completionPercentage ?? 0) >= 100
+          ? 0
+          : activeTask.completionPercentage,
+      };
       // On a subtask's own page, also its entry in the parent's subtask list.
       setTasks((prev) =>
         prev.map((t) =>
@@ -789,8 +792,9 @@ export function SingleTaskWorkspaceView({
       title: titleToUse,
       status: "Open",
       ownerName: activeTask.owner || "Unassigned",
-      startDate: new Date().toLocaleDateString("en-GB"),
-      dueDate: activeTask.dueDate || "01/01/2027",
+      // No default dates — a new subtask starts with both empty ("--"); set them in the table.
+      startDate: "--",
+      dueDate: "--",
       completed: false,
     });
   };
@@ -1576,6 +1580,7 @@ export function SingleTaskWorkspaceView({
                 onTaskDeleted={afterTaskDeleted}
                 onOpenTaskLogSaved={refreshTaskTimeLogs}
                 ownersOptions={ownersOptions}
+                onTasksChanged={refreshWorkspace}
               />
             ) : (
               <div className="py-8 text-center text-xs text-muted-foreground dark:text-zinc-400">

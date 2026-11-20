@@ -59,6 +59,7 @@ export function TaskSidebarTree({
   onTaskDeleted,
   onOpenTaskLogSaved,
   ownersOptions,
+  onTasksChanged,
 }: {
   rootTask: TaskItem;
   childrenOf: (task: TaskItem) => TaskItem[];
@@ -78,6 +79,9 @@ export function TaskSidebarTree({
   onOpenTaskLogSaved: () => void;
   /** Project users the owners popover can assign. */
   ownersOptions: OwnerUserOption[];
+  /** Re-fetch the page's task list after a server-side change (e.g. Duplicate) — the task page's
+   *  tasks live in client state, so router.refresh() alone doesn't show the new task. */
+  onTasksChanged?: () => void | Promise<void>;
 }) {
   const router = useRouter();
   const { confirm, ConfirmDialog } = useConfirm();
@@ -206,7 +210,8 @@ export function TaskSidebarTree({
       const res = await duplicateTaskAction(item.id);
       if (res.success) {
         toast.success(`Duplicated ${item.code} as ${res.code}`);
-        router.refresh();
+        if (onTasksChanged) await onTasksChanged();
+        else router.refresh();
       } else {
         toast.error(res.error);
       }

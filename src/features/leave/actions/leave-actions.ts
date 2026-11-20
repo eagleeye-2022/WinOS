@@ -197,6 +197,11 @@ export async function previewLeaveDaysAction(data: {
       select: { date: true, name: true },
     });
     const holidayKeys = new Set(holidays.map((h) => dateKeyFromUtc(h.date)));
+    // The applicant's profile: eligibility facts, and their work week (which Saturdays are off).
+    const facts = await db.user.findUnique({
+      where: { id: userId },
+      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true, saturdaysOff: true },
+    });
 
     const count = countLeaveDays({
       fromKey,
@@ -205,6 +210,7 @@ export async function previewLeaveDaysAction(data: {
       requestedDays: 0,
       isHoliday: (k) => holidayKeys.has(k),
       policy: leaveType,
+      saturdaysOff: facts?.saturdaysOff,
     });
     if ("error" in count) fail(count.error);
 
@@ -221,10 +227,6 @@ export async function previewLeaveDaysAction(data: {
       hasAttachment: true,
     });
     if (ruleError) fail(ruleError);
-    const facts = await db.user.findUnique({
-      where: { id: userId },
-      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
-    });
     const eligibilityError = facts ? checkEligibility(leaveType, facts, fromKey) : null;
     if (eligibilityError) fail(eligibilityError);
     const windowStart = dateFromKey(fromKey)!;
@@ -237,7 +239,8 @@ export async function previewLeaveDaysAction(data: {
       leaveType,
       fromKey,
       toKey,
-      others.map((o) => ({ code: o.leaveType.code, fromKey: dateKeyFromUtc(o.fromDate), toKey: dateKeyFromUtc(o.toDate) }))
+      others.map((o) => ({ code: o.leaveType.code, fromKey: dateKeyFromUtc(o.fromDate), toKey: dateKeyFromUtc(o.toDate) })),
+      facts?.saturdaysOff
     );
     if (limitError) fail(limitError);
 
@@ -311,6 +314,11 @@ export async function applyLeaveAction(formData: {
       select: { date: true },
     });
     const holidayKeys = new Set(holidays.map((h) => dateKeyFromUtc(h.date)));
+    // The applicant's profile: eligibility facts, and their work week (which Saturdays are off).
+    const facts = await db.user.findUnique({
+      where: { id: userId },
+      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true, saturdaysOff: true },
+    });
 
     const count = countLeaveDays({
       fromKey,
@@ -319,6 +327,7 @@ export async function applyLeaveAction(formData: {
       requestedDays: formData.durationDays,
       isHoliday: (k) => holidayKeys.has(k),
       policy: leaveType,
+      saturdaysOff: facts?.saturdaysOff,
     });
     if ("error" in count) fail(count.error);
 
@@ -363,10 +372,6 @@ export async function applyLeaveAction(formData: {
     }
 
     // Who the leave type is for (department, employment type, probation, minimum service).
-    const facts = await db.user.findUnique({
-      where: { id: userId },
-      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
-    });
     const eligibilityError = facts ? checkEligibility(leaveType, facts, fromKey) : null;
     if (eligibilityError) fail(eligibilityError);
 
@@ -381,7 +386,8 @@ export async function applyLeaveAction(formData: {
       leaveType,
       fromKey,
       toKey,
-      others.map((o) => ({ code: o.leaveType.code, fromKey: dateKeyFromUtc(o.fromDate), toKey: dateKeyFromUtc(o.toDate) }))
+      others.map((o) => ({ code: o.leaveType.code, fromKey: dateKeyFromUtc(o.fromDate), toKey: dateKeyFromUtc(o.toDate) })),
+      facts?.saturdaysOff
     );
     if (limitError) fail(limitError);
 

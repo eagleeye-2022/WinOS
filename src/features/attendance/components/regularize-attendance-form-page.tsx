@@ -14,7 +14,7 @@ import {
 import { submitRegularizationAction } from "../actions/attendance-actions";
 import { getMyAttendanceData } from "../queries/attendance-queries";
 import type { AttendanceRecord, EmployeeProfile } from "../types";
-import { dateFromKey, formatLongDate, fullDayName, isWeekendKey } from "../utils";
+import { dateFromKey, formatLongDate, fullDayName } from "../utils";
 import { RegularizationFields, useRegularizationForm } from "./regularization-fields";
 
 interface RegularizeAttendanceFormPageProps {
@@ -112,8 +112,9 @@ export function RegularizeAttendanceFormPage({
     ? "Pick a date."
     : attendanceDate > maxDate
     ? "You can't regularize a future date."
-    : isWeekendKey(attendanceDate)
-    ? "That's a weekend — request a comp-off instead."
+    : // The loaded day is resolved with this person's work week (their off Saturdays).
+    existing?.date === attendanceDate && existing.status === "WEEKEND"
+    ? "That's a day off — request a comp-off instead."
     : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
