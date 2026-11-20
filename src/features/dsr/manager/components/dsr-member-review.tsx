@@ -37,6 +37,7 @@ import { projectSelectOptions } from "@/features/dsm/components/project-task-sel
 import type { CascadingProjectOption, ParkedTask } from "@/features/dsm/queries";
 import { ParkingLotSection } from "@/features/dsm/manager/components/member-review-detail";
 import { AdditionalWorkTable } from "@/features/dsm/components/yesterday-additional-work";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 /** Resolves the selected project-task's code/project-name by walking the cascading tree. */
 function findSelectedTaskMeta(
@@ -172,7 +173,7 @@ function TaskItemRow({
 }) {
   const [, action, pending] = useActionState<ToggleDsrTaskState, FormData>(toggleDsrTask, {});
   const [, startTransition] = useTransition();
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = usePageViewState(`TaskItemRow:${memberId ?? "me"}:${dateStr}:${index}:detailOpen`, false);
   const linkedTaskId = projectLink?.projectTask ? projectLink.projectTaskId || projectLink.projectTask.id : null;
   const infoHref = projectLink?.projectTask
     ? projectTaskHref(projectLink.projectTask.project?.id, projectLink.projectTask.code)

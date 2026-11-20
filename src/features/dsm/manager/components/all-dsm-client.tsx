@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Calendar, Filter, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDragScroll } from "@/hooks/use-drag-scroll";
-import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
+import { useModuleViewState, useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
 import { toIsoDateStr, toUtcDate, sortTeamGroups } from "../../utils";
 import { AllDsmStatsRow, type StatMember } from "./all-dsm-stats";
 import { TeamColumn } from "./team-column";
 import { NewTeamModal } from "./new-team-modal";
-import type { AllDsmStats, TeamGroup, TeamWithMembers, AllUser } from "../queries";
+import type { AllDsmStats, TeamGroup, TeamWithMembers, AllUser, UpcomingLeave } from "../queries";
+import { UpcomingLeavesButton } from "./upcoming-leaves-button";
 import { PageTitle, PageDescription } from "@/components/shared/page-header";
 
 type Props = {
@@ -21,6 +22,8 @@ type Props = {
   selectedDateStr: string;
   serverBlockerMembers?: StatMember[];
   serverSupportNeededMembers?: StatMember[];
+  /** Team members' approved / pending leave over the next 30 days. */
+  upcomingLeaves?: UpcomingLeave[];
 };
 
 export function AllDsmClient({
@@ -31,13 +34,14 @@ export function AllDsmClient({
   selectedDateStr,
   serverBlockerMembers,
   serverSupportNeededMembers,
+  upcomingLeaves = [],
 }: Props) {
   const router = useRouter();
   const dateInputRef = useRef<HTMLInputElement>(null);
   const columnsScrollRef = useRef<HTMLDivElement>(null);
   const dragScroll = useDragScroll(columnsScrollRef);
 
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = usePageViewState("AllDsmClient:showModal", false);
   const [showFilters, setShowFilters] = useModuleViewState("all-dsm:show-filters", false);
   // Search / department live in the URL alongside ?date= so they survive leaving the module.
   const [searchQuery, setSearchQuery] = useUrlState("q", "");
@@ -217,6 +221,8 @@ export function AllDsmClient({
           </PageDescription>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <UpcomingLeavesButton leaves={upcomingLeaves} todayStr={todayStr} />
+
           {/* Today Button */}
           <button
             type="button"

@@ -3,7 +3,7 @@
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserName } from "@/components/shared/user-card";
 import React, { useState, useEffect, useRef } from "react";
-import { useUrlState } from "@/lib/navigation/use-url-state";
+import { useUrlState, usePageViewState, usePageViewSet } from "@/lib/navigation/use-url-state";
 
 const PROJECT_LIST_TABS = ["ACTIVE", "INACTIVE", "COMPLETED", "TEMPLATES"] as const;
 const PROJECT_CATEGORIES = ["DIGITAL", "SMM", "TEMPLATES"] as const;
@@ -646,7 +646,7 @@ export function AllProjectsTableView({
   // Popover / Menu States
   const [showTimelinePopover, setShowTimelinePopover] = useState(false);
   const [showSettingsPopover, setShowSettingsPopover] = useState(false);
-  const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [showFilterPanel, setShowFilterPanel] = usePageViewState("AllProjectsTableView:showFilterPanel", false);
   const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "COMPLETED">("ALL");
   const [departmentFilter, setDepartmentFilter] = useState<string>("ALL");
@@ -659,14 +659,14 @@ export function AllProjectsTableView({
   const [industryFilter, setIndustryFilter] = useState<string[]>([]);
 
   // AI Client Report Modal State
-  const [activeAIReport, setActiveAIReport] = useState<ClientStatusReport | null>(null);
-  const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
+  const [activeAIReport, setActiveAIReport] = usePageViewState<ClientStatusReport | null>("AllProjectsTableView:activeAIReport", null);
+  const [isTimeLogModalOpen, setIsTimeLogModalOpen] = usePageViewState("AllProjectsTableView:isTimeLogModalOpen", false);
   const [timeLogProjectName, setTimeLogProjectName] = useState("EED Core");
 
   // Per-row Actions kebab menu & Edit Drawer
   const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
-  const [timelineDrawerProject, setTimelineDrawerProject] = useState<Project | null>(null);
-  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [timelineDrawerProject, setTimelineDrawerProject] = usePageViewState<Project | null>("AllProjectsTableView:timelineDrawerProject", null);
+  const [editingProject, setEditingProject] = usePageViewState<Project | null>("AllProjectsTableView:editingProject", null);
 
   // Auto-close the top "More Options" dropdown when clicking anywhere else. (Row 3-dots menus are
   // portaled via AnchoredPopover, which handles its own outside-click/Escape/scroll closing.)
@@ -814,7 +814,7 @@ export function AllProjectsTableView({
 
   // Collapsible Tech/Creative/Marketing columns — a leaf column collapses to a thin chevron
   // strip; collapsing a group's header collapses/expands every leaf column under it at once.
-  const [collapsedCols, setCollapsedCols] = useState<Set<CollapsibleColId>>(new Set());
+  const [collapsedCols, setCollapsedCols] = usePageViewSet<CollapsibleColId>("AllProjectsTableView:collapsedCols");
   const isColCollapsed = (id: CollapsibleColId) => collapsedCols.has(id);
   const toggleCol = (id: CollapsibleColId) => {
     setCollapsedCols((prev) => {

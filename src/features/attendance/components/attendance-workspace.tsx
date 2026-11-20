@@ -47,7 +47,7 @@ import { cn } from "@/lib/utils";
 import { PeriodNav, periodKind } from "@/components/shared/period-nav";
 import { PulsePage, PulseStickyTabs, PulseTabs } from "@/components/pulse/pulse-ui";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
-import { useModuleViewState, useUrlState } from "@/lib/navigation/use-url-state";
+import { useModuleViewState, useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
 
 type MainTab = "my-attendance" | "team-attendance" | "regularization";
 const MAIN_TABS = ["my-attendance", "team-attendance", "regularization"] as const;
@@ -111,8 +111,8 @@ export function AttendanceWorkspace({
   const [checkInRecord, setCheckInRecord] = useState<AttendanceRecord | null>(null);
   const [isCheckOutOpen, setIsCheckOutOpen] = useState(false);
   const [onBehalfEmployee, setOnBehalfEmployee] = useState<EmployeeProfile | null>(null);
-  const [selectedRecordForDrawer, setSelectedRecordForDrawer] = useState<AttendanceRecord | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedRecordForDrawer, setSelectedRecordForDrawer] = usePageViewState<AttendanceRecord | null>("AttendanceWorkspace:selectedRecordForDrawer", null);
+  const [isDrawerOpen, setIsDrawerOpen] = usePageViewState("AttendanceWorkspace:isDrawerOpen", false);
 
   // Sub-pages for Regularization — remembered per page (My / Team Attendance), so a team member's
   // request opened on Team Attendance never reopens under My Attendance.
@@ -137,11 +137,11 @@ export function AttendanceWorkspace({
   );
 
   // Modals
-  const [selectedActionItem, setSelectedActionItem] = useState<ActionRequiredItem | null>(null);
-  const [isRegularizeModalOpen, setIsRegularizeModalOpen] = useState(false);
-  const [isApplyLeaveModalOpen, setIsApplyLeaveModalOpen] = useState(false);
-  const [isCompOffModalOpen, setIsCompOffModalOpen] = useState(false);
-  const [selectedCompOffRecord, setSelectedCompOffRecord] = useState<AttendanceRecord | null>(null);
+  const [selectedActionItem, setSelectedActionItem] = usePageViewState<ActionRequiredItem | null>("AttendanceWorkspace:selectedActionItem", null);
+  const [isRegularizeModalOpen, setIsRegularizeModalOpen] = usePageViewState("AttendanceWorkspace:isRegularizeModalOpen", false);
+  const [isApplyLeaveModalOpen, setIsApplyLeaveModalOpen] = usePageViewState("AttendanceWorkspace:isApplyLeaveModalOpen", false);
+  const [isCompOffModalOpen, setIsCompOffModalOpen] = usePageViewState("AttendanceWorkspace:isCompOffModalOpen", false);
+  const [selectedCompOffRecord, setSelectedCompOffRecord] = usePageViewState<AttendanceRecord | null>("AttendanceWorkspace:selectedCompOffRecord", null);
 
   // Data states
   const [recordsMap, setRecordsMap] = useState<Record<string, AttendanceRecord>>({});
@@ -512,6 +512,11 @@ export function AttendanceWorkspace({
             });
             if (!res.success) return res.message || "Check-in failed. Please try again.";
             setPunchError(null);
+            // Checked in: straight to the standup (managers: their own one).
+            if (res.redirectTo) {
+              router.push(res.redirectTo);
+              return null;
+            }
             fetchAttendance();
             return null;
           }}

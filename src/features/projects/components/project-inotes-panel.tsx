@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Calendar, CheckSquare, Loader2, NotebookPen, Pencil, Square, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EditNoteModal } from "@/features/notes/components/edit-note-modal";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 import {
   getProjectNotesAction,
   type ProjectNoteCard,
@@ -188,7 +189,7 @@ export function ProjectINotesCell({
   /** Called when the modal closes, so the table can refresh the title/count. */
   onClosed?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = usePageViewState(`ProjectINotesCell:${projectId}:open`, false);
   const close = () => {
     setOpen(false);
     onClosed?.();

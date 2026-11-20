@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { getProjectByIdAction, getProjectsAction, getProjectTasksAction } from "../../actions/project-actions";
 import { TaskItem } from "../../types";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 interface PhaseRow {
   id: string;
@@ -41,7 +42,7 @@ export function PhasesTableView({ projectId, onOpenAddModal }: PhasesTableViewPr
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPhaseFilter, setSelectedPhaseFilter] = useState("All Phases");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [showAddPhaseForm, setShowAddPhaseForm] = useState(false);
+  const [showAddPhaseForm, setShowAddPhaseForm] = usePageViewState("PhasesTableView:showAddPhaseForm", false);
   const [newPhaseName, setNewPhaseName] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 

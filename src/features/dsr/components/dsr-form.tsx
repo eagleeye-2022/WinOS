@@ -14,6 +14,7 @@ import { MemberTaskTimerBadge } from "@/features/dsm/manager/components/member-t
 import { TimerWidget } from "@/features/projects/components/timer-widget";
 import { ActiveTimerProvider } from "@/features/projects/context/active-timer-context";
 import { AdditionalWorkDash, AdditionalWorkDoneToggle } from "@/features/dsm/components/yesterday-additional-work";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -613,7 +614,7 @@ type Props = {
 
 export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegisterAddTask, onPendingChange, readOnly, onCancel, reportConfig, timeSummary, userId }: Props) {
   const [state, action, pending] = useActionState<SaveDsrState, FormData>(saveDsr, {});
-  const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitOpen, setSubmitOpen] = usePageViewState("DsrForm:submitOpen", false);
 
   useEffect(() => {
     onPendingChange?.(pending);

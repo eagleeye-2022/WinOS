@@ -1,5 +1,6 @@
 "use client";
 
+import { usePageDraft, useClearPageDraft } from "@/lib/navigation/use-url-state";
 import React, { useState, useEffect } from "react";
 import { X, ChevronDown, Calendar, Tag as TagIcon, Loader2 } from "lucide-react";
 import { TaskItem, TaskStatus, PROJECT_TASK_STATUSES } from "../../types";
@@ -34,12 +35,19 @@ export function AddTaskDrawer({
   projectOptions,
 }: AddTaskDrawerProps) {
   const choosesProject = !projectCode && Boolean(projectOptions);
-  const [selectedProjectId, setSelectedProjectId] = useState("");
+  // What was typed is kept as a draft (survives leaving the page / a refresh) until saved or cancelled.
+  const draft = `add-task:${projectCode ?? "all"}`;
+  const clearDraft = useClearPageDraft(draft);
+  const close = () => {
+    clearDraft();
+    onClose();
+  };
+  const [selectedProjectId, setSelectedProjectId] = usePageDraft(draft, "selectedProjectId", "");
   const [projectPhases, setProjectPhases] = useState<{ code: string; name: string }[] | null>(null);
   const phases = choosesProject ? projectPhases ?? [] : availablePhases;
 
-  const [title, setTitle] = useState("");
-  const [phaseCode, setPhaseCode] = useState(
+  const [title, setTitle] = usePageDraft(draft, "title", "");
+  const [phaseCode, setPhaseCode] = usePageDraft(draft, "phaseCode", 
     initialPhaseCode || availablePhases[0]?.code || FALLBACK_PHASE.code
   );
 
@@ -75,15 +83,15 @@ export function AddTaskDrawer({
   }, [choosesProject, selectedProjectId]);
 
   const ownersProjectCode = projectCode || selectedProjectId || undefined;
-  const [status, setStatus] = useState<TaskStatus>("Open");
-  const [selectedOwners, setSelectedOwners] = useState<string[]>([]);
+  const [status, setStatus] = usePageDraft<TaskStatus>(draft, "status", "Open");
+  const [selectedOwners, setSelectedOwners] = usePageDraft<string[]>(draft, "selectedOwners", []);
   const [isOwnerDropdownOpen, setIsOwnerDropdownOpen] = useState(false);
-  const [associatedTeam, setAssociatedTeam] = useState("Engineering");
-  const [priority, setPriority] = useState("None");
-  const [duration, setDuration] = useState("--");
-  const [description, setDescription] = useState("");
-  const [tagInput, setTagInput] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
+  const [associatedTeam, setAssociatedTeam] = usePageDraft(draft, "associatedTeam", "Engineering");
+  const [priority, setPriority] = usePageDraft(draft, "priority", "None");
+  const [duration, setDuration] = usePageDraft(draft, "duration", "--");
+  const [description, setDescription] = usePageDraft(draft, "description", "");
+  const [tagInput, setTagInput] = usePageDraft(draft, "tagInput", "");
+  const [tags, setTags] = usePageDraft<string[]>(draft, "tags", []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [ownersList, setOwnersList] = useState<{ id: string; name: string; email: string }[]>([]);
   const [teamsList, setTeamsList] = useState<string[]>([]);
@@ -203,9 +211,7 @@ export function AddTaskDrawer({
       setIsSubmitting(false);
     }
     if (!saved) return;
-    onClose();
-    setTitle("");
-    setDescription("");
+    close();
   };
 
   return (
@@ -216,7 +222,7 @@ export function AddTaskDrawer({
           <h2 className="text-lg font-bold text-foreground">Add New Task</h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
           >
             <X size={18} />
@@ -415,7 +421,7 @@ export function AddTaskDrawer({
             </button>
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="rounded-md border border-input bg-background px-6 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
             >
               Cancel

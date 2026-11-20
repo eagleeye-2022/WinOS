@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useHadPageDraftOnMount } from "@/lib/navigation/use-url-state";
 import { X, Calendar, Check, Loader2, AlertCircle } from "lucide-react";
 import { submitRegularizationAction } from "../actions/attendance-actions";
 import { RegularizationFields, useRegularizationForm } from "./regularization-fields";
@@ -29,7 +30,15 @@ interface RegularizeAttendanceModalProps {
  * page form (regularize-attendance-form-page) uses the same fields.
  */
 export function RegularizeAttendanceModal({ isOpen, onClose, target, onSubmitSuccess }: RegularizeAttendanceModalProps) {
-  const form = useRegularizationForm(target?.issue, target?.existingCheckIn);
+  const draftKey = `regularize:${target?.dateKey ?? "none"}`;
+  const form = useRegularizationForm(draftKey, target?.issue, target?.existingCheckIn);
+  // Coming back to a draft that was left open: keep it instead of starting the form fresh.
+  const hadDraft = useHadPageDraftOnMount(draftKey);
+  const keepDraftRef = useRef(hadDraft);
+  const close = () => {
+    form.clearDraft();
+    onClose();
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,17 +46,18 @@ export function RegularizeAttendanceModal({ isOpen, onClose, target, onSubmitSuc
   const targetKey = isOpen && target ? `${target.dateKey}|${target.issue ?? ""}` : null;
   useEffect(() => {
     if (!targetKey) return;
-    form.reset(target?.issue, target?.existingCheckIn);
+    if (keepDraftRef.current) keepDraftRef.current = false;
+    else form.reset(target?.issue, target?.existingCheckIn);
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetKey]);
 
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !isSubmitting && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !isSubmitting && close();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, isSubmitting, onClose]);
+  }, [isOpen, isSubmitting, close]);
 
   if (!isOpen || !target) return null;
 
@@ -67,7 +77,7 @@ export function RegularizeAttendanceModal({ isOpen, onClose, target, onSubmitSuc
         return;
       }
       onSubmitSuccess?.();
-      onClose();
+      close();
     } catch (err: unknown) {
       console.error("Failed to submit regularization:", err);
       setError("Failed to submit regularization. Please try again.");
@@ -79,7 +89,7 @@ export function RegularizeAttendanceModal({ isOpen, onClose, target, onSubmitSuc
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
-      onMouseDown={(e) => e.target === e.currentTarget && !isSubmitting && onClose()}
+      onMouseDown={(e) => e.target === e.currentTarget && !isSubmitting && close()}
     >
       <div
         role="dialog"
@@ -106,7 +116,7 @@ export function RegularizeAttendanceModal({ isOpen, onClose, target, onSubmitSuc
           <button
             type="button"
             aria-label="Close"
-            onClick={onClose}
+            onClick={close}
             className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-accent"
           >
             <X className="w-5 h-5" />
@@ -129,7 +139,7 @@ export function RegularizeAttendanceModal({ isOpen, onClose, target, onSubmitSuc
           <div className="pt-3 flex items-center justify-end gap-3 border-t border-border">
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="px-4 py-2 rounded-lg text-xs font-semibold text-muted-foreground hover:bg-accent transition-colors"
             >
               Cancel

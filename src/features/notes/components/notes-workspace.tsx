@@ -48,6 +48,7 @@ import { shareBoardNote } from "../actions/share-board-note";
 import { toggleBoardNoteItem } from "../actions/toggle-board-note-item";
 import { moveBoardNote } from "../actions/move-board-note";
 import { shareNoteToProjects } from "../actions/share-note-to-projects";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 
 type UserBasic = {
@@ -189,8 +190,8 @@ export function NotesWorkspace({
   });
   const [threads, setThreads] = useState<ThreadData[]>([]);
   const [loadingThreads, setLoadingThreads] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isBoardSectionOpen, setIsBoardSectionOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = usePageViewState("NotesWorkspace:isSidebarOpen", true);
+  const [isBoardSectionOpen, setIsBoardSectionOpen] = usePageViewState("NotesWorkspace:isBoardSectionOpen", true);
 
   // Sync props to state during render
   const [prevHistoryNotes, setPrevHistoryNotes] = useState(historyNotes);
@@ -316,7 +317,7 @@ export function NotesWorkspace({
   const [threadColor, setThreadColor] = useState("#ffffff");
   const [threadSharedUsers, setThreadSharedUsers] = useState<string[]>([]);
 
-  const [activeThreadForNote, setActiveThreadForNote] = useState<string | null>(null);
+  const [activeThreadForNote, setActiveThreadForNote] = usePageViewState<string | null>("NotesWorkspace:activeThreadForNote", null);
   const [noteTitle, setNoteTitle] = useState("");
   const [noteContent, setNoteContent] = useState("");
   const [noteNoteType, setNoteNoteType] = useState<"TEXT" | "CHECKLIST">("TEXT");
@@ -324,8 +325,8 @@ export function NotesWorkspace({
   const [noteDeadline, setNoteDeadline] = useState("");
   const [noteColor, setNoteColor] = useState("#ffffff");
 
-  const [editingBoard, setEditingBoard] = useState<{ id: string; name: string } | null>(null);
-  const [editingThread, setEditingThread] = useState<{ id: string; title: string } | null>(null);
+  const [editingBoard, setEditingBoard] = usePageViewState<{ id: string; name: string } | null>("NotesWorkspace:editingBoard", null);
+  const [editingThread, setEditingThread] = usePageViewState<{ id: string; title: string } | null>("NotesWorkspace:editingThread", null);
   const [editingNote, setEditingNote] = useState<BoardNoteData | null>(null);
   const [sharingItem, setSharingItem] = useState<{
     type: "board" | "thread" | "note";

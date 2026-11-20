@@ -49,6 +49,7 @@ import { sopPlaceLabel, sopTopDepartment } from "../utils";
 import { SopInfoAside } from "./sop-info-aside";
 import { SopTimelineDrawer } from "./sop-timeline-drawer";
 import { SopBoard } from "./sop-board";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 /** Empty lists made with "Create List" ("Department::List") — kept on this browser until their first SOP is saved. */
 const LOCAL_LISTS_KEY = "sop-board-lists";
@@ -162,12 +163,12 @@ export function SopLibraryView({ canEdit = true }: { canEdit?: boolean }) {
   const [templates, setTemplates] = useState<SopTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = usePageViewState("SopLibraryView:searchOpen", false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isPushing, setIsPushing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineOpen, setTimelineOpen] = usePageViewState("SopLibraryView:timelineOpen", false);
   const [localLists, setLocalLists] = useState<string[]>([]);
   const [highlightList, setHighlightList] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);

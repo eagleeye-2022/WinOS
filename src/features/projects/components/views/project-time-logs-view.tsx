@@ -47,6 +47,7 @@ import {
 } from "../../utils/time-helpers";
 import { toast } from "@/components/shared/toast";
 import { useConfirm } from "@/components/shared/confirm-dialog";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 interface ProjectTimeLogsViewProps {
   projectId: string;
@@ -67,8 +68,8 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
   const [filterBilling, setFilterBilling] = useState("ALL");
 
   // Modals
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingLog, setEditingLog] = useState<TimeLogEntry | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = usePageViewState("ProjectTimeLogsView:isAddModalOpen", false);
+  const [editingLog, setEditingLog] = usePageViewState<TimeLogEntry | null>("ProjectTimeLogsView:editingLog", null);
 
   const isClient = userRole === "CLIENT";
   const isManagerOrAdmin =
@@ -140,7 +141,7 @@ export function ProjectTimeLogsView({ projectId, projectName }: ProjectTimeLogsV
     }).sort(compareTimeLogsLatestFirst);
   }, [allLogs, filterUser, filterTask, filterBilling, searchQuery]);
 
-  const [collapsedUserIds, setCollapsedUserIds] = useState<Record<string, boolean>>({});
+  const [collapsedUserIds, setCollapsedUserIds] = usePageViewState<Record<string, boolean>>("ProjectTimeLogsView:collapsedUserIds", {});
 
   const toggleUserCollapse = (uId: string) => {
     setCollapsedUserIds((prev) => ({

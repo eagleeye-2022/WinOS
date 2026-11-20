@@ -53,6 +53,7 @@ import { InviteMemberModal, InviteFormSubmission } from "./modals/invite-member-
 import { ProjectTemplatesModal } from "./modals/project-templates-modal";
 import { toast } from "@/components/shared/toast";
 import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 /**
  * Last data this workspace showed, kept for the life of the browser tab. Navigating into a
@@ -119,9 +120,9 @@ export function ProjectsWorkspace() {
     if (workspaceCache) workspaceCache = { ...workspaceCache, projects: next };
   }, []);
 
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = usePageViewState("ProjectsWorkspace:isAddModalOpen", false);
+  const [isInviteModalOpen, setIsInviteModalOpen] = usePageViewState("ProjectsWorkspace:isInviteModalOpen", false);
+  const [isTemplatesModalOpen, setIsTemplatesModalOpen] = usePageViewState("ProjectsWorkspace:isTemplatesModalOpen", false);
   const [inviteUserType, setInviteUserType] = useState<UserType>("PORTAL");
 
   // Determine activeNav view based on current route pathname

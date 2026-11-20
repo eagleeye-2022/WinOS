@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
+import { useClearPageDraft, usePageDraft } from "@/lib/navigation/use-url-state";
 import { Clock } from "lucide-react";
 import {
   SHIFT_END,
@@ -60,8 +61,12 @@ export interface RegularizationFormState {
   remarks: string;
 }
 
-export function useRegularizationForm(issue?: string | null, existingCheckIn?: string | null) {
-  const [values, setValues] = useState<RegularizationFormState>({
+/**
+ * `draftKey`: what is typed is kept as a page draft (survives leaving the page and a refresh) until
+ * `clearDraft()` — call it after a successful submit or when the form is closed.
+ */
+export function useRegularizationForm(draftKey: string, issue?: string | null, existingCheckIn?: string | null) {
+  const [values, setValues] = usePageDraft<RegularizationFormState>(draftKey, "values", {
     checkIn: existingCheckIn || SHIFT_START,
     checkOut: SHIFT_END,
     reason: defaultReasonFor(issue),
@@ -96,7 +101,9 @@ export function useRegularizationForm(issue?: string | null, existingCheckIn?: s
       : { checkInTime: values.checkIn, checkOutTime: values.checkOut, reason: values.reason, remarks: remarks || undefined };
   };
 
-  return { values, set, reset, errors, isValid, worked: formatWorkedDuration(minutes), payload };
+  const clearDraft = useClearPageDraft(draftKey);
+
+  return { values, set, reset, errors, isValid, worked: formatWorkedDuration(minutes), payload, clearDraft };
 }
 
 export type RegularizationForm = ReturnType<typeof useRegularizationForm>;

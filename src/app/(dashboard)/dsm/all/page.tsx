@@ -6,6 +6,7 @@ import {
   getAllTeams,
   getAllUsers,
   getBlockerAndSupportNeedMembers,
+  getUpcomingLeaves,
 } from "@/features/dsm/manager/queries";
 import { AllDsmClient } from "@/features/dsm/manager/components/all-dsm-client";
 
@@ -30,12 +31,14 @@ export default async function AllDsmPage({ searchParams }: Props) {
     filterDate = new Date(Date.UTC(year, month - 1, day));
   }
 
-  const [stats, groups, teams, allUsers, blockerAndSupport] = await Promise.all([
+  const [stats, groups, teams, allUsers, blockerAndSupport, upcomingLeaves] = await Promise.all([
     getAllDsmStats(filterDate),
     getTeamDsmGroups(filterDate),
     getAllTeams(),
     getAllUsers(),
     getBlockerAndSupportNeedMembers(filterDate),
+    // From the real today (not the selected date), so the list always looks ahead.
+    getUpcomingLeaves(),
   ]);
 
   const todayStr = toIsoDateStr(toUtcDate());
@@ -50,6 +53,7 @@ export default async function AllDsmPage({ searchParams }: Props) {
       selectedDateStr={selectedDateStr}
       serverBlockerMembers={blockerAndSupport.blockerMembers}
       serverSupportNeededMembers={blockerAndSupport.supportNeededMembers}
+      upcomingLeaves={upcomingLeaves}
     />
   );
 }

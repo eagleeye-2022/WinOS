@@ -44,6 +44,7 @@ import {
   MAX_LOG_DURATION_ERROR,
   SAME_DAY_LOG_ERROR,
 } from "../../utils/time-helpers";
+import { usePageViewState, usePageDraft, useClearPageDraft, useHadPageDraftOnMount } from "@/lib/navigation/use-url-state";
 
 interface NewTimeLogModalProps {
   isOpen: boolean;
@@ -75,6 +76,14 @@ const FALLBACK_TASK_OPTIONS = [
   { code: "EC2-T35", title: "QA Automated Cypress Tests" },
 ];
 
+/** Today as dd/mm/yyyy (the form's date format). */
+function todayDdMmYyyy(): string {
+  const today = new Date();
+  const dd = String(today.getDate()).padStart(2, "0");
+  const mm = String(today.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${today.getFullYear()}`;
+}
+
 export function NewTimeLogModal({
   isOpen,
   onClose,
@@ -91,7 +100,15 @@ export function NewTimeLogModal({
   const isProjectLocked = Boolean(projectId && projectName);
 
   // State
-  const [selectedProject, setSelectedProject] = useState(
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = `time-log:${editingLog?.id ?? `new:${projectId ?? "all"}`}`;
+  const clearDraft = useClearPageDraft(draft);
+  const close = () => {
+    clearDraft();
+    onClose();
+  };
+  const [selectedProject, setSelectedProject] = usePageDraft(draft, "selectedProject", 
     projectName || initialProject || ""
   );
   const [realProjects, setRealProjects] = useState<Project[]>([]);
@@ -105,8 +122,8 @@ export function NewTimeLogModal({
 
   // Tasks State
   const [projectTasksList, setProjectTasksList] = useState<{ code: string; title: string }[]>([]);
-  const [selectedTaskOption, setSelectedTaskOption] = useState("");
-  const [taskSearchQuery, setTaskSearchQuery] = useState(initialTaskCode || "");
+  const [selectedTaskOption, setSelectedTaskOption] = usePageDraft(draft, "selectedTaskOption", "");
+  const [taskSearchQuery, setTaskSearchQuery] = usePageDraft(draft, "taskSearchQuery", initialTaskCode || "");
 
   // Resolve the active project's real id: locked projects pass it in directly,
   // otherwise look it up from the loaded project list by the selected name.
@@ -148,12 +165,15 @@ export function NewTimeLogModal({
     };
   }, [isOpen, activeProjectId, initialTaskCode]);
 
-  // Clear a stale task selection when the user switches projects manually.
+  // Clear a stale task selection when the user switches projects manually (not when the project list
+  // first loads and resolves the id, which would wipe a restored draft's task).
   const [prevActiveProjectId, setPrevActiveProjectId] = useState(activeProjectId);
   if (activeProjectId !== prevActiveProjectId) {
     setPrevActiveProjectId(activeProjectId);
-    setSelectedTaskOption("");
-    setTaskSearchQuery(initialTaskCode || "");
+    if (prevActiveProjectId !== undefined) {
+      setSelectedTaskOption("");
+      setTaskSearchQuery(initialTaskCode || "");
+    }
     if (!activeProjectId) {
       setProjectTasksList([]);
     }
@@ -161,20 +181,14 @@ export function NewTimeLogModal({
 
   const allTaskOptions = activeProjectId ? projectTasksList : FALLBACK_TASK_OPTIONS;
 
-  const [isGeneralLog, setIsGeneralLog] = useState(false);
-  const [logTitle, setLogTitle] = useState("");
+  const [isGeneralLog, setIsGeneralLog] = usePageDraft(draft, "isGeneralLog", false);
+  const [logTitle, setLogTitle] = usePageDraft(draft, "logTitle", "");
   
   // Section toggle
-  const [isTimeLogInfoExpanded, setIsTimeLogInfoExpanded] = useState(true);
+  const [isTimeLogInfoExpanded, setIsTimeLogInfoExpanded] = usePageViewState("NewTimeLogModal:isTimeLogInfoExpanded", true);
 
   // Time Log Info state
-  const [logDate, setLogDate] = useState(() => {
-    const today = new Date();
-    const dd = String(today.getDate()).padStart(2, "0");
-    const mm = String(today.getMonth() + 1).padStart(2, "0");
-    const yyyy = today.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
-  });
+  const [logDate, setLogDate] = usePageDraft(draft, "logDate", todayDdMmYyyy());
 
   // The log always belongs to whoever is signed in and adding it — the server
   // attributes it to the session user regardless, so this just mirrors that.
@@ -187,14 +201,19 @@ export function NewTimeLogModal({
       .catch((err) => console.error("Failed to load current user:", err));
   }, [isOpen]);
 
-  const [useHoursMode, setUseHoursMode] = useState(false);
-  const [startTime, setStartTime] = useState(() => formatTime12h(new Date(Date.now() - 30 * 60000)));
-  const [endTime, setEndTime] = useState(() => formatTime12h(new Date()));
-  const [hoursDuration, setHoursDuration] = useState("00:30");
-  const [billingType, setBillingType] = useState<"Billable" | "Non Billable">("Billable");
+  const [useHoursMode, setUseHoursMode] = usePageDraft(draft, "useHoursMode", false);
+  // Default times worked out once (last 30 minutes), like useState's initializer.
+  const [defaultTimes] = useState(() => ({
+    start: formatTime12h(new Date(Date.now() - 30 * 60000)),
+    end: formatTime12h(new Date()),
+  }));
+  const [startTime, setStartTime] = usePageDraft(draft, "startTime", defaultTimes.start);
+  const [endTime, setEndTime] = usePageDraft(draft, "endTime", defaultTimes.end);
+  const [hoursDuration, setHoursDuration] = usePageDraft(draft, "hoursDuration", "00:30");
+  const [billingType, setBillingType] = usePageDraft<"Billable" | "Non Billable">(draft, "billingType", "Billable");
 
   // Rich Text Editor states
-  const [notesText, setNotesText] = useState("");
+  const [notesText, setNotesText] = usePageDraft(draft, "notesText", "");
   const [fontFamily, setFontFamily] = useState("Poppins");
   const [fontSize, setFontSize] = useState("13");
   const [isBold, setIsBold] = useState(false);
@@ -207,8 +226,13 @@ export function NewTimeLogModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
+  // Coming back to a draft that was left open: keep it instead of re-filling the form once.
+  const hadDraft = useHadPageDraftOnMount(draft);
+  const keepDraftRef = React.useRef(hadDraft);
   React.useEffect(() => {
-    if (isOpen) {
+    if (isOpen && keepDraftRef.current) {
+      keepDraftRef.current = false;
+    } else if (isOpen) {
       if (editingLog) {
         setSelectedProject(editingLog.project || projectName || initialProject || "");
         const taskOpt = editingLog.taskCode
@@ -467,7 +491,7 @@ export function NewTimeLogModal({
           onLogUpdated(updatedLogData);
         }
         setIsSubmitting(false);
-        onClose();
+        close();
       } catch (err) {
         console.error("Failed to update time log:", err);
         setSubmitError("Failed to update effort log. Please try again.");
@@ -494,7 +518,7 @@ export function NewTimeLogModal({
           onLogAdded(savedLog);
         }
         setIsSubmitting(false);
-        onClose();
+        close();
       } catch (err) {
         console.error("Failed to save time log:", err);
         setSubmitError("Failed to add effort log. Please try again.");
@@ -520,7 +544,7 @@ export function NewTimeLogModal({
             )}
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-accent transition-colors"
             >
               <X size={18} />
@@ -933,7 +957,7 @@ export function NewTimeLogModal({
             </button>
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="border border-border bg-background hover:bg-accent text-foreground font-semibold px-6 py-2 rounded-md text-xs transition-colors cursor-pointer"
             >
               Cancel

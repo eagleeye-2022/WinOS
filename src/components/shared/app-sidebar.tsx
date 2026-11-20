@@ -35,6 +35,10 @@ import { getNavModule, resolveNavModule } from "@/lib/navigation/modules";
 import { useNavigationStore } from "@/stores/navigation-store";
 import { shortProjectName } from "@/features/projects/utils/project-name";
 import { SETU_TABS } from "@/features/setu/components/setu-shell";
+import { useModuleViewState } from "@/lib/navigation/use-url-state";
+
+const NO_OPEN_GROUPS: Record<string, boolean> = {};
+
 /**
  * Active sidebar item: a plain neutral fill that follows the theme — a soft grey in light mode, a
  * slightly lighter shade than the sidebar in dark mode — so it stands out without any blue tint,
@@ -169,7 +173,8 @@ export function AppSidebar({
   const resetModule = useNavigationStore((s) => s.resetModule);
   const [recentProjects, setRecentProjects] = useState<{ id: string; name: string }[]>([]);
   // Drop-downs the user opened/closed by hand (label → open); otherwise open while a child page is active.
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  // Expanded / collapsed sidebar groups, remembered per module (and across a refresh).
+  const [openGroups, setOpenGroups] = useModuleViewState<Record<string, boolean>>("sidebar:open-groups", NO_OPEN_GROUPS);
 
   useEffect(() => {
     setTimeout(() => {

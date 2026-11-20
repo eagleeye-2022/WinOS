@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { toUtcDate, getWeekRange, getTeamRank, sortTeamGroups, sortTeamMembers } from "../utils";
+import { toUtcDate, toIsoDateStr, getWeekRange, getTeamRank, sortTeamGroups, sortTeamMembers } from "../utils";
 import { entriesWithLinkedDueDates } from "../due-date-sync";
+import { isFullDayLeave } from "./leave-utils";
 
 export { getTeamRank, sortTeamGroups, sortTeamMembers };
 
@@ -19,7 +20,142 @@ export type MemberSubmissionCard = {
   todayTasks: { text: string; priority: string | null; managerPriority: string | null }[];
   blockerCount: number;
   supportCount: number;
+  /** Approved (or pending) leave covering the selected day, if any. */
+  leave: MemberLeaveInfo | null;
 };
+
+export type MemberLeaveInfo = {
+  typeName: string;
+  status: "APPROVED" | "PENDING";
+  durationType: "FULL_DAY" | "HALF_DAY" | "QUARTER_DAY" | "EARLY_LEAVE" | "HOURLY";
+  halfDayType: "FIRST_HALF" | "SECOND_HALF" | null;
+  fromTime: string | null;
+  toTime: string | null;
+};
+
+export type UpcomingLeave = MemberLeaveInfo & {
+
+  
+  id: string;
+  userId: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  /** "YYYY-MM-DD" */
+  fromDate: string;
+  /** "YYYY-MM-DD" */
+  toDate: string;
+  durationDays: number;
+};
+
+type LeaveRow = {
+  id: string;
+  userId: string;
+  status: "APPROVED" | "PENDING";
+  durationType: MemberLeaveInfo["durationType"];
+  halfDayType: MemberLeaveInfo["halfDayType"];
+  fromTime: string | null;
+  toTime: string | null;
+  fromDate: Date;
+  toDate: Date;
+  durationDays: number;
+  leaveType: { name: string };
+};
+
+function toLeaveInfo(l: LeaveRow): MemberLeaveInfo {
+  return {
+    typeName: l.leaveType.name,
+    status: l.status,
+    durationType: l.durationType,
+    halfDayType: l.halfDayType,
+    fromTime: l.fromTime,
+    toTime: l.toTime,
+  };
+}
+
+/** Approved / pending leave covering `day` (UTC midnight) per user — approved wins over pending. */
+async function getLeavesOn(userIds: string[], day: Date): Promise<Map<string, MemberLeaveInfo>> {
+  const out = new Map<string, MemberLeaveInfo>();
+  if (userIds.length === 0) return out;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows: LeaveRow[] = await (db as any).leaveRequest.findMany({
+    where: {
+      userId: { in: userIds },
+      status: { in: ["APPROVED", "PENDING"] },
+      fromDate: { lte: day },
+      toDate: { gte: day },
+    },
+    select: {
+      id: true,
+      userId: true,
+      status: true,
+      durationType: true,
+      halfDayType: true,
+      fromTime: true,
+      toTime: true,
+      fromDate: true,
+      toDate: true,
+      durationDays: true,
+      leaveType: { select: { name: true } },
+    },
+  });
+  for (const l of rows) {
+    const prev = out.get(l.userId);
+    if (!prev || (prev.status === "PENDING" && l.status === "APPROVED")) out.set(l.userId, toLeaveInfo(l));
+  }
+  return out;
+}
+
+/**
+ * Approved and pending leave of team members from `from` (UTC midnight, inclusive) over the next
+ * `days` days — for the "Upcoming leaves" list on All DSM. Sorted by start date.
+ */
+export async function getUpcomingLeaves(from?: Date, days = 30): Promise<UpcomingLeave[]> {
+  const managerId = await requireManager();
+  if (!managerId) return [];
+  const start = toUtcDate(from ?? new Date());
+  const end = new Date(start.getTime() + days * 86_400_000);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const memberships: { userId: string }[] = await d.teamMember.findMany({ select: { userId: true } });
+  const userIds = Array.from(new Set(memberships.map((m) => m.userId)));
+  if (userIds.length === 0) return [];
+  const rows: (LeaveRow & { user: { name: string | null; email: string; image: string | null } })[] =
+    await d.leaveRequest.findMany({
+      where: {
+        userId: { in: userIds },
+        status: { in: ["APPROVED", "PENDING"] },
+        toDate: { gte: start },
+        fromDate: { lte: end },
+      },
+      select: {
+        id: true,
+        userId: true,
+        status: true,
+        durationType: true,
+        halfDayType: true,
+        fromTime: true,
+        toTime: true,
+        fromDate: true,
+        toDate: true,
+        durationDays: true,
+        leaveType: { select: { name: true } },
+        user: { select: { name: true, email: true, image: true } },
+      },
+      orderBy: [{ fromDate: "asc" }, { createdAt: "asc" }],
+    });
+  return rows.map((l) => ({
+    ...toLeaveInfo(l),
+    id: l.id,
+    userId: l.userId,
+    name: l.user.name,
+    email: l.user.email,
+    image: l.user.image,
+    fromDate: toIsoDateStr(l.fromDate),
+    toDate: toIsoDateStr(l.toDate),
+    durationDays: l.durationDays,
+  }));
+}
 
 export type TeamGroup = {
   teamId: string;
@@ -222,6 +358,7 @@ export async function getAllDsmStats(date?: Date): Promise<AllDsmStats | null> {
       date: targetDate,
     },
     select: {
+      userId: true,
       status: true,
       blockers: { select: { resolved: true, priority: true } },
       supportNeeds: { select: { resolved: true } },
@@ -236,7 +373,11 @@ export async function getAllDsmStats(date?: Date): Promise<AllDsmStats | null> {
   );
 
   const totalSubmitted = submittedEntries.length;
-  const pendingCount = Math.max(0, totalExpected - totalSubmitted);
+  // Members on approved full-day leave who haven't submitted aren't pending.
+  const submittedIds = new Set(submittedEntries.map((e: { userId: string }) => e.userId));
+  const leaves = await getLeavesOn(memberIds as string[], targetDate);
+  const onLeaveNotSubmitted = (memberIds as string[]).filter((id) => !submittedIds.has(id) && isFullDayLeave(leaves.get(id))).length;
+  const pendingCount = Math.max(0, totalExpected - totalSubmitted - onLeaveNotSubmitted);
   const blockerCount = todayEntries.reduce(
     (sum: number, e: { blockers: { resolved: boolean; priority: string }[] }) =>
       sum + e.blockers.filter((b) => !b.resolved).length,
@@ -398,6 +539,11 @@ export async function getTeamDsmGroups(date?: Date): Promise<TeamGroup[]> {
     orderBy: { name: "asc" },
   });
 
+  const allMemberIds = Array.from(
+    new Set<string>(teams.flatMap((t: { members: { user: { id: string } }[] }) => t.members.map((m) => m.user.id)))
+  );
+  const leavesByUser = await getLeavesOn(allMemberIds, targetDate);
+
   const groups: TeamGroup[] = [];
 
   for (const team of teams) {
@@ -446,6 +592,7 @@ export async function getTeamDsmGroups(date?: Date): Promise<TeamGroup[]> {
           todayTasks: isSubmitted ? entry!.tasks.map((t) => ({ text: t.text, priority: t.priority, managerPriority: t.managerPriority })) : [],
           blockerCount: isSubmitted ? (entry!.blockers as unknown[]).length : 0,
           supportCount: isSubmitted ? (entry!.supportNeeds as unknown[]).length : 0,
+          leave: leavesByUser.get(m.user.id) ?? null,
         };
       }
     );

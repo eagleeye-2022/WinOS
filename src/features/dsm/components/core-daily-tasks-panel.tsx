@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { ChevronDown, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TimerWidget } from "@/features/projects/components/timer-widget";
@@ -10,6 +9,7 @@ import { CoreTaskDetails } from "./core-task-details";
 import { TaskInfoLink } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import type { CoreDailyTask } from "../queries";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 type CoreDailyTasksPanelProps = {
   tasks: CoreDailyTask[];
@@ -20,7 +20,7 @@ type CoreDailyTasksPanelProps = {
 
 /** EED Core's shared daily tasks (DSM, meetings, …), pinned on /dsm so anyone can start a timer. */
 export function CoreDailyTasksPanel({ tasks, memberView }: CoreDailyTasksPanelProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = usePageViewState<string | null>("CoreDailyTasksPanel:expandedId", null);
 
   const card = (
     <div className="rounded-xl border bg-card p-4 shadow-xs">

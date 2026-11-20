@@ -27,6 +27,7 @@ import { NewProjectFormData, Project, ProjectPhase, ProjectTemplate, ProjectType
 import { getOwnersAndTeamsAction, getCurrentUserContextAction } from "../../actions/project-actions";
 import { getCustomProjectTemplatesAction } from "../../actions/template-actions";
 import { getTemplateKind, isBuiltInTemplate } from "../../template-utils";
+import { usePageViewState, usePageDraft, useClearPageDraft, useHadPageDraftOnMount } from "@/lib/navigation/use-url-state";
 
 interface AddProjectDrawerProps {
   isOpen: boolean;
@@ -45,13 +46,21 @@ export function AddProjectDrawer({
   projectToEdit,
   onUpdateProject,
 }: AddProjectDrawerProps) {
-  const [projectName, setProjectName] = useState("");
-  const [selectedTemplate, setSelectedTemplate] = useState<ProjectTemplate>(
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = `project-form:${projectToEdit?.id ?? "new"}`;
+  const clearDraft = useClearPageDraft(draft);
+  const close = () => {
+    clearDraft();
+    onClose();
+  };
+  const [projectName, setProjectName] = usePageDraft(draft, "projectName", "");
+  const [selectedTemplate, setSelectedTemplate] = usePageDraft<ProjectTemplate>(draft, "selectedTemplate", 
     DIGITAL_PROJECT_TEMPLATES[0]
   );
-  const [projectCategory, setProjectCategory] = useState<ProjectType>("CLIENT_DELIVERY");
-  const [departmentAlias, setDepartmentAlias] = useState("digitalproducts@");
-  const [phases, setPhases] = useState<ProjectPhase[]>(
+  const [projectCategory, setProjectCategory] = usePageDraft<ProjectType>(draft, "projectCategory", "CLIENT_DELIVERY");
+  const [departmentAlias, setDepartmentAlias] = usePageDraft(draft, "departmentAlias", "digitalproducts@");
+  const [phases, setPhases] = usePageDraft<ProjectPhase[]>(draft, "phases", 
     scaffoldPhasesFromTemplate(DIGITAL_PROJECT_TEMPLATES[0])
   );
 
@@ -65,9 +74,9 @@ export function AddProjectDrawer({
   };
 
   // Accordion Section Toggle States
-  const [phasesOpen, setPhasesOpen] = useState(true);
-  const [taskInfoOpen, setTaskInfoOpen] = useState(true);
-  const [descriptionOpen, setDescriptionOpen] = useState(true);
+  const [phasesOpen, setPhasesOpen] = usePageViewState("AddProjectDrawer:phasesOpen", true);
+  const [taskInfoOpen, setTaskInfoOpen] = usePageViewState("AddProjectDrawer:taskInfoOpen", true);
+  const [descriptionOpen, setDescriptionOpen] = usePageViewState("AddProjectDrawer:descriptionOpen", true);
 
   // Switch phases based on Project Template Selection
   const handleTemplateSelect = (templateId: string) => {
@@ -82,31 +91,31 @@ export function AddProjectDrawer({
   };
 
   // Task Information Form Fields
-  const [associatedTeam, setAssociatedTeam] = useState("");
-  const [owner, setOwner] = useState("");
-  const [workHours, setWorkHours] = useState("0:00");
-  const [startDate, setStartDate] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [priority, setPriority] = useState<string>("None");
-  const [tagInput, setTagInput] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
-  const [reminder, setReminder] = useState("");
-  const [billingType, setBillingType] = useState("Fixed Rate");
-  const [projectGroup, setProjectGroup] = useState("");
-  const [businessHours, setBusinessHours] = useState("Standard Business Hours");
-  const [taskLayout, setTaskLayout] = useState("New Project Template");
-  const [projectAccess, setProjectAccess] = useState<"PRIVATE" | "PUBLIC">("PRIVATE");
-  const [notifyAddedUsers, setNotifyAddedUsers] = useState(true);
+  const [associatedTeam, setAssociatedTeam] = usePageDraft(draft, "associatedTeam", "");
+  const [owner, setOwner] = usePageDraft(draft, "owner", "");
+  const [workHours, setWorkHours] = usePageDraft(draft, "workHours", "0:00");
+  const [startDate, setStartDate] = usePageDraft(draft, "startDate", "");
+  const [dueDate, setDueDate] = usePageDraft(draft, "dueDate", "");
+  const [priority, setPriority] = usePageDraft<string>(draft, "priority", "None");
+  const [tagInput, setTagInput] = usePageDraft(draft, "tagInput", "");
+  const [tags, setTags] = usePageDraft<string[]>(draft, "tags", []);
+  const [reminder, setReminder] = usePageDraft(draft, "reminder", "");
+  const [billingType, setBillingType] = usePageDraft(draft, "billingType", "Fixed Rate");
+  const [projectGroup, setProjectGroup] = usePageDraft(draft, "projectGroup", "");
+  const [businessHours, setBusinessHours] = usePageDraft(draft, "businessHours", "Standard Business Hours");
+  const [taskLayout, setTaskLayout] = usePageDraft(draft, "taskLayout", "New Project Template");
+  const [projectAccess, setProjectAccess] = usePageDraft<"PRIVATE" | "PUBLIC">(draft, "projectAccess", "PRIVATE");
+  const [notifyAddedUsers, setNotifyAddedUsers] = usePageDraft(draft, "notifyAddedUsers", true);
 
   // Description & Attachments
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = usePageDraft(draft, "description", "");
   const [attachments, setAttachments] = useState<File[]>([]);
 
   // Expanded Phase Sub-Accordion State
-  const [expandedPhaseId, setExpandedPhaseId] = useState<string | null>(null);
+  const [expandedPhaseId, setExpandedPhaseId] = usePageViewState<string | null>("AddProjectDrawer:expandedPhaseId", null);
 
   // New Phase Add Inline State
-  const [showAddPhaseModal, setShowAddPhaseModal] = useState(false);
+  const [showAddPhaseModal, setShowAddPhaseModal] = usePageViewState("AddProjectDrawer:showAddPhaseModal", false);
   const [newPhaseCode, setNewPhaseCode] = useState("");
   const [newPhaseName, setNewPhaseName] = useState("");
 
@@ -152,7 +161,14 @@ export function AddProjectDrawer({
     }
   }, [isOpen]);
 
+  // Coming back to a draft that was left open: keep it instead of re-filling the form once.
+  const hadDraft = useHadPageDraftOnMount(draft);
+  const keepDraftRef = React.useRef(hadDraft);
   React.useEffect(() => {
+    if (keepDraftRef.current) {
+      keepDraftRef.current = false;
+      return;
+    }
     if (projectToEdit) {
       setProjectName(projectToEdit.name || "");
       setStartDate(projectToEdit.startDate || "");
@@ -281,8 +297,7 @@ export function AddProjectDrawer({
       } else {
         await onAddProject(formData);
       }
-      setProjectName("");
-      onClose();
+      close();
     } finally {
       setIsSubmitting(false);
     }
@@ -305,7 +320,7 @@ export function AddProjectDrawer({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
           >
             <X size={18} />
@@ -1064,7 +1079,7 @@ export function AddProjectDrawer({
               </button>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={close}
                 className="rounded-md border border-input bg-background px-6 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
               >
                 Cancel

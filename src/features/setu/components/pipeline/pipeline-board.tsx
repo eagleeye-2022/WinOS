@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, SlidersHorizontal, Trophy } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/shared/toast";
-import { useUrlState } from "@/lib/navigation/use-url-state";
+import { useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
 import { PIPELINE_STAGES, STAGE_BY_ID } from "../../constants";
 import { useSetuStore } from "../../store";
 import type { PipelineStageId, ProspectSource } from "../../types";
@@ -23,7 +23,7 @@ export function PipelineBoard() {
   const [source, setSource] = useUrlState<SourceFilter>("source", "all", { allowed: SOURCE_FILTERS });
   const [openId, setOpenId] = useUrlState("open", "", { history: "push" });
   const [focusStage] = useUrlState<PipelineStageId | "">("stage", "", { allowed: STAGE_IDS });
-  const [filterOpen, setFilterOpen] = useState(() => q !== "" || source !== "all");
+  const [filterOpen, setFilterOpen] = usePageViewState("PipelineBoard:filterOpen", q !== "" || source !== "all");
   const [addStage, setAddStage] = useState<PipelineStageId | null>(null);
   const [dragOver, setDragOver] = useState<PipelineStageId | null>(null);
   const columnRefs = useRef<Partial<Record<PipelineStageId, HTMLDivElement | null>>>({});

@@ -29,6 +29,7 @@ import {
   IcaProfileData,
   IcaItem
 } from "./actions";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 type MatchStatus = "Matched" | "Extra" | "Missing";
 
@@ -233,11 +234,11 @@ export default function IcaWorkspace({ currentUser, dbUsers }: IcaWorkspaceProps
   const [profile, setProfile] = useState<IcaProfileData | null>(null);
 
   // Selected document ID & in-page detail viewer state (matching RTD module)
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [selectedDocId, setSelectedDocId] = usePageViewState<string | null>("IcaWorkspace:selectedDocId", null);
   const [isViewingDoc, setIsViewingDoc] = useState(false);
 
   // Upload modal states
-  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = usePageViewState("IcaWorkspace:showUploadModal", false);
   const [newComment, setNewComment] = useState("");
   const [uploadedFile, setUploadedFile] = useState<{ name: string; size: string; rawFile?: File } | null>(null);
   const [isUploading, setIsUploading] = useState(false);

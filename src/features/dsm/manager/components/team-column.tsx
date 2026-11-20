@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { CheckCircle2, ClipboardCheck, ListChecks, AlertTriangle, ChevronRight } from "lucide-react";
+import { CheckCircle2, ClipboardCheck, ListChecks, AlertTriangle, ChevronRight, CalendarOff } from "lucide-react";
 import { cn, toTitleCase } from "@/lib/utils";
 import { teamDotColor } from "@/lib/team-colors";
 import { ROUTES } from "@/constants/routes";
 import { SendReminderButton } from "./send-reminder-button";
-import type { TeamGroup, MemberSubmissionCard } from "../queries";
+import type { TeamGroup, MemberSubmissionCard, MemberLeaveInfo } from "../queries";
+import { isFullDayLeave, leavePartLabel } from "../leave-utils";
 import { getInitials } from "@/lib/avatar";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserName } from "@/components/shared/user-card";
@@ -105,6 +106,7 @@ function SubmittedCard({ card, selectedDateStr }: { card: MemberSubmissionCard; 
               {isOnTime ? "On Time" : "Delayed"}
             </span>
           )}
+          {card.leave && <LeavePill leave={card.leave} />}
         </div>
       </div>
 
@@ -161,17 +163,42 @@ function SubmittedCard({ card, selectedDateStr }: { card: MemberSubmissionCard; 
   );
 }
 
+// ── Leave pill ────────────────────────────────────────────────────────────────
+
+/** "Casual Leave" / "Sick Leave · First half", amber while the request is still pending. */
+function LeavePill({ leave }: { leave: MemberLeaveInfo }) {
+  const part = leavePartLabel(leave);
+  const pending = leave.status === "PENDING";
+  return (
+    <span
+      title={`${leave.typeName}${part ? ` (${part})` : ""}${pending ? " — awaiting approval" : ""}`}
+      className={cn(
+        "max-w-[130px] shrink-0 truncate rounded-full border px-2 py-0.5 text-[11px] font-semibold",
+        pending
+          ? "border-amber-500/50 text-amber-700 dark:text-amber-300"
+          : "border-sky-500/50 text-sky-700 dark:text-sky-300"
+      )}
+    >
+      {pending ? "Leave pending" : part ? `Leave · ${part}` : leave.typeName}
+    </span>
+  );
+}
+
 // ── Pending member card ───────────────────────────────────────────────────────
 
 function PendingMemberCard({ card, teamId, selectedDateStr }: { card: MemberSubmissionCard; teamId: string; selectedDateStr?: string }) {
   const displayName = displayNameOf(card);
   const initials = getInitials(displayName);
   const href = selectedDateStr ? `${ROUTES.dsmMember(card.userId)}?date=${selectedDateStr}` : ROUTES.dsmMember(card.userId);
+  const onFullDayLeave = isFullDayLeave(card.leave);
 
   return (
     <Link
       href={href}
-      className="group relative flex min-h-[104px] shrink-0 flex-col justify-between rounded-xl border border-dashed border-border bg-transparent p-3 transition-all duration-200 hover:border-foreground/30 hover:bg-muted/30 hover:shadow-md cursor-pointer"
+      className={cn(
+        "group relative flex min-h-[104px] shrink-0 flex-col justify-between rounded-xl border border-dashed p-3 transition-all duration-200 hover:border-foreground/30 hover:bg-muted/30 hover:shadow-md cursor-pointer",
+        onFullDayLeave ? "border-sky-500/40 bg-sky-500/[0.04]" : "border-border bg-transparent"
+      )}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
@@ -191,14 +218,22 @@ function PendingMemberCard({ card, teamId, selectedDateStr }: { card: MemberSubm
                 {displayName}
               </UserName>
             </p>
-            <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-              <AlertTriangle size={10} /> {card.status === "MISSED" ? "Missed" : "Not Submitted"}
-            </span>
+            {onFullDayLeave ? (
+              <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-sky-700 dark:text-sky-300">
+                <CalendarOff size={10} /> On Leave
+              </span>
+            ) : (
+              <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                <AlertTriangle size={10} /> {card.status === "MISSED" ? "Missed" : "Not Submitted"}
+              </span>
+            )}
           </div>
         </div>
+        {card.leave && <LeavePill leave={card.leave} />}
       </div>
       <div className="mt-2.5 pt-2 border-t border-border/50 flex items-center justify-between">
-        <SendReminderButton userId={card.userId} teamId={teamId} />
+        {/* Nobody to remind when they're off for the whole day. */}
+        {onFullDayLeave ? <span /> : <SendReminderButton userId={card.userId} teamId={teamId} />}
         <span className="text-xs font-medium text-muted-foreground group-hover:text-foreground flex items-center gap-0.5">
           Add Task <ChevronRight size={13} />
         </span>

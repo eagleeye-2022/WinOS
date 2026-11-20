@@ -9,7 +9,7 @@ import { UserName } from "@/components/shared/user-card";
 import { formatFullDate } from "@/features/dsm/utils";
 import { formatEventTime } from "@/features/dsr/utils";
 import { daysOpen, filterSupport, type SupportStatusFilter } from "../utils";
-import { useUrlNumberState, useUrlSelection, useUrlState } from "@/lib/navigation/use-url-state";
+import { useUrlNumberState, useUrlSelection, useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
 import { markSupportResolved, type MarkSupportResolvedState } from "../actions/mark-resolved";
 import { createSupport, type CreateSupportState } from "../actions/create-support";
 import { sendSupportReminder, type SupportReminderState } from "../actions/send-reminder";
@@ -560,7 +560,7 @@ export function SupportClient({ items, itemsForMe, teamMembers, currentUserId, i
   const [statusFilter, setStatusFilter] = useUrlState<SupportStatusFilter>("status", "all");
   const [search, setSearch] = useUrlState("q", "");
   const [page, setPage] = useUrlNumberState("page", 1);
-  const [showModal, setShowModal] = useState(false);
+  const [showModal, setShowModal] = usePageViewState("SupportClient:showModal", false);
 
   const activeItems = useMemo(() => {
     if (viewMode === "all") return items;

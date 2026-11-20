@@ -17,6 +17,7 @@ import {
 import { TaskMultiOwnerSelect, type OwnerUserOption } from "./task-multi-owner-select";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { AvatarStack } from "@/components/shared/avatar-stack";
+import { SubtaskTree } from "@/components/shared/subtask-tree";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { toast } from "@/components/shared/toast";
 import { cn } from "@/lib/utils";
@@ -546,15 +547,12 @@ export function TaskSidebarTree({
           </div>
         </div>
 
+        {/* Same tree as the boards: the line ends in a └ at the last subtask, then "End of N subtasks". */}
         {children.length > 0 && (
-          <div className={cn("relative ml-2.5 space-y-2 border-l-2 border-cyan-400/70 dark:border-cyan-500/50 pl-3", !isSubtask && "mt-1")}>
-            {children.map((child) => (
-              <div key={child.id} className="relative">
-                <span className="absolute -left-3 top-4 w-3 border-t-2 border-cyan-400/70 dark:border-cyan-500/50" />
-                {renderCard(child, item, seen)}
-              </div>
-            ))}
-          </div>
+          <SubtaskTree
+            stopClicks={false}
+            items={children.map((child) => ({ key: child.id, content: renderCard(child, item, seen) }))}
+          />
         )}
       </div>
     );

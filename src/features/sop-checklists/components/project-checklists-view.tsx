@@ -13,6 +13,7 @@ import {
 import { getSopTemplatesAction } from "../actions/template-actions";
 import { sopPlaceLabel } from "../utils";
 import { ProjectChecklistOverview, ProjectChecklistTask, SopTemplate } from "../types";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 type Filter = "WITH" | "REQUIRED_OPEN" | "OUTDATED" | "WITHOUT";
 
@@ -29,7 +30,7 @@ export function ProjectChecklistsView({ projectId }: { projectId: string }) {
   const [reloadKey, setReloadKey] = useState(0);
   const [filter, setFilter] = useState<Filter>("WITH");
   const [search, setSearch] = useState("");
-  const [attachOpen, setAttachOpen] = useState(false);
+  const [attachOpen, setAttachOpen] = usePageViewState("ProjectChecklistsView:attachOpen", false);
 
   useEffect(() => {
     let cancelled = false;

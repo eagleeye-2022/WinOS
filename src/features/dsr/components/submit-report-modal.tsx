@@ -1,5 +1,6 @@
 "use client";
 
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 import { useState } from "react";
 import { Check, ExternalLink, Loader2, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -52,7 +53,8 @@ export function SubmitReportModal({
   pending,
   serverError,
 }: Props) {
-  const [step, setStep] = useState(0);
+  // Remembered, so coming back to the page reopens the modal on the same step.
+  const [step, setStep] = usePageViewState(`SubmitReportModal:${dateStr}:step`, 0);
   const [touchedLink, setTouchedLink] = useState(false);
 
   const linkCheck = validateRecordingUrl(recordingUrl, config.allowedHosts);

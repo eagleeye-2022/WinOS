@@ -41,6 +41,7 @@ import {
   getCurrentUserContextAction,
   getMyProjectUserProjectIdsAction,
 } from "../../actions/project-actions";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 interface TaskDetailDrawerProps {
   task: TaskItem | null;
@@ -59,10 +60,10 @@ export function TaskDetailDrawer({
     "REMARKS" | "SUBTASKS" | "TRACKED_HOURS" | "TIMELINE" | "CHECKLIST"
   >("CHECKLIST");
 
-  const [descriptionOpen, setDescriptionOpen] = useState(true);
-  const [taskInfoOpen, setTaskInfoOpen] = useState(true);
+  const [descriptionOpen, setDescriptionOpen] = usePageViewState("TaskDetailDrawer:descriptionOpen", true);
+  const [taskInfoOpen, setTaskInfoOpen] = usePageViewState("TaskDetailDrawer:taskInfoOpen", true);
   const [showAiSummary, setShowAiSummary] = useState(false);
-  const [isTimeLogModalOpen, setIsTimeLogModalOpen] = useState(false);
+  const [isTimeLogModalOpen, setIsTimeLogModalOpen] = usePageViewState("TaskDetailDrawer:isTimeLogModalOpen", false);
 
   // Left split-pane task list
   const [selectedTaskCode, setSelectedTaskCode] = useState("WI1-T11");

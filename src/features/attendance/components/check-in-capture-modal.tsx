@@ -6,7 +6,7 @@ import { lookupPlaceAction, type CheckInLocation } from "../actions/attendance-a
 import { cn } from "@/lib/utils";
 
 export interface CheckInCapture {
-  /** Left out when the employee checks in/out without sharing their location. */
+  /** Left out when no location was found before the employee confirmed. */
   location?: CheckInLocation;
   /** URL from POST /api/uploads. */
   photo: string;
@@ -31,38 +31,18 @@ type LocationState =
   | { status: "locating"; best?: CheckInLocation }
   /** `place`: undefined while looking up the area name, null when none was found. */
   | { status: "ready"; location: CheckInLocation; place?: Place | null }
-  | { status: "error"; message: string }
-  /** The employee chose to go ahead without sharing their location. */
-  | { status: "skipped" };
-
-/**
- * Location capture at check-in / check-out is switched OFF for now (desktop browsers often only give a
- * ±200 km IP guess). While false: no location is requested, the location box is hidden and punches are
- * saved without a location. Set back to true to turn it on again — everything else is still in place.
- */
-const CAPTURE_LOCATION = false;
+  | { status: "error"; message: string };
 
 /**
  * Stop waiting as soon as a reading is this good (metres) — real GPS quality. Anything rougher keeps
  * the watch running (the first readings are usually Wi-Fi / IP guesses) and the best one is used.
  */
 const GOOD_ACCURACY_M = 30;
-/** Worst reading accepted — keep in sync with MAX_LOCATION_ACCURACY_M in checkInAction. */
-const MAX_ACCURACY_M = 1000;
 /** How long to wait for the device to improve its fix. */
-const LOCATE_TIMEOUT_MS = 20_000;
+const LOCATE_TIMEOUT_MS = 10_000;
 
 function formatDistance(m: number): string {
-  return m >= 1000 ? `${Math.round(m / 1000).toLocaleString("en-IN")} km` : `${Math.round(m)} m`;
-}
-
-function impreciseMessage(best: CheckInLocation | null): string {
-  const rough = best?.accuracy ? `Your location is only accurate to ±${formatDistance(best.accuracy)} — ` : "";
-  return (
-    `${rough}that's a rough guess, not a real location. On a computer, turn on Location services ` +
-    `(Windows: Settings → Privacy & security → Location) and allow precise location for this browser, ` +
-    `then try again — or check in from your phone.`
-  );
+  return `${Math.round(m).toLocaleString("en-IN")} m`;
 }
 
 function cameraErrorMessage(err: unknown): string {
@@ -94,8 +74,7 @@ async function uploadSelfie(blob: Blob): Promise<string> {
 
 /**
  * Check-in capture: a live selfie from the front camera plus the browser's GPS fix.
- * The photo is required; the location is optional (the employee can go ahead without it, and it's
- * then saved as not recorded).
+ * The photo is required; the location is optional (saved when found, otherwise "Not recorded").
  * Camera and location only work on HTTPS (or localhost).
  */
 export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = "check-in", extra }: CheckInCaptureModalProps) {
@@ -165,7 +144,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
   );
 
   // Watches the position (the first reading is often a coarse Wi-Fi/IP guess) and keeps the best one:
-  // done early at ±GOOD_ACCURACY_M, otherwise after LOCATE_TIMEOUT_MS if it's within ±MAX_ACCURACY_M.
+  // done early at ±GOOD_ACCURACY_M, otherwise the best reading after LOCATE_TIMEOUT_MS (however rough).
   const locate = useCallback(() => {
     if (!navigator.geolocation) {
       setLocationState({ status: "error", message: "This browser can't share your location." });
@@ -176,10 +155,10 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
     let best: CheckInLocation | null = null;
 
     const settle = () => {
-      if (best && Number(best.accuracy) <= MAX_ACCURACY_M) accept(best);
+      if (best) accept(best);
       else {
         stopLocating();
-        setLocationState({ status: "error", message: impreciseMessage(best) });
+        setLocationState({ status: "error", message: "Couldn't get your location. Check that location services are on." });
       }
     };
 
@@ -208,7 +187,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
     setPhoto(null);
     setSubmitError(null);
     startCamera();
-    if (CAPTURE_LOCATION) locate();
+    locate();
     return () => {
       stopCamera();
       stopLocating();
@@ -262,16 +241,11 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
     onClose();
   };
 
-  const skipLocation = () => {
-    stopLocating();
-    setLocationState({ status: "skipped" });
-  };
-
-  // Location never blocks the punch: confirming while it's still locating goes ahead without it.
+  // Location never blocks the punch: it's sent when it's ready, otherwise the check-in/out goes ahead without it.
   const confirm = async () => {
     if (!photo) return;
-    const location = CAPTURE_LOCATION && locationState.status === "ready" ? locationState.location : undefined;
-    if (locationState.status === "locating") skipLocation();
+    const location = locationState.status === "ready" ? locationState.location : undefined;
+    if (locationState.status === "locating") stopLocating();
     setIsSubmitting(true);
     setSubmitError(null);
     try {
@@ -295,7 +269,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
           <div>
             <h3 className="text-base font-bold text-foreground">{heading}</h3>
             <p className="text-xs text-muted-foreground">
-              {CAPTURE_LOCATION ? "A photo is required. Sharing your location is optional." : "A photo is required."}
+              A photo is required. Sharing your location is optional.
             </p>
           </div>
           <button
@@ -361,8 +335,7 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
             )}
           </div>
 
-          {/* Location — hidden while CAPTURE_LOCATION is off. */}
-          {CAPTURE_LOCATION && (
+          {/* Location (required) */}
           <div
             className={cn(
               "flex items-start gap-3 rounded-xl border px-4 py-3 text-xs",
@@ -377,34 +350,10 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
             />
             <div className="min-w-0 flex-1">
               {locationState.status === "locating" && (
-                <>
-                  <p className="flex items-center gap-2 text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    {locationState.best ? "Improving location accuracy…" : "Getting your location…"}
-                  </p>
-                  <p className="mt-0.5 text-muted-foreground">Optional: you can {verb} without waiting.</p>
-                  {locationState.best?.accuracy !== undefined && (
-                    <p className="mt-0.5 text-muted-foreground">
-                      Currently ±{formatDistance(locationState.best.accuracy)}
-                    </p>
-                  )}
-                  <button
-                    type="button"
-                    onClick={skipLocation}
-                    className="mt-1 font-semibold text-muted-foreground underline hover:text-foreground"
-                  >
-                    Continue without location
-                  </button>
-                </>
-              )}
-              {locationState.status === "skipped" && (
-                <>
-                  <p className="font-semibold text-foreground">Location not shared</p>
-                  <p className="text-muted-foreground">Your {verb} will be saved without a location.</p>
-                  <button type="button" onClick={locate} className="mt-1 font-semibold text-primary underline">
-                    Share location
-                  </button>
-                </>
+                <p className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {locationState.best ? "Improving location accuracy…" : "Getting your location…"}
+                </p>
               )}
               {locationState.status === "ready" && (
                 <>
@@ -425,25 +374,15 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
                     {locationState.location.accuracy !== undefined &&
                       ` · ±${formatDistance(locationState.location.accuracy)}`}
                   </p>
-                  <div className="mt-1 flex flex-wrap gap-x-3">
-                    {/* Wrong place shown? Take a fresh reading (GPS often sharpens after a few seconds). */}
-                    <button
-                      type="button"
-                      onClick={locate}
-                      disabled={isSubmitting}
-                      className="font-semibold text-blue-600 underline hover:text-foreground disabled:opacity-50 dark:text-blue-400"
-                    >
-                      Refresh location
-                    </button>
-                    <button
-                      type="button"
-                      onClick={skipLocation}
-                      disabled={isSubmitting}
-                      className="font-semibold text-muted-foreground underline hover:text-foreground disabled:opacity-50"
-                    >
-                      Don&apos;t share location
-                    </button>
-                  </div>
+                  {/* Wrong place shown? Take a fresh reading (GPS often sharpens after a few seconds). */}
+                  <button
+                    type="button"
+                    onClick={locate}
+                    disabled={isSubmitting}
+                    className="mt-1 font-semibold text-blue-600 underline hover:text-foreground disabled:opacity-50 dark:text-blue-400"
+                  >
+                    Refresh location
+                  </button>
                 </>
               )}
               {locationState.status === "error" && (
@@ -457,7 +396,6 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
               )}
             </div>
           </div>
-          )}
 
           {submitError && <p className="text-xs font-medium text-rose-600 dark:text-rose-400">{submitError}</p>}
         </div>

@@ -11,6 +11,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { MemberRoleTier, Project, UserType } from "../../types";
+import { usePageViewState, usePageDraft, useClearPageDraft } from "@/lib/navigation/use-url-state";
 
 export interface InviteFormSubmission {
   name: string;
@@ -38,15 +39,23 @@ export function InviteMemberModal({
   portalUserCount,
   clientUserCount,
 }: InviteMemberModalProps) {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [userRole, setUserRole] = useState<MemberRoleTier | "">(
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = "invite-member";
+  const clearDraft = useClearPageDraft(draft);
+  const close = () => {
+    clearDraft();
+    onClose();
+  };
+  const [name, setName] = usePageDraft(draft, "name", "");
+  const [email, setEmail] = usePageDraft(draft, "email", "");
+  const [userRole, setUserRole] = usePageDraft<MemberRoleTier | "">(draft, "userRole", 
     defaultUserType === "CLIENT" ? "TEAM_MEMBER" : ""
   );
-  const [associatedProjectsOpen, setAssociatedProjectsOpen] = useState(true);
-  const [projectTab, setProjectTab] = useState<"ALL" | "WORKING">("ALL");
-  const [projectSearch, setProjectSearch] = useState("");
-  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [associatedProjectsOpen, setAssociatedProjectsOpen] = usePageViewState("InviteMemberModal:associatedProjectsOpen", true);
+  const [projectTab, setProjectTab] = usePageDraft<"ALL" | "WORKING">(draft, "projectTab", "ALL");
+  const [projectSearch, setProjectSearch] = usePageDraft(draft, "projectSearch", "");
+  const [selectedProjects, setSelectedProjects] = usePageDraft<string[]>(draft, "selectedProjects", []);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -77,7 +86,7 @@ export function InviteMemberModal({
       setEmail("");
       setUserRole(isClient ? "TEAM_MEMBER" : "");
       setSelectedProjects([]);
-      onClose();
+      close();
     } finally {
       setIsSubmitting(false);
     }
@@ -114,7 +123,7 @@ export function InviteMemberModal({
             </button>
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="p-1 hover:bg-accent rounded hover:text-foreground"
             >
               <X size={18} />
@@ -301,7 +310,7 @@ export function InviteMemberModal({
               </button>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={close}
                 className="rounded-md border border-input bg-background px-6 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors"
               >
                 Cancel

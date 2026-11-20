@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { PULSE_PAGE_BG, PulseStickyTabs, PulseTabs, StatusPill } from "@/components/pulse/pulse-ui";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 import { EmployeeSwitcherHeader, type SwitcherEmployee } from "@/components/pulse/employee-switcher-header";
-import { useUrlState } from "@/lib/navigation/use-url-state";
+import { useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
 import { toast } from "@/components/shared/toast";
 import { istYear } from "@/features/attendance/utils";
 import type { CompensatoryRequest, LeaveRequest, LeaveTypeConfig } from "../types";
@@ -60,7 +60,7 @@ export function EmployeeLeaveWorkspace({ userId, embedded = false }: { userId: s
   const [loadError, setLoadError] = useState<string | null>(null);
   const [options, setOptions] = useState<{ id: string; name: string }[]>([]);
   /** Apply Leave form, optionally for one absent day. */
-  const [applyFor, setApplyFor] = useState<{ date?: string } | null>(null);
+  const [applyFor, setApplyFor] = usePageViewState<{ date?: string } | null>(`EmployeeLeaveWorkspace:${userId}:applyFor`, null);
 
   const load = useCallback(() => {
     getMyLeaveTrackerDataAction(year, userId)

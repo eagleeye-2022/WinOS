@@ -1,5 +1,6 @@
 "use client";
 
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 import { useMemo, useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon } from "lucide-react";
@@ -43,10 +44,32 @@ export function CalendarWorkspace({
 
   // Local state for client-side events
   const [localEvents, setLocalEvents] = useState<CalendarEventView[]>(initialEvents);
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEventView | null>(null);
-  const [dialog, setDialog] = useState<{ mode: "create" | "edit"; defaultStart?: Date; event?: CalendarEventView } | null>(
-    null,
+  // The open event (details popup) and the create/edit dialog are remembered by id / ISO time (JSON-safe),
+  // so leaving the page or refreshing comes back to them.
+  const [selectedEventId, setSelectedEventId] = usePageViewState<string | null>("CalendarWorkspace:selectedEventId", null);
+  const selectedEvent = useMemo(
+    () => (selectedEventId ? localEvents.find((e) => e.id === selectedEventId) ?? null : null),
+    [selectedEventId, localEvents]
   );
+  const setSelectedEvent = (e: CalendarEventView | null) => setSelectedEventId(e?.id ?? null);
+  const [dialogState, setDialogState] = usePageViewState<{
+    mode: "create" | "edit";
+    defaultStartIso?: string;
+    eventId?: string;
+  } | null>("CalendarWorkspace:dialog", null);
+  const dialog = useMemo(() => {
+    if (!dialogState) return null;
+    const event = dialogState.eventId ? localEvents.find((e) => e.id === dialogState.eventId) : undefined;
+    // An event that's no longer loaded (deleted, other week) can't be edited — drop the dialog.
+    if (dialogState.mode === "edit" && !event) return null;
+    return {
+      mode: dialogState.mode,
+      defaultStart: dialogState.defaultStartIso ? new Date(dialogState.defaultStartIso) : undefined,
+      event,
+    };
+  }, [dialogState, localEvents]);
+  const setDialog = (d: { mode: "create" | "edit"; defaultStart?: Date; event?: CalendarEventView } | null) =>
+    setDialogState(d && { mode: d.mode, defaultStartIso: d.defaultStart?.toISOString(), eventId: d.event?.id });
 
   // Keep localEvents in sync with server revalidation
   useEffect(() => {

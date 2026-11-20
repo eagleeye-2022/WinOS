@@ -38,6 +38,7 @@ import {
 } from "../actions/leave-actions";
 import { errorMessage, unwrap } from "../action-result";
 import { istDateKey } from "@/features/attendance/utils";
+import { usePageViewState, usePageDraft, useClearPageDraft } from "@/lib/navigation/use-url-state";
 
 interface HolidayRecord {
   id: string;
@@ -58,15 +59,24 @@ const YEAR_OPTIONS = [CURRENT_YEAR - 1, CURRENT_YEAR, CURRENT_YEAR + 1].map(Stri
 /** `canManage` shows add/delete (Team Leave); My Leaves shows the same list read-only. */
 export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
   const [selectedYear, setSelectedYear] = useState(String(CURRENT_YEAR));
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = usePageViewState("HolidaysView:isAddModalOpen", false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form State for Add Holiday Modal
-  const [newHolidayName, setNewHolidayName] = useState("");
-  const [newHolidayDate, setNewHolidayDate] = useState("");
-  const [newHolidayType, setNewHolidayType] = useState<"PUBLIC" | "COMPANY_SPECIAL" | "OPTIONAL">("PUBLIC");
-  const [newHolidayDesc, setNewHolidayDesc] = useState("");
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = "add-holiday";
+  const clearDraft = useClearPageDraft(draft);
+  /** Closing the dialog (Cancel, ✕, or after saving) forgets the draft. */
+  const setAddOpen = (open: boolean) => {
+    if (!open) clearDraft();
+    setIsAddModalOpen(open);
+  };
+  const [newHolidayName, setNewHolidayName] = usePageDraft(draft, "newHolidayName", "");
+  const [newHolidayDate, setNewHolidayDate] = usePageDraft(draft, "newHolidayDate", "");
+  const [newHolidayType, setNewHolidayType] = usePageDraft<"PUBLIC" | "COMPANY_SPECIAL" | "OPTIONAL">(draft, "newHolidayType", "PUBLIC");
+  const [newHolidayDesc, setNewHolidayDesc] = usePageDraft(draft, "newHolidayDesc", "");
 
   const [holidayList, setHolidayList] = useState<HolidayRecord[]>([]);
   const [metrics, setMetrics] = useState({
@@ -109,10 +119,7 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
         })
       );
 
-      setIsAddModalOpen(false);
-      setNewHolidayName("");
-      setNewHolidayDate("");
-      setNewHolidayDesc("");
+      setAddOpen(false);
       loadHolidays();
     } catch (err) {
       alert(errorMessage(err));
@@ -290,7 +297,7 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
       </div>
 
       {/* Add Holiday Dialog */}
-      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+      <Dialog open={isAddModalOpen} onOpenChange={setAddOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl p-6">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-foreground">
@@ -375,7 +382,7 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setIsAddModalOpen(false)}
+                onClick={() => setAddOpen(false)}
                 className="text-xs h-9 rounded-xl"
               >
                 Cancel

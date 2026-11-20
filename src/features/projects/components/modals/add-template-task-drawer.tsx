@@ -1,5 +1,6 @@
 "use client";
 
+import { usePageDraft, useClearPageDraft } from "@/lib/navigation/use-url-state";
 import React, { useState } from "react";
 import { ChevronDown, X } from "lucide-react";
 import type { ProjectPriority, SOPTaskSeed, TaskStatus } from "../../types";
@@ -34,12 +35,20 @@ export function AddTemplateTaskDrawer({
   ownerOptions,
   onAddTask,
 }: AddTemplateTaskDrawerProps) {
-  const [title, setTitle] = useState("");
-  const [listIndex, setListIndex] = useState(initialListIndex);
-  const [status, setStatus] = useState<TaskStatus>("Open");
-  const [priority, setPriority] = useState<ProjectPriority>("Medium");
-  const [owners, setOwners] = useState<string[]>([]);
-  const [description, setDescription] = useState("");
+  // What's typed is kept as a draft (survives leaving the page and a refresh) until it's saved or the
+  // form is closed.
+  const draft = "add-template-task";
+  const clearDraft = useClearPageDraft(draft);
+  const close = () => {
+    clearDraft();
+    onClose();
+  };
+  const [title, setTitle] = usePageDraft(draft, "title", "");
+  const [listIndex, setListIndex] = usePageDraft(draft, "listIndex", initialListIndex);
+  const [status, setStatus] = usePageDraft<TaskStatus>(draft, "status", "Open");
+  const [priority, setPriority] = usePageDraft<ProjectPriority>(draft, "priority", "Medium");
+  const [owners, setOwners] = usePageDraft<string[]>(draft, "owners", []);
+  const [description, setDescription] = usePageDraft(draft, "description", "");
 
   // Fresh form each time it opens, on the list it was opened for.
   const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
@@ -73,7 +82,7 @@ export function AddTemplateTaskDrawer({
       description: isEmptyDescription(description) ? undefined : description.trim(),
       defaultOwners: defaultOwners.length > 0 ? defaultOwners : undefined,
     });
-    onClose();
+    close();
   };
 
   return (
@@ -84,7 +93,7 @@ export function AddTemplateTaskDrawer({
           <h2 className="text-lg font-bold text-foreground">Add New Task</h2>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             aria-label="Close"
             className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
           >
@@ -186,7 +195,7 @@ export function AddTemplateTaskDrawer({
             </button>
             <button
               type="button"
-              onClick={onClose}
+              onClick={close}
               className="rounded-md border border-input bg-background px-6 py-2 text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer"
             >
               Cancel

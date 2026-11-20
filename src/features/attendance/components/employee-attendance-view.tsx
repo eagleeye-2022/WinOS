@@ -27,6 +27,7 @@ import {
   weekKeysFor,
 } from "../utils";
 import { cn } from "@/lib/utils";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 interface EmployeeAttendanceViewProps {
   employee: EmployeeProfile;
@@ -43,8 +44,8 @@ export function EmployeeAttendanceView({
   const today = istDateKey();
   const [viewMode, setViewMode] = useState<"week" | "month">("week");
   const [selectedDate, setSelectedDate] = useState<string>(today);
-  const [selectedRecordForDrawer, setSelectedRecordForDrawer] = useState<AttendanceRecord | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedRecordForDrawer, setSelectedRecordForDrawer] = usePageViewState<AttendanceRecord | null>("EmployeeAttendanceView:selectedRecordForDrawer", null);
+  const [isDrawerOpen, setIsDrawerOpen] = usePageViewState("EmployeeAttendanceView:isDrawerOpen", false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [recordsMap, setRecordsMap] = useState<Record<string, AttendanceRecord>>({});

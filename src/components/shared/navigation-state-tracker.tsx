@@ -28,9 +28,15 @@ export function NavigationStateTracker() {
 
   const restoringRef = useRef(false);
 
+  // Load what this tab remembered before a refresh (sessionStorage). Runs before the effects below
+  // (same component, declared first), so the scroll restore already sees the saved offsets.
+  useEffect(() => {
+    void useNavigationStore.persist.rehydrate();
+  }, []);
+
   // Remember the URL and restore its scroll whenever the user comes back to it — via the
-  // sidebar, the module switcher, an in-page link or Back/Forward. The store is in-memory only,
-  // so a full reload still starts every page at the top.
+  // sidebar, the module switcher, an in-page link, Back/Forward or a refresh (the store is saved to
+  // sessionStorage; a new tab starts at the top).
   useEffect(() => {
     recordUrl(moduleId, urlKey);
 
