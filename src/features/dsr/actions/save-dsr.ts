@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDayEffort } from "@/features/dsm/queries";
+import { getReportSubmitBlockers } from "../submit-requirements";
 import { postToCliq, getAppBaseUrl } from "@/lib/zoho-cliq";
 import {
   buildCliqReportMessage,
@@ -114,6 +115,15 @@ export async function saveDsr(
 
   const effort = await getDayEffort(session.user.id, dateStr);
   const totalLoggedMinutes = effort.reduce((sum, row) => sum + row.minutes, 0);
+
+  // Submit rules (first submission only — editing an already-submitted report isn't re-checked):
+  // the day's DSM submitted, 4h on own tasks on a half day, and some WhyFi School learning time.
+  if (action === "submit" && !wasSubmitted) {
+    const blockers = await getReportSubmitBlockers(session.user.id, dateStr, effort);
+    if (blockers.length > 0) {
+      return { message: `You can't submit your report yet. ${blockers.join(" ")}` };
+    }
+  }
 
   const reportFields = {
     status: finalStatus,

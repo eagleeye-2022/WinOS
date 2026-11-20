@@ -26,9 +26,13 @@ import {
   Radio,
   Eye,
   ExternalLink,
+  Loader2,
+  Pencil,
+  History,
 } from "lucide-react";
 import { AttendanceRecord, ActionRequiredItem } from "../types";
-import { cn } from "@/lib/utils";
+import { formatWorkedDuration, istDateKey, parseTime12h, workedMinutesBetween } from "../utils";
+import { getAttendanceEditHistoryAction, type AttendanceEditEntry } from "../actions/attendance-actions";
 
 // "18.44939, 73.89241" — the check-in stores it as the name, or after "·" in the address line.
 const COORDS = /(-?\d{1,2}\.\d{3,}),\s*(-?\d{1,3}\.\d{3,})/;
@@ -127,6 +131,184 @@ function PhotoViewer({ photo, onClose }: { photo: { src: string; label: string }
   );
 }
 
+/** "09:30 AM" → "09:30" for a time input; "" when missing/unreadable. */
+function toTimeInput(value?: string | null): string {
+  const mins = parseTime12h(value);
+  return mins === null ? "" : `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+}
+
+export type EditAttendanceTimes = { checkInTime: string; checkOutTime: string; note: string };
+
+/** Manager-only: set the day's check-in / check-out times. Resolves to an error message, or null when saved. */
+function EditTimesForm({
+  record,
+  onSave,
+  onDone,
+}: {
+  record: AttendanceRecord;
+  onSave: (record: AttendanceRecord, values: EditAttendanceTimes) => Promise<string | null>;
+  /** `saved` is true after a successful save (the history is reloaded then). */
+  onDone: (saved: boolean) => void;
+}) {
+  const [checkIn, setCheckIn] = useState(toTimeInput(record.checkInTime));
+  const [checkOut, setCheckOut] = useState(toTimeInput(record.checkOutTime));
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    if (!checkIn || !checkOut) return setError("Enter both check-in and check-out times.");
+    setSaving(true);
+    setError(null);
+    const err = await onSave(record, { checkInTime: checkIn, checkOutTime: checkOut, note });
+    setSaving(false);
+    if (err) setError(err);
+    else onDone(true);
+  };
+
+  // Same field look as the regularization form (regularization-fields.tsx).
+  const timeClass =
+    "w-full pl-10 pr-3 py-2.5 rounded-xl border border-input bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 dark:[color-scheme:dark]";
+  const worked = formatWorkedDuration(workedMinutesBetween(checkIn, checkOut));
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="flex items-center gap-2.5 border-b border-border bg-muted/40 px-4 py-3">
+        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
+          <Pencil className="h-3.5 w-3.5" />
+        </span>
+        <h5 className="min-w-0 text-sm font-semibold text-foreground">Edit attendance times</h5>
+      </div>
+
+      <div className="space-y-4 p-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="edit-times-in" className="mb-1.5 block text-xs font-semibold text-foreground">
+              Check-in <span className="text-rose-500">*</span>
+            </label>
+            <div className="relative">
+              <Clock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                id="edit-times-in"
+                type="time"
+                value={checkIn}
+                disabled={saving}
+                onChange={(e) => setCheckIn(e.target.value)}
+                className={timeClass}
+              />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="edit-times-out" className="mb-1.5 block text-xs font-semibold text-foreground">
+              Check-out <span className="text-rose-500">*</span>
+            </label>
+            <div className="relative">
+              <Clock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                id="edit-times-out"
+                type="time"
+                value={checkOut}
+                disabled={saving}
+                onChange={(e) => setCheckOut(e.target.value)}
+                className={timeClass}
+              />
+            </div>
+          </div>
+        </div>
+        <p className="-mt-1 text-xs text-muted-foreground">
+          Worked duration: <span className="font-semibold text-foreground">{worked ?? "--"}</span>
+        </p>
+
+        <div>
+          <div className="mb-1.5 flex items-center justify-between">
+            <label htmlFor="edit-times-note" className="text-xs font-semibold text-foreground">
+              Reason for the change (Optional)
+            </label>
+            <span className="text-xs text-muted-foreground">{note.length} / 500</span>
+          </div>
+          <textarea
+            id="edit-times-note"
+            value={note}
+            rows={3}
+            maxLength={500}
+            disabled={saving}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="e.g. Forgot to check out — confirmed on the team call"
+            className="w-full resize-none rounded-xl border border-input bg-background px-3.5 py-2.5 text-xs font-normal text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+          />        </div>
+
+        {error && (
+          <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+            <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+            {error}
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-2 border-t border-border bg-muted/30 px-4 py-3">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => onDone(false)}
+          className="h-9 rounded-xl border border-border bg-background px-4 text-xs font-semibold text-foreground transition-colors hover:bg-accent disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={save}
+          className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 disabled:opacity-60"
+        >
+          {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          Save times
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** "21 Nov, 10:42 AM" in IST. */
+function formatEditedAt(iso: string): string {
+  return new Date(iso).toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
+}
+
+/** Every manager edit of the day's times, newest first: old → new, who, when and their note. */
+function EditHistory({ entries }: { entries: AttendanceEditEntry[] }) {
+  if (entries.length === 0) return null;
+  const span = (a: string | null, b: string | null) => (a || b ? `${a || "—"} – ${b || "—"}` : "No times");
+  return (
+    <div className="space-y-2.5 pt-1">
+      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+        <History className="h-3.5 w-3.5" />
+        Edit history
+      </div>
+      <ol className="space-y-2.5">
+        {entries.map((e) => (
+          <li key={e.id} className="rounded-xl border border-border bg-muted/30 p-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-1">
+              <span className="font-semibold text-foreground">{e.editedByName}</span>
+              <span className="text-muted-foreground">{formatEditedAt(e.editedAt)}</span>
+            </div>
+            <p className="mt-1 text-muted-foreground">
+              <span className="line-through">{span(e.oldCheckIn, e.oldCheckOut)}</span>
+              <span className="mx-1.5">→</span>
+              <span className="font-semibold text-foreground">{span(e.newCheckIn, e.newCheckOut)}</span>
+            </p>
+            {e.note && <p className="mt-1.5 whitespace-pre-wrap text-foreground">“{e.note}”</p>}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 interface AttendanceDetailsDrawerProps {
   record: AttendanceRecord | null;
   isOpen: boolean;
@@ -134,6 +316,10 @@ interface AttendanceDetailsDrawerProps {
   onRegularize?: (record: AttendanceRecord) => void;
   onApplyLeave?: (record: AttendanceRecord) => void;
   onRequestCompOff?: (record: AttendanceRecord) => void;
+  /** Managers viewing a team member: shows "Edit times" (saves and resolves to an error, or null). */
+  onEditTimes?: (record: AttendanceRecord, values: EditAttendanceTimes) => Promise<string | null>;
+  /** Whose edit history to show — the team member a manager is viewing; omitted = the signed-in user. */
+  historyUserId?: string;
 }
 
 export function AttendanceDetailsDrawer({
@@ -143,14 +329,37 @@ export function AttendanceDetailsDrawer({
   onRegularize,
   onApplyLeave,
   onRequestCompOff,
+  onEditTimes,
+  historyUserId,
 }: AttendanceDetailsDrawerProps) {
   /** The check-in / check-out selfie open full size, if any. */
   const [photo, setPhoto] = useState<{ src: string; label: string } | null>(null);
+  const [editingTimes, setEditingTimes] = useState(false);
+  const [history, setHistory] = useState<AttendanceEditEntry[]>([]);
+  // Bumped after a save, to reload the history.
+  const [historyVersion, setHistoryVersion] = useState(0);
 
   // A photo left open on one day shouldn't reappear on the next record or after closing.
   useEffect(() => {
     setPhoto(null);
-  }, [record?.id, isOpen]);
+    setEditingTimes(false);
+  }, [record?.id, record?.date, isOpen]);
+
+  // The day's manager edits (shown to the manager and to the member themselves).
+  const recordDate = record?.date;
+  useEffect(() => {
+    setHistory([]);
+    if (!isOpen || !recordDate) return;
+    let cancelled = false;
+    getAttendanceEditHistoryAction(recordDate, historyUserId)
+      .then((rows) => {
+        if (!cancelled) setHistory(rows);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, recordDate, historyUserId, historyVersion]);
 
   // Esc closes the open photo first, then the drawer.
   useEffect(() => {
@@ -187,6 +396,9 @@ export function AttendanceDetailsDrawer({
   const isActionRequired = record.status === "ACTION_REQUIRED";
   const isHoliday = record.status === "HOLIDAY";
   const isHolidayWork = isHoliday && (Boolean(record.checkInTime) || Boolean(record.checkOutTime) || record.compensatoryWork?.isHolidayWork);
+
+  // Not while the member is checked in (edit after they check out), and not for a future day.
+  const canEditTimes = Boolean(onEditTimes) && !isWorkingNow && record.date <= istDateKey();
 
   const missingType = record.actionRequiredType || (!record.checkInTime && !record.checkOutTime ? "MISSING_BOTH" : !record.checkInTime ? "MISSING_CHECKIN" : "MISSING_CHECKOUT");
 
@@ -455,6 +667,30 @@ export function AttendanceDetailsDrawer({
                 )}
               </div>
             )}
+
+            {/* ── SECTION: Manager edit of the day's times ─────────────────── */}
+            {canEditTimes &&
+              (editingTimes ? (
+                <EditTimesForm
+                  record={record}
+                  onSave={onEditTimes!}
+                  onDone={(saved) => {
+                    setEditingTimes(false);
+                    if (saved) setHistoryVersion((v) => v + 1);
+                  }}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditingTimes(true)}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border/80 px-3 text-xs font-semibold text-foreground transition-colors hover:bg-accent"
+                >
+                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                  {record.checkInTime || record.checkOutTime ? "Edit check-in / check-out" : "Add check-in / check-out"}
+                </button>
+              ))}
+
+            <EditHistory entries={history} />
 
             {/* ── SECTION: Early Leave (Approved) Info — only with real early-leave details ──── */}
             {isEarlyLeave && record.earlyLeaveInfo && (

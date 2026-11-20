@@ -610,9 +610,11 @@ type Props = {
   memberName?: string | null;
   /** The signed-in member — scopes the browser draft so two people on one browser don't share it. */
   userId?: string;
+  /** Set while the submit rules aren't met (first submission): the mobile Submit button is disabled. */
+  submitBlockedReason?: string;
 };
 
-export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegisterAddTask, onPendingChange, readOnly, onCancel, reportConfig, timeSummary, userId }: Props) {
+export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegisterAddTask, onPendingChange, readOnly, onCancel, reportConfig, timeSummary, userId, submitBlockedReason }: Props) {
   const [state, action, pending] = useActionState<SaveDsrState, FormData>(saveDsr, {});
   const [submitOpen, setSubmitOpen] = usePageViewState("DsrForm:submitOpen", false);
 
@@ -911,7 +913,8 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
           )}
           <button
             type="button"
-            disabled={pending}
+            disabled={pending || Boolean(submitBlockedReason)}
+            title={submitBlockedReason}
             onClick={() => setSubmitOpen(true)}
             className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 dark:bg-[#3B82F6] dark:hover:bg-[#2563EB] dark:text-[#F8FAFC]"
           >

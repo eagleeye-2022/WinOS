@@ -8,6 +8,8 @@ import { canUserActOnTask } from "../utils/task-authorization";
 import { effortProjectLabel } from "@/features/whyfi/constants";
 import { isProjectUser } from "../project-user";
 import { openSubtasksOf, openSubtasksMessage } from "../subtask-gate";
+import { getDayEffort } from "@/features/dsm/queries";
+import { istDateKey } from "@/features/attendance/utils";
 
 export type BillingTypeEnum = "BILLABLE" | "NON_BILLABLE";
 
@@ -499,8 +501,18 @@ export async function getActiveTimerAction() {
       },
     });
 
+    // The user's time already logged today (IST) on every task and project, billable and
+    // non-billable, not counting a running session. Returned with or without a timer.
+    let todayLoggedMinutes = 0;
+    try {
+      const effort = await getDayEffort(sessionUser.id, istDateKey());
+      todayLoggedMinutes = effort.reduce((sum, row) => sum + row.minutes, 0);
+    } catch (sumErr) {
+      console.error("[getActiveTimerAction] today's logged-time sum failed:", sumErr);
+    }
+
     if (!activeTimer) {
-      return { success: true, data: null };
+      return { success: true, data: null, todayLoggedMinutes };
     }
 
     const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(activeTimer.startedAt).getTime()) / 1000));
@@ -513,6 +525,7 @@ export async function getActiveTimerAction() {
         elapsedSeconds,
         formattedTime,
       },
+      todayLoggedMinutes,
     };
   } catch (err: any) {
     console.error("[getActiveTimerAction] error:", err);

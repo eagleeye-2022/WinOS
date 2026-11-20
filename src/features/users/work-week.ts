@@ -2,7 +2,7 @@
 // every Saturday is a working day. Stored as User.saturdaysOff (Int[]); Sundays are always off.
 // Pure helpers — shared by the profile field rules, the server actions and the picker.
 
-import { ALL_SATURDAYS_OFF, normalizeSaturdaysOff, SATURDAY_WEEKS } from "@/features/attendance/utils";
+import { normalizeSaturdaysOff, SATURDAY_WEEKS } from "@/features/attendance/utils";
 
 export const SATURDAY_ORDINALS = ["1st", "2nd", "3rd", "4th", "5th"] as const;
 
@@ -36,12 +36,14 @@ export function describeSaturdaysOff(v: readonly number[] | null | undefined): s
   return `Sunday + ${joinOrdinals(list)} Saturday off`;
 }
 
-/** Quick picks in the work-week picker; any other combination shows as "Custom". */
+/**
+ * The only work weeks the picker offers. Anyone saved with another pattern (e.g. the old default,
+ * every Saturday off) keeps it — the picker shows it as their current value until it's changed.
+ */
 export const WORK_WEEK_PRESETS: { label: string; value: readonly number[] }[] = [
-  { label: "Saturday & Sunday off", value: ALL_SATURDAYS_OFF },
-  { label: "Only Sunday off", value: [] },
   { label: "1st & 3rd Saturday off", value: [1, 3] },
-  { label: "2nd & 4th Saturday off", value: [2, 4] },
   { label: "3rd & 4th Saturday off", value: [3, 4] },
-  { label: "Alternate Saturdays off (1st, 3rd & 5th)", value: [1, 3, 5] },
 ];
+
+/** What a new member's form starts on (the first option). */
+export const DEFAULT_WORK_WEEK: readonly number[] = WORK_WEEK_PRESETS[0].value;

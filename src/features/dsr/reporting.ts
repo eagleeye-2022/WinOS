@@ -238,6 +238,37 @@ export function validateRecordingUrl(
   return { ok: true, url: parsed.toString() };
 }
 
+/** Minimum timer time on own project tasks (learning excluded) on a half-day-leave day. */
+export const HALF_DAY_MIN_PROJECT_MINUTES = 4 * 60;
+
+export type ReportSubmitFacts = {
+  /** The DSM for the report date is submitted (submitted / pending review / reviewed). */
+  dsmSubmitted: boolean;
+  /** On half-day leave (approved or pending) on the report date. */
+  isHalfDay: boolean;
+  /** Timer minutes that day on project tasks (not WhyFi School learning cards). */
+  projectMinutes: number;
+  /** Timer minutes that day on WhyFi School learning cards. */
+  learningMinutes: number;
+};
+
+/**
+ * Why a report can't be submitted yet — empty when it can. Rules: the day's DSM must be submitted;
+ * on a half day at least 4h must be logged on project tasks (no minimum on a full day); and some
+ * learning time must be logged on a WhyFi School card.
+ */
+export function reportSubmitBlockers(f: ReportSubmitFacts): string[] {
+  const out: string[] = [];
+  if (!f.dsmSubmitted) out.push("Submit your DSM for this day first.");
+  if (f.isHalfDay && f.projectMinutes < HALF_DAY_MIN_PROJECT_MINUTES) {
+    out.push(
+      `On a half day you need at least ${formatMinutes(HALF_DAY_MIN_PROJECT_MINUTES)} of timer on your tasks — you have ${formatMinutes(f.projectMinutes)}.`
+    );
+  }
+  if (f.learningMinutes <= 0) out.push("Log time on a WhyFi School learning task (run its timer) first.");
+  return out;
+}
+
 /** 135 → "2h 15m" */
 export function formatMinutes(total: number): string {
   if (!total || total <= 0) return "0m";

@@ -374,7 +374,7 @@ function EditableDetail({
       <dd>
         {editing ? (
           cfg.kind === "saturdays" ? (
-            // Several toggles, so it saves with a button rather than on the first change.
+            // Saves with a button rather than on the first change.
             <div className="mt-1 rounded-md border border-blue-500 p-2 ring-2 ring-blue-500/20">
               <SaturdayOffPicker
                 value={draft}

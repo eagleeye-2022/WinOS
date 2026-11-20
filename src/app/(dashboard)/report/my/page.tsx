@@ -11,6 +11,7 @@ import {
 import { getOpenReportDateStr, getReportConfig } from "@/features/dsr/reporting";
 import { getSharedWorkspaceNotes, getParkedTasks } from "@/features/dsm/queries";
 import { DsrPageClient } from "@/features/dsr/components/dsr-page-client";
+import { getReportSubmitBlockers } from "@/features/dsr/submit-requirements";
 
 type Props = {
   searchParams: Promise<{ submitted?: string; w?: string }>;
@@ -39,9 +40,10 @@ export default async function MyReportPage({ searchParams }: Props) {
     getParkedTasks(),
   ]);
 
-  const [insights, timeSummary] = await Promise.all([
+  const [insights, timeSummary, submitBlockers] = await Promise.all([
     getDsrInsights(entry),
     getReportTimeSummary(session.user.id, todayDateStr),
+    getReportSubmitBlockers(session.user.id, todayDateStr),
   ]);
 
   return (
@@ -60,6 +62,7 @@ export default async function MyReportPage({ searchParams }: Props) {
       parkedTasks={parkedTasks}
       reportConfig={reportConfig}
       timeSummary={timeSummary}
+      submitBlockers={submitBlockers}
       memberName={session.user.name}
     />
   );

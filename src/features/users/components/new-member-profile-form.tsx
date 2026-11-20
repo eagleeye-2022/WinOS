@@ -28,8 +28,7 @@ import {
   setProfilePhotoAction,
   updateMemberProfileAction,
 } from "@/features/users/actions/profile-field-actions";
-import { ALL_SATURDAYS_OFF } from "@/features/attendance/utils";
-import { encodeSaturdaysOff } from "@/features/users/work-week";
+import { DEFAULT_WORK_WEEK, encodeSaturdaysOff } from "@/features/users/work-week";
 import { SaturdayOffPicker } from "./saturday-off-picker";
 
 /** Same sections and order as the profile page. */
@@ -74,12 +73,12 @@ const ALL_FIELDS = Object.keys(PROFILE_FIELDS) as ProfileField[];
 export type MemberFormValues = Record<ProfileField, string>;
 type ProfileDocument = { id: string; kind: string; fileName: string; fileUrl: string };
 
-/** Empty form: mobiles start with the India code, role defaults to Team Member, every Saturday off. */
+/** Empty form: mobiles start with the India code, role defaults to Team Member, 1st & 3rd Saturday off. */
 export function emptyMemberValues(): MemberFormValues {
   const v = {} as MemberFormValues;
   for (const f of ALL_FIELDS) v[f] = PROFILE_FIELDS[f].kind === "phone" ? "+91 " : "";
   v.role = "TEAM_MEMBER";
-  v.saturdaysOff = encodeSaturdaysOff(ALL_SATURDAYS_OFF);
+  v.saturdaysOff = encodeSaturdaysOff(DEFAULT_WORK_WEEK);
   return v;
 }
 
