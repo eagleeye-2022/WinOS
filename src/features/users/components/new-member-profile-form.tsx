@@ -28,13 +28,16 @@ import {
   setProfilePhotoAction,
   updateMemberProfileAction,
 } from "@/features/users/actions/profile-field-actions";
+import { ALL_SATURDAYS_OFF } from "@/features/attendance/utils";
+import { encodeSaturdaysOff } from "@/features/users/work-week";
+import { SaturdayOffPicker } from "./saturday-off-picker";
 
 /** Same sections and order as the profile page. */
 const SECTIONS: { title: string; fields: ProfileField[]; wide?: ProfileField[] }[] = [
   { title: "Basic Information", fields: ["name", "employeeId", "email", "role"] },
   {
     title: "Work Information",
-    fields: ["title", "department", "location", "employmentType", "dateOfJoining", "dateOfConfirmation"],
+    fields: ["title", "department", "location", "saturdaysOff", "employmentType", "dateOfJoining", "dateOfConfirmation"],
   },
   { title: "Organization Structure", fields: ["reportingToId", "secondaryReportingToId"] },
   { title: "Personal Details", fields: ["dateOfBirth", "gender", "maritalStatus"] },
@@ -71,11 +74,12 @@ const ALL_FIELDS = Object.keys(PROFILE_FIELDS) as ProfileField[];
 export type MemberFormValues = Record<ProfileField, string>;
 type ProfileDocument = { id: string; kind: string; fileName: string; fileUrl: string };
 
-/** Empty form: mobiles start with the India code, role defaults to Team Member. */
+/** Empty form: mobiles start with the India code, role defaults to Team Member, every Saturday off. */
 export function emptyMemberValues(): MemberFormValues {
   const v = {} as MemberFormValues;
   for (const f of ALL_FIELDS) v[f] = PROFILE_FIELDS[f].kind === "phone" ? "+91 " : "";
   v.role = "TEAM_MEMBER";
+  v.saturdaysOff = encodeSaturdaysOff(ALL_SATURDAYS_OFF);
   return v;
 }
 
@@ -288,7 +292,18 @@ export function MemberProfileForm(props: MemberProfileFormProps) {
     };
 
     let control: React.ReactNode;
-    if (cfg.kind === "select" || cfg.kind === "user") {
+    if (cfg.kind === "saturdays") {
+      control = (
+        <SaturdayOffPicker
+          id={common.id}
+          value={values[field]}
+          onChange={(v) => set(field, v)}
+          disabled={common.disabled}
+          invalid={Boolean(error)}
+          selectClassName={common.className}
+        />
+      );
+    } else if (cfg.kind === "select" || cfg.kind === "user") {
       const options =
         cfg.kind === "user"
           ? (field === "reportingToId" ? people?.managers : people?.everyone)

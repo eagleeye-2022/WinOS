@@ -2871,6 +2871,14 @@ export async function updateTaskAction(
     await syncNatTitleToDsm(task, updates.title);
   }
 
+  // Reopening (status → not done) must also drop a 100% completion — isTaskDone treats >= 100 as
+  // done, so otherwise the task (e.g. a subtask ticked done, or closed from DSM) stays done/locked.
+  const reopenResetsCompletion =
+    updates.status !== undefined &&
+    !isTaskDone(updates.status) &&
+    updates.completionPercentage === undefined &&
+    (task.completionPercentage ?? 0) >= 100;
+
   // By primary key — the row was already resolved above, so no need to re-match on id/code.
   await db.projectTask.update({
     where: { id: task.id },
@@ -2892,6 +2900,7 @@ export async function updateTaskAction(
       ...(updates.completionPercentage !== undefined && {
         completionPercentage: updates.completionPercentage,
       }),
+      ...(reopenResetsCompletion && { completionPercentage: 0 }),
       ...(updates.description !== undefined && { description: updates.description }),
       ...(updates.phaseCode !== undefined && {
         phaseCode: updates.phaseCode,
@@ -3083,8 +3092,40 @@ export async function duplicateTaskAction(
     ? (await db.projectTask.findUnique({ where: { id: original.parentTaskId }, select: { code: true } }))?.code ?? null
     : null;
   const root = await copy(original, original.parentTaskId, parentCode, true);
+  await placeCopyAfterOriginal(original.id, root.id, projectId, original.parentTaskId);
   revalidatePath("/projects");
   return { success: true, code: root.code };
+}
+
+/**
+ * Puts a duplicated task directly below its original. The copy shares the original's `order`, so
+ * without this the tie-break (createdAt) sends it to the end of a subtask list (or the top of a
+ * task list). Siblings are renumbered 0..n in the order the lists already show them — tasks sort
+ * by order, then newest first; subtasks by order, then oldest first — and only changed rows are written.
+ */
+async function placeCopyAfterOriginal(
+  originalId: string,
+  copyId: string,
+  projectId: string,
+  parentTaskId: string | null
+) {
+  const siblings = await db.projectTask.findMany({
+    where: { projectId, parentTaskId },
+    select: { id: true, order: true },
+    orderBy: parentTaskId
+      ? [{ order: "asc" }, { createdAt: "asc" }]
+      : [{ order: "asc" }, { createdAt: "desc" }],
+  });
+  const ids = siblings.map((s) => s.id).filter((id) => id !== copyId);
+  const at = ids.indexOf(originalId);
+  if (at === -1) return;
+  ids.splice(at + 1, 0, copyId);
+  const currentOrder = new Map(siblings.map((s) => [s.id, s.order]));
+  await Promise.all(
+    ids.map((id, index) =>
+      currentOrder.get(id) === index ? null : db.projectTask.update({ where: { id }, data: { order: index } })
+    )
+  );
 }
 
 /** Why a task can't be closed because of its own open subtasks (any depth), or null. */
@@ -3682,6 +3723,11 @@ export async function updateSubtaskAction(
       ...(updates.completed !== undefined && {
         completionPercentage: updates.completed ? 100 : 0,
       }),
+      // Status-only reopen: also clear the 100% so it isn't still counted as done.
+      ...(updates.completed === undefined &&
+        updates.status &&
+        !isTaskDone(updates.status) &&
+        (subtask?.completionPercentage ?? 0) >= 100 && { completionPercentage: 0 }),
       ...(updates.ownerName && {
         owner: updates.ownerName,
         ownerId: ownerUserId,

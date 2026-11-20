@@ -39,7 +39,7 @@ async function currentUser() {
   if (!session?.user?.id) return null;
   const user = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, name: true, role: true, profileRole: true, isActive: true },
+    select: { id: true, name: true, role: true, profileRole: true, isActive: true, saturdaysOff: true },
   });
   return user?.isActive ? user : null;
 }
@@ -149,7 +149,7 @@ export async function checkInAction(payload?: {
   // first. Half-day / hourly leave leaves the rest of the day to work. Weekends and holidays aren't
   // charged as leave, so working on one (comp-off) is still allowed.
   const todayKey = istDateKey(now);
-  if (!isWeekendKey(todayKey)) {
+  if (!isWeekendKey(todayKey, user.saturdaysOff)) {
     const [holiday, fullDayLeave] = await Promise.all([
       db.holiday.findFirst({ where: { date: today, ...MANDATORY_HOLIDAY }, select: { id: true } }),
       db.leaveRequest.findFirst({
@@ -263,7 +263,7 @@ export async function getMyCheckInStatusAction(): Promise<MyCheckInStatus | null
     workMode: att?.checkInTime && att.workMode === "OFFICE" ? "OFFICE" : "REMOTE",
     bankedMinutes: att?.workedMinutes ?? 0,
     liveSince: isLive && att?.liveSince ? att.liveSince.toISOString() : null,
-    isWorkday: !isWeekendKey(todayKey) && !holiday && !fullDayLeave,
+    isWorkday: !isWeekendKey(todayKey, user.saturdaysOff) && !holiday && !fullDayLeave,
   };
 }
 
@@ -355,7 +355,11 @@ export async function submitRegularizationAction(payload: {
   const date = dateFromKey(key);
   if (!date) return fail("Pick a valid attendance date.");
   if (key > istDateKey()) return fail("You can't regularize a future date.");
-  if (isWeekendKey(key)) return fail("That date is a weekend — request a comp-off instead.");
+  // Judged by the work week of the person being regularized (their off Saturdays).
+  const saturdaysOff = onBehalf
+    ? (await db.user.findUnique({ where: { id: userId }, select: { saturdaysOff: true } }))?.saturdaysOff
+    : actor.saturdaysOff;
+  if (isWeekendKey(key, saturdaysOff)) return fail("That date is a day off — request a comp-off instead.");
 
   const checkIn = normalizeTime(payload.checkInTime);
   const checkOut = normalizeTime(payload.checkOutTime);

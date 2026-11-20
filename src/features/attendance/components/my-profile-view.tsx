@@ -40,6 +40,8 @@ import {
 } from "@/features/users/actions/profile-field-actions";
 import { useConfirm } from "@/components/shared/confirm-dialog";
 import { emptyMemberValues, MemberProfileForm } from "@/features/users/components/new-member-profile-form";
+import { SaturdayOffPicker } from "@/features/users/components/saturday-off-picker";
+import { decodeSaturdaysOff, describeSaturdaysOff, encodeSaturdaysOff } from "@/features/users/work-week";
 import { PROFILE_CARD, PROFILE_COVER_BUTTON, ProfileCover, ProfileSectionCard } from "@/components/pulse/profile-ui";
 import { toast } from "@/components/shared/toast";
 import { logoutAction } from "@/features/auth/actions/logout";
@@ -304,7 +306,12 @@ function EditableDetail({
     cfg.kind === "user"
       ? choices ?? []
       : (cfg.options ?? []).map((o) => ({ value: o, label: cfg.optionLabels?.[o] ?? o }));
-  const shown = display === undefined ? (cfg.optionLabels?.[raw] ?? raw) : display;
+  const shown =
+    display !== undefined
+      ? display
+      : cfg.kind === "saturdays"
+      ? describeSaturdaysOff(decodeSaturdaysOff(raw))
+      : (cfg.optionLabels?.[raw] ?? raw);
 
   // Fade the "Saved" tick after a moment.
   useEffect(() => {
@@ -366,7 +373,38 @@ function EditableDetail({
       </dt>
       <dd>
         {editing ? (
-          isChoice ? (
+          cfg.kind === "saturdays" ? (
+            // Several toggles, so it saves with a button rather than on the first change.
+            <div className="mt-1 rounded-md border border-blue-500 p-2 ring-2 ring-blue-500/20">
+              <SaturdayOffPicker
+                value={draft}
+                onChange={setDraft}
+                disabled={state === "saving"}
+                selectClassName="h-8 w-full rounded-md border border-border/80 bg-background px-2 text-sm text-foreground outline-none disabled:opacity-60"
+              />
+              <div className="mt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={state === "saving"}
+                  onClick={() => {
+                    setEditing(false);
+                    setError(null);
+                  }}
+                  className="h-7 rounded-md border border-border/80 px-3 text-xs font-semibold text-foreground hover:bg-accent disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={state === "saving"}
+                  onClick={() => void commit(draft)}
+                  className="h-7 rounded-md bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : isChoice ? (
             <select
               autoFocus
               value={draft}
@@ -572,7 +610,13 @@ export function ProfileView(props: ProfileViewProps) {
     const res = await updateProfileFieldAction(profile.id, field, raw).catch(() => null);
     if (!res) return "Couldn't save. Check your connection and try again.";
     if (!res.ok) return res.error;
-    const value = res.value !== null && PROFILE_FIELDS[field].kind === "date" ? new Date(res.value) : res.value;
+    const kind = PROFILE_FIELDS[field].kind;
+    const value =
+      res.value !== null && kind === "date"
+        ? new Date(res.value)
+        : kind === "saturdays"
+        ? decodeSaturdaysOff(res.value ?? "")
+        : res.value;
     setProfile((p) => (p ? { ...p, [field]: value } : p));
     // A new reporting manager needs their name / photo / ID for the card.
     if (PROFILE_FIELDS[field].kind === "user") await refreshProfile();
@@ -584,7 +628,7 @@ export function ProfileView(props: ProfileViewProps) {
     return {
       field,
       label: PROFILE_FIELDS[field].label,
-      raw: v instanceof Date ? toDateInput(v) : typeof v === "string" ? v : "",
+      raw: v instanceof Date ? toDateInput(v) : Array.isArray(v) ? encodeSaturdaysOff(v) : typeof v === "string" ? v : "",
       onSave: canEditProfileField(field, { id: viewerId, isManager: viewerIsManager }, profile.id) ? saveField : undefined,
     };
   };
@@ -671,6 +715,7 @@ export function ProfileView(props: ProfileViewProps) {
     for (const f of Object.keys(PROFILE_FIELDS) as ProfileField[]) {
       const v = (profile as Record<string, unknown>)[f];
       if (v instanceof Date) initialValues[f] = toDateInput(v);
+      else if (Array.isArray(v)) initialValues[f] = encodeSaturdaysOff(v);
       else if (typeof v === "string" && v) initialValues[f] = v;
     }
     return (
@@ -851,6 +896,7 @@ export function ProfileView(props: ProfileViewProps) {
               <EditableDetail {...edit("title")} />
               <EditableDetail {...edit("department")} />
               <EditableDetail {...edit("location")} />
+              <EditableDetail {...edit("saturdaysOff")} />
               <EditableDetail {...edit("employmentType")} />
               <EditableDetail {...edit("dateOfJoining")} display={joined} />
               <EditableDetail {...edit("dateOfConfirmation")} display={fmtDate(profile.dateOfConfirmation)} />

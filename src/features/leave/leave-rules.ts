@@ -90,9 +90,12 @@ export function countLeaveDays(args: {
   requestedDays: number;
   isHoliday: (key: string) => boolean;
   policy: Pick<LeavePolicy, "sandwichPolicy" | "sandwichWeekends" | "sandwichHolidays">;
+  /** The applicant's off Saturdays (User.saturdaysOff); default every Saturday. */
+  saturdaysOff?: readonly number[];
 }): LeaveDayCount | { error: string } {
-  const { fromKey, toKey, durationType, isHoliday, policy } = args;
-  const isOff = (k: string) => isWeekendKey(k) || isHoliday(k);
+  const { fromKey, toKey, durationType, isHoliday, policy, saturdaysOff } = args;
+  const isWeekend = (k: string) => isWeekendKey(k, saturdaysOff);
+  const isOff = (k: string) => isWeekend(k) || isHoliday(k);
 
   if (isPartialDay(durationType)) {
     if (fromKey !== toKey) return { error: `${DURATION_LABEL[durationType]} leave must be on a single date.` };
@@ -119,7 +122,7 @@ export function countLeaveDays(args: {
           k > first &&
           k < last &&
           isOff(k) &&
-          ((isHoliday(k) && policy.sandwichHolidays) || (!isHoliday(k) && isWeekendKey(k) && policy.sandwichWeekends))
+          ((isHoliday(k) && policy.sandwichHolidays) || (!isHoliday(k) && isWeekend(k) && policy.sandwichWeekends))
       ).length
     : 0;
 
@@ -338,15 +341,15 @@ export interface LimitPolicy {
   clubbingRestrictedCodes: string[];
 }
 
-/** The working day before / after `key` (weekends skipped). */
-function prevWorking(key: string): string {
+/** The working day before / after `key` (the person's weekend days skipped). */
+function prevWorking(key: string, saturdaysOff?: readonly number[]): string {
   let k = addDaysToKey(key, -1);
-  while (isWeekendKey(k)) k = addDaysToKey(k, -1);
+  while (isWeekendKey(k, saturdaysOff)) k = addDaysToKey(k, -1);
   return k;
 }
-function nextWorking(key: string): string {
+function nextWorking(key: string, saturdaysOff?: readonly number[]): string {
   let k = addDaysToKey(key, 1);
-  while (isWeekendKey(k)) k = addDaysToKey(k, 1);
+  while (isWeekendKey(k, saturdaysOff)) k = addDaysToKey(k, 1);
   return k;
 }
 
@@ -367,7 +370,14 @@ function periodWindow(fromKey: string, unit: Unit): [string, string] {
  * Checks the request against the employee's other pending/approved leave.
  * `others` must not include the request itself.
  */
-export function checkRequestLimits(policy: LimitPolicy, fromKey: string, toKey: string, others: OtherLeave[]): string | null {
+export function checkRequestLimits(
+  policy: LimitPolicy,
+  fromKey: string,
+  toKey: string,
+  others: OtherLeave[],
+  /** The applicant's off Saturdays — decides the "next / previous working day" for clubbing. */
+  saturdaysOff?: readonly number[]
+): string | null {
   const sameType = others.filter((o) => same(o.code, policy.code));
 
   if (policy.minGapBetweenRequests > 0) {
@@ -393,8 +403,8 @@ export function checkRequestLimits(policy: LimitPolicy, fromKey: string, toKey: 
 
   const restricted = policy.clubbingRestrictedCodes.filter((c) => !same(c, policy.code));
   if (restricted.length) {
-    const before = prevWorking(fromKey);
-    const after = nextWorking(toKey);
+    const before = prevWorking(fromKey, saturdaysOff);
+    const after = nextWorking(toKey, saturdaysOff);
     const clash = others.find(
       (o) => restricted.some((c) => same(c, o.code)) && (o.toKey === before || o.fromKey === after || (o.fromKey <= toKey && o.toKey >= fromKey))
     );

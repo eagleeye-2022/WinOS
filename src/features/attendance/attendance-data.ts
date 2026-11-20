@@ -88,9 +88,12 @@ export async function loadAttendanceRange(
     }),
     db.user.findMany({
       where: { id: { in: userIds } },
-      select: { id: true, dateOfJoining: true, createdAt: true },
+      select: { id: true, dateOfJoining: true, createdAt: true, saturdaysOff: true },
     }),
   ]);
+
+  // Each person's work week (which Saturdays are off) decides their weekend days.
+  const saturdaysOffByUser = new Map(joiners.map((u) => [u.id, u.saturdaysOff]));
 
   // First day each person can be expected at work: their joining date, else the day their account
   // was created (users are provisioned on first login, and attendance can't predate the account).
@@ -120,6 +123,7 @@ export async function loadAttendanceRange(
     daysFor(userId, keys) {
       const userLeaves = leavesByUser.get(userId) ?? [];
       const joinedKey = joinedKeyByUser.get(userId);
+      const saturdaysOff = saturdaysOffByUser.get(userId);
       return keys.map((key) => {
         const attendance = attMap.get(`${userId}|${key}`) ?? null;
         const holiday = holidayMap.get(key) ?? null;
@@ -144,6 +148,7 @@ export async function loadAttendanceRange(
           hasPendingLeave: pending.length > 0,
           regularizationStatus: regularization?.status ?? null,
           beforeJoining: joinedKey !== undefined && key < joinedKey,
+          saturdaysOff,
         });
 
         return {

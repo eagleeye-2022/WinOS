@@ -65,9 +65,32 @@ export function addDaysToKey(key: string, days: number): string {
   return dateKeyFromUtc(d);
 }
 
-export function isWeekendKey(key: string): boolean {
-  const day = dateFromKey(key)?.getUTCDay();
-  return day === 0 || day === 6;
+// ── Work week ────────────────────────────────────────────────────────────────
+// Sundays are always off. Which Saturdays are off is set per person (User.saturdaysOff): the
+// 1st–5th Saturday of the month. Everyone starts with every Saturday off.
+
+/** The 1st…5th Saturday of a month. */
+export const SATURDAY_WEEKS = [1, 2, 3, 4, 5] as const;
+/** Default work week: every Saturday (and Sunday) off. */
+export const ALL_SATURDAYS_OFF: readonly number[] = SATURDAY_WEEKS;
+
+/** A clean, sorted list of off Saturdays (1–5). Anything that isn't a list → every Saturday off. */
+export function normalizeSaturdaysOff(v: readonly number[] | null | undefined): number[] {
+  if (!Array.isArray(v)) return [...ALL_SATURDAYS_OFF];
+  return [...new Set(v.filter((n) => Number.isInteger(n) && n >= 1 && n <= 5))].sort((a, b) => a - b);
+}
+
+/**
+ * A day off by the work week: every Sunday, and the Saturdays in `saturdaysOff` (default: all).
+ * The Nth Saturday of a month is always on day 7N-6 … 7N, so its number is ceil(day / 7).
+ * Pass the person's `User.saturdaysOff` wherever a specific person's day is being judged.
+ */
+export function isWeekendKey(key: string, saturdaysOff: readonly number[] = ALL_SATURDAYS_OFF): boolean {
+  const d = dateFromKey(key);
+  if (!d) return false;
+  const day = d.getUTCDay();
+  if (day === 0) return true;
+  return day === 6 && saturdaysOff.includes(Math.ceil(d.getUTCDate() / 7));
 }
 
 /** Monday→Sunday keys of the week containing `key`. */
@@ -269,6 +292,8 @@ export interface ResolveDayInput {
   regularizationStatus: "PENDING" | "APPROVED" | "REJECTED" | null;
   /** The day is before the employee joined: nothing is expected, nothing counts. */
   beforeJoining?: boolean;
+  /** The person's off Saturdays (User.saturdaysOff); default every Saturday. */
+  saturdaysOff?: readonly number[];
 }
 
 export interface ResolvedDay {
@@ -303,7 +328,7 @@ export function resolveDay(input: ResolveDayInput): ResolvedDay {
     };
   }
 
-  if (input.isHoliday || isWeekendKey(key)) {
+  if (input.isHoliday || isWeekendKey(key, input.saturdaysOff)) {
     // Working on a day off (comp-off) still needs a live check-out today; it never counts toward payroll.
     const liveToday = key === todayKey && attendance?.isLive && !attendance.checkOutTime;
     return {

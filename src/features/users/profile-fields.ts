@@ -14,9 +14,14 @@ import {
   MARITAL_STATUSES,
   PARENT_RELATIONSHIPS,
 } from "./constants";
+import { ALL_SATURDAYS_OFF } from "@/features/attendance/utils";
+import { decodeSaturdaysOff } from "./work-week";
 
-/** "user": another member's id (reporting managers) — the server checks it exists. */
-export type ProfileFieldKind = "text" | "date" | "select" | "email" | "phone" | "user";
+/**
+ * "user": another member's id (reporting managers) — the server checks it exists.
+ * "saturdays": the work week — which Saturdays are off, sent as "1,3" / "none" (see work-week.ts).
+ */
+export type ProfileFieldKind = "text" | "date" | "select" | "email" | "phone" | "user" | "saturdays";
 
 export interface ProfileFieldConfig {
   kind: ProfileFieldKind;
@@ -48,6 +53,8 @@ export const PROFILE_FIELDS = {
   title: { kind: "text", label: "Designation", required: true, managerOnly: true },
   department: { kind: "select", label: "Department", required: true, managerOnly: true, options: DEPARTMENTS },
   location: { kind: "select", label: "Location", required: true, managerOnly: true, options: LOCATIONS },
+  // Which Saturdays are off for this person (Sundays always are). Drives leave days and attendance.
+  saturdaysOff: { kind: "saturdays", label: "Work Week", managerOnly: true },
   employmentType: { kind: "select", label: "Member Type", managerOnly: true, options: EMPLOYMENT_TYPES },
   dateOfJoining: { kind: "date", label: "Date of Joining", managerOnly: true },
   dateOfConfirmation: { kind: "date", label: "Date of Confirmation", managerOnly: true },
@@ -102,18 +109,27 @@ function cleanPhone(v: string): string {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** A value ready to store on the User row. */
+export type ProfileFieldValue = string | Date | number[] | null;
+
 /**
  * Checks a typed value. Returns the value to store (null = cleared) or an error message.
- * Dates come in as YYYY-MM-DD.
+ * Dates come in as YYYY-MM-DD; the work week as "1,3" / "none" (empty = the default, every Saturday off).
  */
 export function parseProfileFieldValue(
   field: ProfileField,
   raw: string,
   today: Date = new Date()
-): { value: string | Date | null } | { error: string } {
+): { value: ProfileFieldValue } | { error: string } {
   const cfg = PROFILE_FIELDS[field] as ProfileFieldConfig;
   let v = (raw ?? "").trim();
   if (cfg.kind === "phone") v = cleanPhone(v);
+
+  if (cfg.kind === "saturdays") {
+    if (!v) return { value: [...ALL_SATURDAYS_OFF] };
+    const list = decodeSaturdaysOff(v);
+    return list ? { value: list } : { error: "Choose which Saturdays are off." };
+  }
 
   if (!v) return cfg.required ? { error: `${cfg.label} is required.` } : { value: null };
 

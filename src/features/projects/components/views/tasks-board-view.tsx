@@ -674,7 +674,14 @@ export function TasksBoardView({
         p.id === task.id
           ? {
               ...p,
-              ...(changes.status && { status: changes.status }),
+              ...(changes.status && {
+                status: changes.status,
+                completionPercentage: isTaskDone(changes.status)
+                  ? 100
+                  : (p.completionPercentage ?? 0) >= 100
+                  ? 0
+                  : p.completionPercentage,
+              }),
               ...(changes.title && { title: changes.title }),
               ...(changes.ownerLabel && { owner: changes.ownerLabel }),
               ...(changes.phaseCode && { phaseCode: changes.phaseCode, phaseName: changes.phaseName ?? p.phaseName }),
