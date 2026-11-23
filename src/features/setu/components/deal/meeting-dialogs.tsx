@@ -321,7 +321,7 @@ export function CompleteMeetingDialog({
             </div>
           </div>
 
-          <form onSubmit={submit} noValidate className="space-y-5 bg-[var(--setu-canvas)] px-6 py-5">
+          <form onSubmit={submit} noValidate className="space-y-5 bg-[var(--setu-well)] px-6 py-5">
             <div className="setu-card flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs">
               <span className="setu-text-2 flex items-center gap-2">
                 <Clock3 size={15} className="setu-accent-text" />
@@ -387,7 +387,7 @@ export function CompleteMeetingDialog({
               <SetuButton variant="ghost" onClick={onClose}>
                 Cancel
               </SetuButton>
-              <SetuButton type="submit" className="border-transparent bg-emerald-700 px-5 text-white hover:bg-emerald-800" disabled={saving}>
+              <SetuButton type="submit" className="px-5 border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-400 dark:hover:bg-emerald-500/25" disabled={saving}>
                 {saving ? "Saving…" : "Complete Meeting & Save Notes"}
               </SetuButton>
             </div>

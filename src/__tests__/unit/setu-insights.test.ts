@@ -4,7 +4,10 @@ import {
   DEALS_STAGES,
   LEAD_STAGES,
   buildContacts,
+  changePct,
   followUps,
+  monthlySeries,
+  previousMonth,
   inPeriod,
   isLead,
   matchesText,
@@ -121,6 +124,30 @@ describe("activity and helpers", () => {
     expect(inPeriod("2026-10-05", "quarter", "2026-11-23")).toBe(true);
     expect(inPeriod("2026-09-30", "quarter", "2026-11-23")).toBe(false);
     expect(inPeriod(undefined, "month", "2026-11-23")).toBe(false);
+  });
+
+  it("builds a 12-month series for one year in IST", () => {
+    const s = monthlySeries(
+      [
+        { at: "2026-01-31T20:00:00Z", value: 5 }, // 1 Feb in IST
+        { at: "2026-11-02", value: 3 },
+        { at: "2025-11-02", value: 100 }, // other year — ignored
+        { at: undefined, value: 9 },
+      ],
+      2026
+    );
+    expect(s).toHaveLength(12);
+    expect(s[1]).toBe(5);
+    expect(s[10]).toBe(3);
+    expect(s.reduce((n, v) => n + v, 0)).toBe(8);
+  });
+
+  it("computes month-over-month change", () => {
+    expect(changePct(150, 100)).toBe(50);
+    expect(changePct(50, 100)).toBe(-50);
+    expect(changePct(10, 0)).toBeNull();
+    expect(previousMonth("2026-01-15")).toBe("2025-12");
+    expect(previousMonth("2026-11-23")).toBe("2026-10");
   });
 
   it("matches text and writes CSV", () => {

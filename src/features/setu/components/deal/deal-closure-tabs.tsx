@@ -251,7 +251,7 @@ export function DealClosedWonTab({ deal }: { deal: Deal }) {
           >
             Cancel
           </SetuButton>
-          <SetuButton type="submit" className="border-transparent bg-green-600 text-white hover:bg-green-700" disabled={saving}>
+          <SetuButton type="submit" className="border-green-300 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-500/30 dark:bg-green-500/15 dark:text-green-400 dark:hover:bg-green-500/25" disabled={saving}>
             <CircleCheck /> {w ? "Save Closure Details" : "Save & Close Deal"}
           </SetuButton>
         </div>
@@ -426,7 +426,7 @@ export function DealClosedLostTab({ deal }: { deal: Deal }) {
           >
             <X /> Cancel
           </SetuButton>
-          <SetuButton type="submit" className="border-transparent bg-red-600 text-white hover:bg-red-700" disabled={saving}>
+          <SetuButton type="submit" className="border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-400 dark:hover:bg-red-500/25" disabled={saving}>
             <Save /> {l ? "Save Loss Details" : "Save & Mark as Closed Lost"}
           </SetuButton>
         </div>

@@ -138,7 +138,7 @@ export function AttendeePicker({
               onClick={() => setTab(t.id)}
               className={cn(
                 "flex cursor-pointer items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-semibold",
-                tab === t.id ? "bg-[var(--setu-accent)] text-[var(--setu-accent-ink)]" : "setu-text-2 hover:text-[var(--setu-text)]"
+                tab === t.id ? "bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]" : "setu-text-2 hover:text-[var(--setu-text)]"
               )}
             >
               <t.icon size={12} /> {t.label} ({shown[t.id].length})

@@ -131,7 +131,7 @@ export function DealMeetingsTab({ deal }: { deal: Deal }) {
                 aria-pressed={filter === f}
                 className={cn(
                   "cursor-pointer rounded-md px-3.5 py-1.5 text-sm font-medium capitalize transition-colors",
-                  filter === f ? "bg-[var(--setu-accent)] text-[var(--setu-accent-ink)]" : "setu-text-2 hover:text-[var(--setu-text)]"
+                  filter === f ? "bg-[var(--setu-accent-soft)] text-[var(--setu-accent)] font-semibold" : "setu-text-2 hover:text-[var(--setu-text)]"
                 )}
               >
                 {f} ({count})

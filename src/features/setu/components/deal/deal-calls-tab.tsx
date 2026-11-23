@@ -108,7 +108,7 @@ export function DealCallsTab({ deal }: { deal: Deal }) {
               className={cn(
                 "cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                 filter === c.id
-                  ? "border-transparent bg-[var(--setu-accent)] text-[var(--setu-accent-ink)]"
+                  ? "border-[var(--setu-accent-ring)] bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]"
                   : "setu-text-2 border-[var(--setu-line)] bg-[var(--setu-soft)] hover:text-[var(--setu-text)]"
               )}
             >

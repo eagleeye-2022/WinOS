@@ -142,6 +142,31 @@ export function followUps(deals: Deal[], today: string, days = 7): { deal: Deal;
     .map((deal) => ({ deal, overdue: (deal.dueDate as string) < today }));
 }
 
+/** Sums `value` per calendar month (IST) of `year` → 12 numbers, Jan…Dec. */
+export function monthlySeries(items: { at: string | undefined; value: number }[], year: number): number[] {
+  const out = Array<number>(12).fill(0);
+  for (const it of items) {
+    if (!it.at) continue;
+    const day = it.at.length === 10 ? it.at : isoDate(it.at);
+    if (Number(day.slice(0, 4)) !== year) continue;
+    out[Number(day.slice(5, 7)) - 1] += it.value;
+  }
+  return out;
+}
+
+/** Percent change from `prev` to `cur`, whole number; null when there's no previous value. */
+export function changePct(cur: number, prev: number): number | null {
+  if (!prev) return null;
+  return Math.round(((cur - prev) / prev) * 100);
+}
+
+/** "yyyy-mm" of the month before `today`. */
+export function previousMonth(today: string): string {
+  const y = Number(today.slice(0, 4));
+  const m = Number(today.slice(5, 7));
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
+}
+
 // ── Contacts ──────────────────────────────────────────────────────────────────
 
 export type Relationship = "CUSTOMER" | "ACTIVE_DEAL" | "LEAD" | "LOST";

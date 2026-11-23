@@ -1,17 +1,48 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Clock3, ExternalLink, GripVertical, Phone, UsersRound, Video } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowUpRight,
+  Calendar,
+  Clock3,
+  ExternalLink,
+  GripVertical,
+  Phone,
+  UsersRound,
+  Video,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
-import { MEETING_CHANNEL_LABEL, isOnlineChannel } from "../../constants";
+import { MEETING_CHANNEL_LABEL, STAGE_DOT, isOnlineChannel } from "../../constants";
 import type { Deal, DealMeeting } from "../../types";
-import { dealTitle, displayCode, formatDate, formatDateTime, formatInr, formatSlashDate, formatTime, isoDate, phoneDigits } from "../../utils";
+import {
+  dealTitle,
+  displayCode,
+  formatDate,
+  formatInr,
+  formatSlashDate,
+  formatTime,
+  isoDate,
+  phoneDigits,
+} from "../../utils";
+
+function getInitials(name: string) {
+  if (!name) return "??";
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase())
+    .join("");
+}
 
 /**
- * One Tasks-board card. The body follows the deal's stage, as in the design: phone + note for
- * Lead / Discussions, the meeting for Meeting, value boxes for Proposal → Closed.
- * The whole card drags between columns and opens the deal on click.
+ * One Tasks-board card. The body follows the deal's stage:
+ * Lead / Discussions: phone pill + note box
+ * Meeting: scheduled meeting details with attendees + channel
+ * Proposal / Negotiation: contract value + version / request
+ * Closed Won / Lost: finalized value + outcome date / reason.
+ * Drags between columns and navigates to the deal workspace on click.
  */
 export function DealCard({
   deal,
@@ -27,7 +58,9 @@ export function DealCard({
 }) {
   const router = useRouter();
   const open = () => router.push(ROUTES.setuDeal(deal.id));
-  const showUpdated = deal.stage !== "MEETING";
+
+  const isOverdue = deal.dueDate && deal.dueDate < today && deal.stage !== "CLOSED_WON" && deal.stage !== "CLOSED_LOST";
+  const isDueToday = deal.dueDate && deal.dueDate === today;
 
   return (
     <article
@@ -43,20 +76,77 @@ export function DealCard({
       onKeyDown={(e) => {
         if (e.key === "Enter") open();
       }}
-      className="setu-card group relative cursor-pointer p-4 transition-shadow hover:shadow-[var(--setu-shadow-lg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--setu-accent-ring)]"
+      className={cn(
+        "setu-card group relative cursor-grab active:cursor-grabbing p-3.5 transition-all duration-150",
+        "hover:-translate-y-0.5 hover:shadow-md hover:border-[var(--setu-accent-ring)]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--setu-accent-ring)]",
+        isOverdue && "border-rose-300/60 dark:border-rose-500/30"
+      )}
     >
-      <GripVertical size={14} className="setu-text-3 absolute right-3 top-3 opacity-60 group-hover:opacity-100" aria-hidden />
+      {/* Top Header: Code badge with stage dot + grip handle */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="inline-flex items-center gap-1.5 rounded-md border border-[var(--setu-line)] bg-[var(--setu-soft)] px-2 py-0.5 text-[10px] font-mono font-semibold text-[var(--setu-text-2)]">
+          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", STAGE_DOT[deal.stage])} />
+          <span>{displayCode(deal)}</span>
+        </div>
 
-      <h3 className="pr-5 text-sm font-semibold leading-snug">{deal.stage === "MEETING" ? meeting?.title || dealTitle(deal) : dealTitle(deal)}</h3>
-      <p className="setu-text-2 mt-0.5 truncate text-xs">
-        {deal.company} • {displayCode(deal)}
-      </p>
+        <div className="flex items-center gap-1">
+          <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[var(--setu-text-3)] hover:text-[var(--setu-accent)]">
+            <ArrowUpRight size={13} />
+          </span>
+          <GripVertical
+            size={14}
+            className="text-[var(--setu-text-3)] opacity-40 group-hover:opacity-90 transition-opacity"
+            aria-hidden
+          />
+        </div>
+      </div>
 
+      {/* Main Title & Company */}
+      <div className="mt-2.5">
+        <h3 className="text-[13px] font-bold leading-snug text-[var(--setu-text)] group-hover:text-[var(--setu-accent)] transition-colors line-clamp-2">
+          {deal.stage === "MEETING" ? meeting?.title || dealTitle(deal) : dealTitle(deal)}
+        </h3>
+        <p className="mt-0.5 truncate text-[11px] font-medium text-[var(--setu-text-2)]">
+          {deal.company}
+          {deal.contactRole ? ` · ${deal.contactRole}` : ""}
+        </p>
+      </div>
+
+      {/* Body: Stage-specific content */}
       <div className="mt-3 space-y-2">
         <CardBody deal={deal} meeting={meeting} today={today} />
       </div>
 
-      {showUpdated && <p className="setu-text-2 mt-3 text-right text-[11px] font-medium">Last Updated : {formatDateTime(deal.updatedAt)}</p>}
+      {/* Footer: Owner avatar + Due date / timestamp */}
+      <div className="mt-3 pt-2.5 border-t border-[var(--setu-line)]/50 flex items-center justify-between gap-2 text-[10px]">
+        {/* Owner Info */}
+        <div className="flex items-center gap-1.5 min-w-0" title={`Owner: ${deal.ownerName}`}>
+          <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--setu-accent-soft)] text-[9px] font-bold text-[var(--setu-accent-text)] border border-[var(--setu-accent-ring)]">
+            {getInitials(deal.ownerName)}
+          </div>
+          <span className="truncate font-medium text-[var(--setu-text-2)] max-w-[90px]">{deal.ownerName}</span>
+        </div>
+
+        {/* Due Date Indicator */}
+        {isOverdue ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 font-semibold text-rose-600 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400">
+            <AlertCircle size={10} /> Overdue
+          </span>
+        ) : isDueToday ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 font-semibold text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400">
+            <Clock3 size={10} /> Today
+          </span>
+        ) : deal.dueDate ? (
+          <span className="inline-flex items-center gap-1 text-[var(--setu-text-3)] font-medium">
+            <Calendar size={10} /> {formatDate(deal.dueDate)}
+          </span>
+        ) : (
+          <span className="text-[var(--setu-text-3)] font-medium text-[9px]">
+            {formatDate(deal.updatedAt)}
+          </span>
+        )}
+      </div>
     </article>
   );
 }
@@ -66,10 +156,10 @@ function CardBody({ deal, meeting, today }: { deal: Deal; meeting?: DealMeeting;
     case "LEAD":
     case "DISCUSSION":
       return (
-        <>
+        <div className="space-y-1.5">
           <PhoneChip phone={deal.phone} />
           {deal.remark && <NoteBox text={deal.remark} />}
-        </>
+        </div>
       );
 
     case "MEETING":
@@ -77,46 +167,70 @@ function CardBody({ deal, meeting, today }: { deal: Deal; meeting?: DealMeeting;
 
     case "PROPOSAL":
       return (
-        <div className="setu-soft flex items-end justify-between gap-2 px-3 py-2.5">
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-[var(--setu-line)] bg-[var(--setu-soft)] px-2.5 py-2">
           <div className="min-w-0">
-            <p className="setu-text-2 text-[10px] font-semibold uppercase tracking-wider">Proposal Value</p>
-            <p className="setu-accent-text text-lg font-bold leading-tight tabular-nums">{deal.value !== undefined ? formatInr(deal.value) : "—"}</p>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--setu-text-2)]">Proposal Value</p>
+            <p className="text-sm font-bold text-[var(--setu-accent-text)] tabular-nums mt-0.5">
+              {deal.value !== undefined ? formatInr(deal.value) : "—"}
+            </p>
           </div>
-          {deal.proposalVersion !== undefined && <span className="mb-1 text-xs font-bold">V{deal.proposalVersion}</span>}
+          {deal.proposalVersion !== undefined && (
+            <span className="rounded-md border border-[var(--setu-line)] bg-[var(--setu-card)] px-1.5 py-0.5 text-[10px] font-bold text-[var(--setu-text-2)]">
+              V{deal.proposalVersion}
+            </span>
+          )}
         </div>
       );
 
     case "NEGOTIATION":
       return (
-        <ValueBox
-          tone="border-amber-200 bg-amber-50 dark:border-amber-500/25 dark:bg-amber-500/10"
-          label="Deal Value:"
-          value={deal.value}
-          detail={deal.remark ? `Request: ${deal.remark}` : undefined}
-          detailTone="text-amber-700 dark:text-amber-400"
-        />
+        <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-2 dark:border-amber-500/25 dark:bg-amber-500/10">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Deal Value</span>
+            <span className="text-sm font-bold tabular-nums text-amber-900 dark:text-amber-200">
+              {deal.value !== undefined ? formatInr(deal.value) : "—"}
+            </span>
+          </div>
+          {deal.remark && (
+            <p className="mt-1 border-t border-amber-200/60 pt-1 text-[10px] font-medium leading-snug text-amber-800 dark:border-amber-500/20 dark:text-amber-300">
+              {deal.remark}
+            </p>
+          )}
+        </div>
       );
 
     case "CLOSED_WON":
       return (
-        <div className="flex items-end justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 dark:border-green-500/25 dark:bg-green-500/10">
+        <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-200 bg-emerald-50/70 p-2 dark:border-emerald-500/25 dark:bg-emerald-500/10">
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-green-700 dark:text-green-400">Closed Deal</p>
-            <p className="text-lg font-bold leading-tight tabular-nums">{deal.value !== undefined ? formatInr(deal.value) : "—"}</p>
+            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400">Won Value</p>
+            <p className="text-sm font-bold tabular-nums text-emerald-900 dark:text-emerald-200 mt-0.5">
+              {deal.value !== undefined ? formatInr(deal.value) : "—"}
+            </p>
           </div>
-          {deal.closedAt && <span className="setu-text-2 mb-1 shrink-0 text-[11px] font-medium">{formatDate(deal.closedAt)}</span>}
+          {deal.closedAt && (
+            <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+              {formatDate(deal.closedAt)}
+            </span>
+          )}
         </div>
       );
 
     case "CLOSED_LOST":
       return (
-        <ValueBox
-          tone="border-red-200 bg-red-50 dark:border-red-500/25 dark:bg-red-500/10"
-          label="Deal Value:"
-          value={deal.value}
-          detail={deal.remark ? `Reason: ${deal.remark}` : undefined}
-          detailTone="text-red-600 dark:text-red-400"
-        />
+        <div className="rounded-lg border border-rose-200 bg-rose-50/70 p-2 dark:border-rose-500/25 dark:bg-rose-500/10">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">Lost Value</span>
+            <span className="text-sm font-bold tabular-nums text-rose-900 dark:text-rose-200">
+              {deal.value !== undefined ? formatInr(deal.value) : "—"}
+            </span>
+          </div>
+          {deal.remark && (
+            <p className="mt-1 border-t border-rose-200/60 pt-1 text-[10px] font-medium leading-snug text-rose-800 dark:border-rose-500/20 dark:text-rose-300">
+              {deal.remark}
+            </p>
+          )}
+        </div>
       );
   }
 }
@@ -127,42 +241,20 @@ function PhoneChip({ phone }: { phone: string }) {
     <a
       href={`tel:+${phoneDigits(phone)}`}
       onClick={(e) => e.stopPropagation()}
-      className="setu-soft setu-accent-text flex items-center gap-2 px-3 py-1.5 text-xs font-medium hover:underline"
+      className="inline-flex items-center gap-1.5 rounded-md border border-[var(--setu-line)] bg-[var(--setu-soft)] px-2 py-1 text-[11px] font-medium text-[var(--setu-text)] transition-colors hover:border-[var(--setu-accent)] hover:text-[var(--setu-accent)]"
+      title={`Call ${phone}`}
     >
-      <Phone size={13} /> {phone}
+      <Phone size={11} className="text-[var(--setu-accent)]" />
+      <span>{phone}</span>
     </a>
   );
 }
 
 function NoteBox({ text }: { text: string }) {
   return (
-    <p className="setu-soft border-l-[3px] border-[var(--setu-accent)] px-3 py-1.5 text-xs leading-snug">
-      <span className="font-medium">Note:</span> <span className="setu-text-2">{text}</span>
+    <p className="rounded-md border-l-2 border-[var(--setu-accent)] bg-[var(--setu-soft)] px-2 py-1 text-[11px] leading-snug text-[var(--setu-text-2)]">
+      {text}
     </p>
-  );
-}
-
-function ValueBox({
-  tone,
-  label,
-  value,
-  detail,
-  detailTone,
-}: {
-  tone: string;
-  label: string;
-  value?: number;
-  detail?: string;
-  detailTone: string;
-}) {
-  return (
-    <div className={cn("rounded-lg border px-3 py-2.5", tone)}>
-      <div className="flex items-center justify-between gap-2 text-xs">
-        <span className="setu-text-2">{label}</span>
-        <span className="font-bold tabular-nums">{value !== undefined ? formatInr(value) : "—"}</span>
-      </div>
-      {detail && <p className={cn("mt-1 text-[11px] font-medium leading-snug", detailTone)}>{detail}</p>}
-    </div>
   );
 }
 
@@ -171,40 +263,43 @@ function MeetingBody({ meeting: m, today }: { meeting?: DealMeeting; today: stri
   const [first, ...rest] = m.attendees;
   const date = isoDate(m.startAt);
   return (
-    <>
-      <div className="setu-soft space-y-1 px-3 py-2">
-        <p className="flex items-center gap-2 text-xs font-medium">
-          <UsersRound size={13} className="text-violet-600 dark:text-violet-400" />
-          {first?.name ?? "No attendees"}
-          {rest.length > 0 && ` + ${rest.length} other${rest.length > 1 ? "s" : ""}`}
+    <div className="space-y-1.5 rounded-lg border border-[var(--setu-line)] bg-[var(--setu-soft)] p-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--setu-text)]">
+          <UsersRound size={12} className="text-violet-500" />
+          <span className="truncate">{first?.name ?? "No attendees"}</span>
+          {rest.length > 0 && (
+            <span className="text-[10px] font-normal text-[var(--setu-text-2)]">+{rest.length}</span>
+          )}
         </p>
-        <p className="setu-text-2 flex min-w-0 items-center gap-2 text-[11px] font-medium">
-          <Video size={12} className="shrink-0" />
+        <span className="flex items-center gap-1 text-[10px] font-semibold text-[var(--setu-text-2)] tabular-nums">
+          <Clock3 size={11} /> {formatTime(m.startAt)}
+        </span>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 text-[10px]">
+        <div className="flex min-w-0 items-center gap-1 text-[var(--setu-text-2)]">
+          <Video size={11} className="shrink-0 text-violet-500" />
           {isOnlineChannel(m.channel) && m.link ? (
             <a
               href={m.link}
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="flex min-w-0 items-center gap-1 hover:underline"
+              className="flex min-w-0 items-center gap-1 truncate font-medium text-[var(--setu-accent)] hover:underline"
             >
               <span className="truncate">{m.link.replace(/^https?:\/\//, "")}</span>
-              <ExternalLink size={11} className="setu-accent-text shrink-0" />
+              <ExternalLink size={10} className="shrink-0" />
             </a>
           ) : (
             <span className="truncate">{m.location || MEETING_CHANNEL_LABEL[m.channel]}</span>
           )}
-        </p>
-      </div>
-      <div className="flex items-center justify-between pt-1 text-[11px] font-semibold">
-        <span>
+        </div>
+        <span className={cn("shrink-0 font-medium", date === today ? "text-amber-600 font-bold" : "text-[var(--setu-text-3)]")}>
           {formatSlashDate(date)}
           {date === today && " (Today)"}
         </span>
-        <span className="setu-text-2 flex items-center gap-1">
-          <Clock3 size={12} /> {formatTime(m.startAt)}
-        </span>
       </div>
-    </>
+    </div>
   );
 }

@@ -29,10 +29,13 @@
     color: var(--setu-text);
   }
 
-  /* Dark: same tokens, using the app's layered zinc palette (globals.css :root --dark-*). */
+  /*
+   * Dark: the app's layered zinc palette (globals.css :root --dark-*). No Setu surface is darker
+   * than a card — every nested level is a step lighter (card → well → soft), never near-black.
+   */
   .dark .setu-scope {
-    --setu-well: var(--dark-sidebar);
-    --setu-soft: var(--dark-surface-hover);
+    --setu-well: var(--dark-surface-hover);
+    --setu-soft: color-mix(in oklch, var(--dark-surface-hover) 88%, white);
     --setu-line-strong: var(--dark-border-hover);
     --setu-text-3: var(--dark-text-meta);
     --setu-accent-soft: color-mix(in oklch, var(--primary) 18%, transparent);
@@ -58,6 +61,13 @@
     border-radius: 0.875rem;
     background: var(--setu-well);
     border: 1px solid var(--setu-line);
+  }
+  /* Dark: column in the card tone, its cards one step lighter (still lighter inward). */
+  .dark .setu-well {
+    background: var(--setu-card);
+  }
+  .dark .setu-well .setu-card {
+    background: var(--setu-well);
   }
 
   /* Inner panel on a card (phone chip, "Note:" box, value boxes). */
@@ -110,13 +120,17 @@
     font-size: 0.75rem;
   }
 
+  /* Primary = light blue tint with blue text (no solid dark-blue fill anywhere in Setu). */
   .setu-btn-primary {
-    background: var(--setu-accent);
-    color: var(--setu-accent-ink);
-    border: 1px solid transparent;
+    background: var(--setu-accent-soft);
+    color: var(--setu-accent);
+    border: 1px solid var(--setu-accent-ring);
   }
   .setu-btn-primary:hover {
-    filter: brightness(1.08);
+    background: color-mix(in oklch, var(--setu-accent) 20%, transparent);
+  }
+  .dark .setu-btn-primary {
+    color: color-mix(in oklch, var(--setu-accent) 65%, white);
   }
 
   .setu-btn-secondary {

@@ -125,7 +125,13 @@ export function FilterDropdown({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button type="button" className={cn("setu-input flex h-9 cursor-pointer items-center gap-1.5 border px-3.5 text-sm", className)}>
+        <button
+          type="button"
+          className={cn(
+            "flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)] px-3.5 text-xs text-[var(--setu-text)] transition-colors hover:border-[var(--setu-line-strong)] focus-visible:border-[var(--setu-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--setu-accent-ring)] data-[state=open]:border-[var(--setu-accent)]",
+            className
+          )}
+        >
           {label && <span className="setu-text-2">{label}:</span>}
           <span className={cn("truncate", label && "font-semibold")}>{current}</span>
           <ChevronDown size={15} className="setu-text-2 ml-auto shrink-0" />
