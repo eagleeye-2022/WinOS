@@ -1,41 +1,93 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Slot } from "@radix-ui/react-slot";
-import { Bot, CalendarDays, PenLine, Search, Users2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Construction } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
-import { SOURCE_LABEL, STAGE_BY_ID } from "../constants";
-import type { PipelineStageId, ProspectSource } from "../types";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ROUTES } from "@/constants/routes";
+import { STAGE_BADGE, STAGE_BY_ID, STAGE_DOT } from "../constants";
+import { toast } from "@/components/shared/toast";
+import { useSetuStore } from "../provider";
+import type { DealStage } from "../types";
 import { avatarColor, initials } from "../utils";
 
-// Proactiv-style building blocks for every Setu tab. Surfaces, tiles and buttons are styled
-// by the scoped classes in setu.css (`setu-card`, `setu-tile`, `setu-btn-*` …). The page
-// header, stat chips and tab bar live in SetuShell; each tab renders a SetuSection.
+// Shared building blocks for the Setu CRM pages. Surfaces and buttons are styled by the scoped
+// classes in setu.css (`setu-card`, `setu-btn-*` …).
 
-/** A tab's content: section title + actions row, then the tab body. */
-export function SetuSection({
-  title,
-  actions,
-  children,
-}: {
-  title: string;
-  actions?: React.ReactNode;
-  children: React.ReactNode;
-}) {
+// ── Current user ──────────────────────────────────────────────────────────────
+
+/** The signed-in user's display name. */
+export function useSetuUserName(): string {
+  return useSetuStore((s) => s.me.name);
+}
+
+/**
+ * Awaits a store action: shows `done` on success and the server's message on failure.
+ * Resolves to the action's result, or `undefined` when it failed.
+ */
+export async function attempt<T>(action: Promise<T>, done?: string): Promise<T | undefined> {
+  try {
+    const result = await action;
+    if (done) toast.success(done);
+    return result;
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : "Something went wrong.");
+    return undefined;
+  }
+}
+
+// ── Layout ────────────────────────────────────────────────────────────────────
+
+export interface Crumb {
+  label: string;
+  href?: string;
+}
+
+/** "CRM › Sales › Tasks" — the last crumb is the current page. */
+export function Breadcrumbs({ items }: { items: Crumb[] }) {
+  const all: Crumb[] = [{ label: "CRM", href: ROUTES.setuTasks }, ...items];
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="setu-heading text-lg font-semibold">{title}</h2>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-      </div>
-      {children}
+    <nav aria-label="Breadcrumb" className="setu-text-2 flex min-w-0 flex-wrap items-center gap-1 text-xs">
+      {all.map((c, i) => {
+        const last = i === all.length - 1;
+        return (
+          <React.Fragment key={`${c.label}-${i}`}>
+            {i > 0 && <ChevronRight size={13} className="setu-text-3 shrink-0" />}
+            {c.href && !last ? (
+              <Link href={c.href} className="hover:text-[var(--setu-text)]">
+                {c.label}
+              </Link>
+            ) : (
+              <span className={cn(last && "font-semibold text-[var(--setu-text)]")}>{c.label}</span>
+            )}
+          </React.Fragment>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** Page wrapper: one scroll area with the standard Setu gutters. */
+export function SetuPage({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className="h-full overflow-y-auto" data-scroll-key="setu-page">
+      <div className={cn("mx-auto w-full max-w-[1600px] space-y-5 px-4 pb-10 pt-5 sm:px-6", className)}>{children}</div>
     </div>
   );
 }
 
+// ── Controls ──────────────────────────────────────────────────────────────────
+
 type SetuButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "success" | "ghost";
+  variant?: "primary" | "secondary" | "soft" | "whatsapp" | "ghost";
   size?: "md" | "sm";
   asChild?: boolean;
 };
@@ -55,179 +107,129 @@ export const SetuButton = React.forwardRef<HTMLButtonElement, SetuButtonProps>(
 );
 SetuButton.displayName = "SetuButton";
 
-/** Keycap icon tile. */
-export function IconTile({
-  icon: Icon,
-  size = 40,
-  glow,
+/** "Owner: All Reps ▾" — a single-choice filter. Without `label` it shows just the value. */
+export function FilterDropdown({
+  label,
+  value,
+  onChange,
+  options,
   className,
-  iconClassName,
 }: {
-  icon: React.ElementType;
-  size?: number;
-  glow?: boolean;
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
   className?: string;
-  iconClassName?: string;
 }) {
+  const current = options.find((o) => o.value === value)?.label ?? options[0]?.label;
   return (
-    <span className={cn("setu-tile", glow && "setu-tile-glow", className)} style={{ width: size, height: size }}>
-      <Icon size={Math.round(size * 0.45)} className={iconClassName} />
-    </span>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button type="button" className={cn("setu-input flex h-9 cursor-pointer items-center gap-1.5 border px-3.5 text-sm", className)}>
+          {label && <span className="setu-text-2">{label}:</span>}
+          <span className={cn("truncate", label && "font-semibold")}>{current}</span>
+          <ChevronDown size={15} className="setu-text-2 ml-auto shrink-0" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-44">
+        <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
+          {options.map((o) => (
+            <DropdownMenuRadioItem key={o.value || "all"} value={o.value}>
+              {o.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
 /** Round initials avatar. */
-export function SetuAvatar({ name, size = "md", className }: { name: string; size?: "xs" | "sm" | "md" | "lg"; className?: string }) {
+export function SetuAvatar({ name, size = "sm", className }: { name: string; size?: "xs" | "sm" | "md"; className?: string }) {
   return (
-    <div
+    <span
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-full font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_4px_10px_-4px_rgba(0,0,0,0.45)] ring-1 ring-black/5 dark:ring-white/15",
+        "inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white",
         avatarColor(name),
-        size === "xs" && "h-6 w-6 text-[9px]",
-        size === "sm" && "h-8 w-8 text-[10px]",
-        size === "md" && "h-10 w-10 text-xs",
-        size === "lg" && "h-14 w-14 text-base",
+        size === "xs" && "h-5 w-5 text-[8px]",
+        size === "sm" && "h-6 w-6 text-[10px]",
+        size === "md" && "h-9 w-9 text-xs",
         className
       )}
     >
       {initials(name)}
-    </div>
+    </span>
   );
 }
 
-/** Bordered pill. Pass a colour dot for stages / status. */
-export function Pill({ className, dot, children }: { className?: string; dot?: string; children: React.ReactNode }) {
+/** "● Negotiation Stage" pill. */
+export function StageBadge({ stage, suffix = " Stage", className }: { stage: DealStage; suffix?: string; className?: string }) {
   return (
     <span
       className={cn(
-        "setu-text-2 inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--setu-line-strong)] bg-[var(--setu-raised)] px-2.5 py-0.5 text-[11px] font-medium",
+        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold",
+        STAGE_BADGE[stage],
         className
       )}
     >
-      {dot && <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", dot)} />}
-      {children}
+      <span className={cn("h-1.5 w-1.5 rounded-full", STAGE_DOT[stage])} />
+      {STAGE_BY_ID[stage].label}
+      {suffix}
     </span>
   );
 }
 
-export function StageBadge({ stage }: { stage: PipelineStageId }) {
-  const s = STAGE_BY_ID[stage];
-  return <Pill dot={s.dot}>{s.short}</Pill>;
-}
-
-const SOURCE_ICON: Record<ProspectSource, React.ElementType> = {
-  WHATSAPP_BOT: Bot,
-  MEETING_121: Users2,
-  MANUAL: PenLine,
-};
-
-export function SourceBadge({ source, label }: { source: ProspectSource; label?: string }) {
-  const Icon = SOURCE_ICON[source];
-  return (
-    <span className="setu-text-3 inline-flex min-w-0 items-center gap-1 text-[11px] font-medium">
-      <Icon size={12} className={cn("shrink-0", source === "WHATSAPP_BOT" && "text-emerald-500")} />
-      <span className="truncate">{label ?? SOURCE_LABEL[source]}</span>
-    </span>
-  );
-}
-
-/** Card with a title and an optional action on the right. */
-export function SetuPanel({
-  title,
-  action,
+/** Labelled form field; `required` adds the red asterisk. */
+export function Field({
+  label,
+  required,
   children,
   className,
 }: {
-  title: React.ReactNode;
-  action?: React.ReactNode;
+  label: string;
+  required?: boolean;
   children: React.ReactNode;
   className?: string;
 }) {
   return (
-    <section className={cn("setu-card p-6", className)}>
-      <div className="mb-5 flex items-start justify-between gap-3">
-        <h3 className="text-[15px] font-semibold tracking-tight">{title}</h3>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-/** Filter chip row (All / Prospects / …). */
-export function FilterChips<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: T; label: string; count?: number }[];
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="setu-chip inline-flex flex-wrap gap-0.5 p-1">
-      {options.map((o) => {
-        const active = o.value === value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => onChange(o.value)}
-            className={cn(
-              "cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-              active
-                ? "bg-[var(--setu-canvas)] text-[var(--setu-text)] shadow-[inset_0_1px_0_var(--setu-highlight),0_1px_3px_rgba(0,0,0,0.2)] ring-1 ring-[var(--setu-line-strong)]"
-                : "setu-text-3 hover:text-[var(--setu-text)]"
-            )}
-          >
-            {o.label}
-            {o.count !== undefined && <span className="ml-1.5 tabular-nums opacity-60">({o.count})</span>}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-export function SearchInput({
-  value,
-  onChange,
-  placeholder,
-  className,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  className?: string;
-}) {
-  return (
-    <div className={cn("relative w-full", className)}>
-      <Search size={15} className="setu-text-3 absolute left-3.5 top-1/2 -translate-y-1/2" />
-      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="setu-input h-11 pl-10" />
-    </div>
-  );
-}
-
-export function EmptyState({ icon = CalendarDays, text }: { icon?: React.ElementType; text: string }) {
-  return (
-    <div className="setu-card flex flex-col items-center justify-center gap-3 py-16 text-center">
-      <IconTile icon={icon} size={44} glow iconClassName="setu-text-2" />
-      <p className="setu-text-2 mt-2 text-sm">{text}</p>
-    </div>
-  );
-}
-
-/** Labelled form field wrapper for the Setu dialogs. */
-export function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
-  return (
     <label className={cn("block space-y-1.5", className)}>
-      <span className="setu-text-2 text-xs font-medium">{label}</span>
+      <span className="text-xs font-semibold">
+        {label}
+        {required && <span className="text-red-500"> *</span>}
+      </span>
       {children}
     </label>
   );
 }
 
-/** Small uppercase section label inside cards / dialogs. */
-export function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <h4 className="setu-text-3 mb-3 text-[11px] font-semibold uppercase tracking-[0.08em]">{children}</h4>;
+/** Placeholder for pages and tabs whose design hasn't been delivered yet. */
+export function ComingSoon({ title, text }: { title: string; text?: string }) {
+  return (
+    <div className="setu-card flex flex-col items-center justify-center gap-3 px-6 py-20 text-center">
+      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
+        <Construction size={22} />
+      </span>
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <p className="setu-text-2 max-w-md text-sm">{text ?? "This section is coming soon."}</p>
+    </div>
+  );
+}
+
+/** A Setu page with no design yet: breadcrumb, title and a Coming-soon card. */
+export function ComingSoonPage({ title, crumbs }: { title: string; crumbs?: Crumb[] }) {
+  return (
+    <SetuPage>
+      <Breadcrumbs items={crumbs ?? [{ label: "Sales" }, { label: title }]} />
+      <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+      <ComingSoon
+        title={`${title} is coming soon`}
+        text="This page will be built once its design is ready. Meanwhile, manage leads and deals from the Tasks board."
+      />
+      <div className="flex justify-center">
+        <SetuButton variant="primary" asChild>
+          <Link href={ROUTES.setuTasks}>Open Tasks board</Link>
+        </SetuButton>
+      </div>
+    </SetuPage>
+  );
 }

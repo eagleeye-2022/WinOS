@@ -45,11 +45,11 @@ export const NAV_MODULES: readonly NavModule[] = [
     moduleParams: ["projects"],
   },
   {
-    // BNI networking CRM (replaces the old "Sales" placeholder; /sales redirects here).
+    // Sales CRM (replaces the old "Sales" placeholder; /sales redirects here).
     id: "setu",
     label: "Setu",
-    // First tab — /setu itself just redirects here.
-    homeHref: "/setu/meetings",
+    // The Tasks board — /setu itself just redirects here.
+    homeHref: "/setu/tasks",
     // No module-access gate yet — the key has no PermissionModule row, so the switcher shows it.
     moduleKey: "SETU",
     prefixes: ["/setu"],
@@ -66,8 +66,7 @@ export const NAV_MODULES: readonly NavModule[] = [
 ];
 
 /** Modules shown in the header switcher. */
-// Setu hidden from the header for now — add "setu" back after "projects" to show it again.
-export const SWITCHER_MODULE_IDS: readonly NavModuleId[] = ["standup", "people", "projects", /* "setu", */ "users"];
+export const SWITCHER_MODULE_IDS: readonly NavModuleId[] = ["standup", "people", "projects", "setu", "users"];
 
 function matchesPrefix(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
