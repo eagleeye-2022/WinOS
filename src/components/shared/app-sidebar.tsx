@@ -34,7 +34,7 @@ import { SupportNeededIcon } from "@/components/icons/support-needed-icon";
 import { getNavModule, resolveNavModule } from "@/lib/navigation/modules";
 import { useNavigationStore } from "@/stores/navigation-store";
 import { shortProjectName } from "@/features/projects/utils/project-name";
-import { SETU_TABS } from "@/features/setu/components/setu-shell";
+import { SETU_NAV } from "@/features/setu/nav";
 import { useModuleViewState } from "@/lib/navigation/use-url-state";
 import { CheckInChip } from "@/features/attendance/components/check-in-chip";
 
@@ -194,7 +194,7 @@ export function AppSidebar({
   // Dynamic items based on active module & user role. `children` makes an item a drop-down
   // (e.g. WhyFi School → Effort Logs); it opens on its own when one of its pages is active.
   type NavLeaf = { label: string; href: string; icon: React.ElementType };
-  let navItems: Array<NavLeaf & { section?: string; children?: NavLeaf[] }> = [];
+  let navItems: Array<NavLeaf & { section?: string; children?: NavLeaf[]; defaultOpen?: boolean }> = [];
 
   if (activeModuleTitle === "Pulse") {
     navItems = canManagePulse
@@ -259,8 +259,8 @@ export function AppSidebar({
           { label: "Effort Logs", href: "/projects/effort-log-report", icon: ClockFading, section: "OVERVIEW" },
         ];
   } else if (activeModuleTitle === "Setu") {
-    // Same items, order and icons as Setu's tab bar.
-    navItems = SETU_TABS.map((t) => ({ label: t.label, href: t.href, icon: t.icon }));
+    // Setu CRM: Dashboard, Leads, Contacts, Deals, Activities (Tasks / Calls / Meetings), Forecast.
+    navItems = SETU_NAV.map((item) => ({ ...item, children: item.children ? [...item.children] : undefined }));
   } else if (activeModuleTitle === "User Management") {
     navItems = [
       { label: "Users", href: ROUTES.settingsUsers, icon: User },
@@ -324,7 +324,7 @@ export function AppSidebar({
 
             const children = item.children ?? [];
             const childActive = children.some((c) => isSubItemActive(pathname, c.href, c.label));
-            const isOpen = children.length > 0 && (openGroups[item.label] ?? (active || childActive));
+            const isOpen = children.length > 0 && (openGroups[item.label] ?? (Boolean(item.defaultOpen) || active || childActive));
 
             return (
               <div key={item.label} className="contents">

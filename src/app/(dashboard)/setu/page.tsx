@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { ROUTES } from "@/constants/routes";
 
-// Setu opens on its first tab.
+// Setu opens on the Tasks board.
 export default function SetuIndexPage() {
-  redirect(ROUTES.setuMeetings);
+  redirect(ROUTES.setuTasks);
 }

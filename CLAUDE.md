@@ -120,6 +120,26 @@ custom templates and saved edits of built-in ones (same id as the built-in, whic
 `src/features/projects/template-utils.ts`) with phase codes `P1`, `P2`… so the task board shows only
 their own columns.
 
+**Setu (sales CRM)**: `src/features/setu/` ↔ `/setu/*` (`/setu` → `/setu/tasks`). Built from the Setu Figma:
+the Tasks board (7 stage columns, one card per lead/deal, drag to change stage), the deal page
+`/setu/deals/[dealId]` (Calls, Meetings, Notes, Time Logs, Discussions, Proposals & Docs, Negotiations, Closed Won,
+Closed Lost + a per-user deal timer), Create Lead / Edit Deal, and Activities → Meetings (list `/setu/meetings`, detail
+`/setu/meetings/[id]`, full-page scheduler `/setu/meetings/new?deal=…` / `/setu/meetings/[id]/edit`). Dashboard,
+Leads (stages before Proposal), Deals (Proposal onward), Contacts (derived: decision makers + external attendees) and
+Activities → Calls are list pages in `components/lists/` over the same snapshot (calculations in `insights.ts`);
+only Forecast is "Coming soon". Data lives in the `Crm*` Prisma models (migration `20261124000000_setu_crm`). Flow:
+the Setu layout calls `requireSetuUser()` (every active non-CLIENT user sees and edits everything) and
+`getSetuSnapshot()` (`server/data.ts`: Prisma rows → the view types in `types.ts`) and hands it to
+`SetuStoreProvider` (`provider.tsx`) — a per-request Zustand store (`store.ts`, created with `createSetuStore`,
+never a module singleton). Store actions call the server actions in `actions/*` (via `api.ts`), which validate with
+`validation.ts`, write (multi-step writes in `db.$transaction`), `revalidatePath("/setu","layout")` and return the saved
+record (`ActionResult`); components await them through `attempt()` (setu-ui) for toasts. LD-/DEAL- codes are assigned
+server-side with retry on unique clashes. Meetings keep an audit trail (`CrmMeetingEvent`) written by the actions;
+invite/reminder emails are not sent yet (logged as "queued"). Files: `POST /api/setu/upload` (PDF/DOC/DOCX ≤25MB,
+stored via lib/upload-storage), then the proposal / closure action records them in `CrmFile`. Notes, discussions and
+negotiation updates are one table split by `category`. Meeting agenda/summary are TipTap HTML. `data/mock-setu.ts`
+is test fixtures only. Dates render in IST (`utils.ts`). Sidebar items: `src/features/setu/nav.ts`.
+
 **Remembered screen state**: pages come back exactly as they were left (Back/Forward, sidebar, refresh)
 via the navigation store (`src/stores/navigation-store.ts`, saved to the tab's sessionStorage, hydrated
 by `NavigationStateTracker`). Scroll is tracked automatically (give important scroll containers a stable

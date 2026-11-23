@@ -1,11 +1,11 @@
 import { Metadata } from "next";
-import { MeetingsWorkspace } from "@/features/setu/components/meetings/meetings-workspace";
+import { MeetingsList } from "@/features/setu/components/meetings/meetings-list";
 
 export const metadata: Metadata = {
-  title: "121 Meetings | Setu | WinOS",
-  description: "One-on-one meetings with BNI members and the referrals exchanged.",
+  title: "Meetings | Setu | WinOS",
+  description: "Customer meetings, sales discussions and follow-ups across every lead and deal.",
 };
 
 export default function SetuMeetingsPage() {
-  return <MeetingsWorkspace />;
+  return <MeetingsList />;
 }

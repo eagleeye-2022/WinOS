@@ -111,6 +111,17 @@ model User {
   reviewedRegularizations AttendanceRegularization[]  @relation("RegularizationReviewer")
   dailyAttendances        DailyAttendance[]
   createdHolidays         Holiday[]
+  // Setu CRM
+  crmDealsOwned           CrmDeal[]            @relation("CrmDealOwner")
+  crmDealsCreated         CrmDeal[]            @relation("CrmDealCreator")
+  crmNotes                CrmNote[]            @relation("CrmNoteAuthor")
+  crmTimeLogs             CrmTimeLog[]         @relation("CrmTimeLogUser")
+  crmActiveTimer          CrmActiveTimer?      @relation("CrmActiveTimerUser")
+  crmCalls                CrmCall[]            @relation("CrmCallRep")
+  crmMeetingsHosted       CrmMeeting[]         @relation("CrmMeetingHost")
+  crmMeetingInvites       CrmMeetingAttendee[] @relation("CrmMeetingAttendeeUser")
+  crmProposals            CrmProposal[]        @relation("CrmProposalAuthor")
+  crmFilesUploaded        CrmFile[]            @relation("CrmFileUploader")
 }
 
 model Account {
@@ -2027,3 +2038,354 @@ model Holiday {
   @@index([year, type])
 }
 
+// ── Setu CRM (src/features/setu). Money = whole rupees; @db.Date for calendar dates. ──
+
+enum CrmDealStage {
+  LEAD
+  MEETING
+  DISCUSSION
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+/// Notes / Discussions / Negotiation updates share one table.
+enum CrmNoteCategory {
+  NOTE
+  DISCUSSION
+  NEGOTIATION
+}
+
+enum CrmCallDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum CrmCallOutcome {
+  CONNECTED
+  INTERESTED
+  QUALIFIED
+  COMPLETED
+  NO_ANSWER
+}
+
+enum CrmMeetingChannel {
+  GOOGLE_MEET
+  ZOOM
+  TEAMS
+  ONLINE
+  IN_OFFICE
+  CLIENT_LOCATION
+}
+
+enum CrmMeetingStatus {
+  DRAFT
+  UPCOMING
+  COMPLETED
+  CANCELLED
+}
+
+enum CrmMeetingReminder {
+  MIN_15
+  MIN_30
+  HOUR_1
+  DAY_1
+}
+
+enum CrmRsvp {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum CrmAttendeeSource {
+  LEAD
+  DEAL
+  GUEST
+  TEAM
+}
+
+enum CrmEventTone {
+  BLUE
+  GREEN
+  AMBER
+  RED
+}
+
+enum CrmProposalStatus {
+  DRAFT
+  ACTIVE
+  SUPERSEDED
+}
+
+enum CrmFileKind {
+  PROPOSAL_ATTACHMENT
+  CLOSING_DOCUMENT
+}
+
+/// One lead / deal — one card on the Tasks board.
+model CrmDeal {
+  id              String        @id @default(cuid())
+  /// LD-2026-0042 — assigned on create.
+  leadCode        String        @unique
+  /// DEAL-2026-0018 — assigned the first time the record reaches PROPOSAL.
+  dealCode        String?       @unique
+  title           String        @default("")
+  company         String
+  contactName     String
+  contactRole     String        @default("Decision Maker")
+  phone           String
+  email           String
+  location        String
+  source          String        @default("")
+  stage           CrmDealStage  @default(LEAD)
+  ownerId         String
+  /// Deal value in whole rupees.
+  value           Int?
+  proposalVersion Int?
+  /// One-line card note (note / client request / lost reason, by stage).
+  remark          String        @default("")
+  dueDate         DateTime?     @db.Date
+  closedAt        DateTime?     @db.Date
+  createdById     String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  owner           User          @relation("CrmDealOwner", fields: [ownerId], references: [id])
+  createdBy       User          @relation("CrmDealCreator", fields: [createdById], references: [id])
+  won             CrmDealWon?
+  lost            CrmDealLost?
+  notes           CrmNote[]
+  requests        CrmNegotiationRequest[]
+  timeLogs        CrmTimeLog[]
+  activeTimers    CrmActiveTimer[]
+  calls           CrmCall[]
+  meetings        CrmMeeting[]
+  proposals       CrmProposal[]
+  files           CrmFile[]
+
+  @@index([stage])
+  @@index([ownerId])
+  @@index([dueDate])
+}
+
+/// Closed Won tab.
+model CrmDealWon {
+  dealId          String   @id
+  finalValue      Int
+  closedDate      DateTime @db.Date
+  advanceReceived Int
+  contractTerm    String
+  paymentTerms    String
+  updatedAt       DateTime @updatedAt
+
+  deal            CrmDeal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+/// Closed Lost tab.
+model CrmDealLost {
+  dealId          String    @id
+  lostValue       Int
+  primaryReason   String
+  secondaryFactor String    @default("")
+  closedDate      DateTime  @db.Date
+  analysis        String    @default("")
+  reengageDate    DateTime? @db.Date
+  reengageNote    String    @default("")
+  keepNurturing   Boolean   @default(true)
+  updatedAt       DateTime  @updatedAt
+
+  deal            CrmDeal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+model CrmNote {
+  id        String          @id @default(cuid())
+  dealId    String
+  category  CrmNoteCategory
+  title     String
+  body      String
+  pinned    Boolean         @default(false)
+  authorId  String
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  deal      CrmDeal         @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  author    User            @relation("CrmNoteAuthor", fields: [authorId], references: [id])
+
+  @@index([dealId, category])
+}
+
+/// Multi-level client requests on the Negotiations tab.
+model CrmNegotiationRequest {
+  id          String   @id @default(cuid())
+  dealId      String
+  level       Int
+  text        String
+  /// Free text — usually a client contact, not a WinOS user.
+  requestedBy String
+  createdAt   DateTime @default(now())
+
+  deal        CrmDeal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+}
+
+model CrmTimeLog {
+  id        String   @id @default(cuid())
+  dealId    String
+  userId    String
+  reason    String
+  startedAt DateTime
+  endedAt   DateTime
+  createdAt DateTime @default(now())
+
+  deal      CrmDeal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  user      User     @relation("CrmTimeLogUser", fields: [userId], references: [id])
+
+  @@index([dealId])
+  @@index([userId])
+}
+
+/// A rep's running deal timer — one per user (separate from Srijan's ActiveTimer).
+model CrmActiveTimer {
+  userId    String   @id
+  dealId    String
+  startedAt DateTime @default(now())
+
+  user      User     @relation("CrmActiveTimerUser", fields: [userId], references: [id], onDelete: Cascade)
+  deal      CrmDeal  @relation(fields: [dealId], references: [id], onDelete: Cascade)
+}
+
+model CrmCall {
+  id           String           @id @default(cuid())
+  dealId       String
+  title        String
+  direction    CrmCallDirection
+  outcome      CrmCallOutcome
+  startedAt    DateTime
+  endedAt      DateTime
+  repId        String
+  repRole      String?
+  contactName  String
+  contactRole  String?
+  summary      String           @default("")
+  recordingUrl String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  deal         CrmDeal          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  rep          User             @relation("CrmCallRep", fields: [repId], references: [id])
+
+  @@index([dealId])
+}
+
+model CrmMeeting {
+  id           String             @id @default(cuid())
+  dealId       String
+  title        String
+  type         String
+  startAt      DateTime
+  endAt        DateTime
+  hostId       String
+  hostRole     String?
+  channel      CrmMeetingChannel
+  link         String?
+  location     String?
+  /// Rich-text HTML.
+  agenda       String             @default("")
+  status       CrmMeetingStatus   @default(UPCOMING)
+  reminder     CrmMeetingReminder @default(MIN_30)
+  /// Rich-text HTML, written when completed.
+  summary      String?
+  recordingUrl String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  deal         CrmDeal            @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  host         User               @relation("CrmMeetingHost", fields: [hostId], references: [id])
+  attendees    CrmMeetingAttendee[]
+  events       CrmMeetingEvent[]
+
+  @@index([dealId])
+  @@index([startAt])
+  @@index([hostId, startAt])
+}
+
+/// External attendees are name/email only; internal ones link to a User.
+model CrmMeetingAttendee {
+  id        String            @id @default(cuid())
+  meetingId String
+  userId    String?
+  name      String
+  role      String?
+  email     String?
+  company   String?
+  external  Boolean
+  source    CrmAttendeeSource
+  rsvp      CrmRsvp           @default(PENDING)
+  attended  Boolean?
+
+  meeting   CrmMeeting        @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+  user      User?             @relation("CrmMeetingAttendeeUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([meetingId])
+  @@index([userId])
+}
+
+/// Meeting activity & audit history.
+model CrmMeetingEvent {
+  id        String       @id @default(cuid())
+  meetingId String
+  at        DateTime     @default(now())
+  title     String
+  detail    String
+  tone      CrmEventTone @default(BLUE)
+
+  meeting   CrmMeeting   @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  @@index([meetingId, at])
+}
+
+model CrmProposal {
+  id         String            @id @default(cuid())
+  dealId     String
+  version    Int
+  title      String
+  value      Int
+  reason     String            @default("")
+  authorId   String
+  authorRole String?
+  status     CrmProposalStatus @default(DRAFT)
+  sentVia    String?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  deal       CrmDeal           @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  author     User              @relation("CrmProposalAuthor", fields: [authorId], references: [id])
+  files      CrmFile[]
+
+  @@unique([dealId, version])
+  @@index([dealId, status])
+}
+
+/// Uploaded files (stored via lib/upload-storage, served at /api/uploads/<name>).
+model CrmFile {
+  id           String       @id @default(cuid())
+  dealId       String
+  proposalId   String?
+  kind         CrmFileKind
+  name         String
+  size         Int
+  /// /api/uploads/<storedName>
+  url          String
+  uploadedById String
+  createdAt    DateTime     @default(now())
+
+  deal         CrmDeal      @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  proposal     CrmProposal? @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+  uploadedBy   User         @relation("CrmFileUploader", fields: [uploadedById], references: [id])
+
+  @@index([dealId, kind])
+  @@index([proposalId])
+}

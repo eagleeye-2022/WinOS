@@ -835,7 +835,8 @@ export function DsrForm({ entry, prefill, todayDateStr, onRegisterSubmit, onRegi
 
       <PlannedTasksSection tasks={tasks} onChange={setTasks} readOnly={readOnly} dateStr={todayDateStr} />
 
-      {timeSummary && <ReportTimeSection summary={timeSummary} />}
+      {/* "Time Logged Today" hidden by request — restore to show the day's logged time and extra tasks.
+      {timeSummary && <ReportTimeSection summary={timeSummary} />} */}
 
       {/* "Additional Work Done Today" hidden by request — restore to let members record extra work.
           Existing items are still submitted unchanged (additionalWorksJson).
