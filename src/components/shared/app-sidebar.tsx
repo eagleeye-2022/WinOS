@@ -194,7 +194,7 @@ export function AppSidebar({
   // Dynamic items based on active module & user role. `children` makes an item a drop-down
   // (e.g. WhyFi School → Effort Logs); it opens on its own when one of its pages is active.
   type NavLeaf = { label: string; href: string; icon: React.ElementType };
-  let navItems: Array<NavLeaf & { section?: string; children?: NavLeaf[] }> = [];
+  let navItems: Array<NavLeaf & { section?: string; children?: NavLeaf[]; defaultOpen?: boolean }> = [];
 
   if (activeModuleTitle === "Pulse") {
     navItems = canManagePulse
@@ -324,7 +324,7 @@ export function AppSidebar({
 
             const children = item.children ?? [];
             const childActive = children.some((c) => isSubItemActive(pathname, c.href, c.label));
-            const isOpen = children.length > 0 && (openGroups[item.label] ?? (active || childActive));
+            const isOpen = children.length > 0 && (openGroups[item.label] ?? (Boolean(item.defaultOpen) || active || childActive));
 
             return (
               <div key={item.label} className="contents">

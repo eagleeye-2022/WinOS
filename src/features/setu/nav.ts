@@ -8,6 +8,8 @@ export interface SetuNavItem {
   icon: ElementType;
   section?: string;
   children?: { label: string; href: string; icon: ElementType }[];
+  /** Group starts expanded (the user can still collapse it; that choice is remembered). */
+  defaultOpen?: boolean;
 }
 
 /** Setu's sidebar ("Core Modules" in the design). Activities is a group: Tasks / Calls / Meetings. */
@@ -20,6 +22,7 @@ export const SETU_NAV: readonly SetuNavItem[] = [
     label: "Activities",
     href: ROUTES.setuActivities,
     icon: ListTodo,
+    defaultOpen: true,
     children: [
       { label: "Tasks", href: ROUTES.setuTasks, icon: CircleCheckBig },
       { label: "Calls", href: ROUTES.setuCalls, icon: Phone },
