@@ -5,7 +5,7 @@ import { BellRing, CalendarDays, CalendarSync, CircleCheck, FileCheck2, Flag, In
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { RichDescriptionEditor, isEmptyDescription } from "@/components/shared/rich-description";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CONTRACT_TERMS, LOSS_REASONS, LOSS_REASON_SHORT } from "../../constants";
 import { useSetuStore } from "../../provider";
@@ -314,7 +314,7 @@ export function DealClosedLostTab({ deal }: { deal: Deal }) {
       primaryReason: form.reason,
       secondaryFactor: form.secondary.trim(),
       closedDate: form.closedDate,
-      analysis: form.analysis.trim(),
+      analysis: isEmptyDescription(form.analysis) ? "" : form.analysis.trim(),
       reengageDate: form.reengageDate || undefined,
       reengageNote: form.reengageNote.trim(),
       keepNurturing: form.keepNurturing,
@@ -394,7 +394,7 @@ export function DealClosedLostTab({ deal }: { deal: Deal }) {
           </Field>
         </div>
         <Field label="Loss Analysis & Detailed Feedback">
-          <Textarea value={form.analysis} onChange={(e) => set({ analysis: e.target.value })} placeholder="What happened, what the client said, what we'd do differently…" className="setu-input min-h-24" />
+          <RichDescriptionEditor value={form.analysis} onChange={(analysis) => set({ analysis })} />
         </Field>
         <div className="grid items-end gap-4 md:grid-cols-2">
           <div className="space-y-1.5">

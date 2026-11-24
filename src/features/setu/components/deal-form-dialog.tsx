@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { NotebookPen, PencilLine, Plus, Save } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -138,7 +137,7 @@ export function CreateLeadDialog({ stage, onClose, onCreated }: { stage: DealSta
   };
 
   return (
-    <DealDialogShell open={stage !== null} onClose={close} title="Create New Lead" description="Add a new lead to the sales board." icon={NotebookPen}>
+    <DealDialogShell open={stage !== null} onClose={close} title="Create New Lead" description="Add a new lead to the sales board.">
       <form onSubmit={submit} noValidate>
         <DealFields form={form} setForm={(patch) => setForm((f) => ({ ...f, ...patch }))} errors={errors} />
         <DialogFooterBar>
@@ -146,7 +145,7 @@ export function CreateLeadDialog({ stage, onClose, onCreated }: { stage: DealSta
             Cancel
           </SetuButton>
           <SetuButton variant="primary" type="submit" className="px-5" disabled={saving}>
-            <Plus /> {saving ? "Adding…" : "Add Lead"}
+            {saving ? "Adding…" : "Add Lead"}
           </SetuButton>
         </DialogFooterBar>
       </form>
@@ -189,7 +188,7 @@ export function EditDealDialog({ deal, open, onClose }: { deal: Deal; open: bool
   };
 
   return (
-    <DealDialogShell open={open} onClose={onClose} title="Edit Deal" description={`Update ${deal.company}.`} icon={PencilLine}>
+    <DealDialogShell open={open} onClose={onClose} title="Edit Deal" description={`Update ${deal.company}.`}>
       <form onSubmit={submit} noValidate>
         <DealFields form={form} setForm={(patch) => setForm((f) => ({ ...f, ...patch }))} errors={errors} extended />
         <DialogFooterBar>
@@ -197,7 +196,7 @@ export function EditDealDialog({ deal, open, onClose }: { deal: Deal; open: bool
             Cancel
           </SetuButton>
           <SetuButton variant="primary" type="submit" className="px-5" disabled={saving}>
-            <Save /> {saving ? "Saving…" : "Save Changes"}
+            {saving ? "Saving…" : "Save Changes"}
           </SetuButton>
         </DialogFooterBar>
       </form>
@@ -212,27 +211,21 @@ function DealDialogShell({
   onClose,
   title,
   description,
-  icon: Icon,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   description: string;
-  icon: React.ElementType;
+  icon?: React.ElementType;
   children: React.ReactNode;
 }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="setu-scope setu-dialog max-h-[92vh] max-w-[680px] gap-0 overflow-y-auto p-0 [&>button:last-child]:right-6 [&>button:last-child]:top-6">
-        <div className="flex items-center gap-3 border-b border-[var(--setu-line)] bg-[var(--setu-well)] px-6 py-4">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
-            <Icon size={18} />
-          </span>
-          <div className="min-w-0">
-            <DialogTitle className="text-lg font-semibold">{title}</DialogTitle>
-            <DialogDescription className="sr-only">{description}</DialogDescription>
-          </div>
+        <div className="border-b border-[var(--setu-line)] px-6 py-4">
+          <DialogTitle className="text-base font-semibold">{title}</DialogTitle>
+          <DialogDescription className="setu-text-2 mt-0.5 text-xs">{description}</DialogDescription>
         </div>
         {children}
       </DialogContent>
@@ -242,7 +235,7 @@ function DealDialogShell({
 
 function DialogFooterBar({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-t border-[var(--setu-line)] bg-[var(--setu-well)] px-6 py-4">{children}</div>
+    <div className="flex items-center justify-between gap-3 border-t border-[var(--setu-line)] bg-[var(--setu-card)] px-6 py-3.5">{children}</div>
   );
 }
 

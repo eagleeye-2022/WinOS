@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   Ban,
   CalendarDays,
-  CalendarPlus,
   Check,
   CircleCheck,
   EllipsisVertical,
@@ -15,7 +14,6 @@ import {
   Link2,
   MapPin,
   PencilLine,
-  Plus,
   Search,
   Video,
 } from "lucide-react";
@@ -76,29 +74,24 @@ export function DealMeetingsTab({ deal }: { deal: Deal }) {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <section className="setu-card flex flex-wrap items-center justify-between gap-4 px-6 py-5">
-        <div className="flex items-center gap-4">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
-            <CalendarDays size={20} />
-          </span>
-          <div>
-            <h2 className="text-lg font-semibold leading-tight">Meetings Stream</h2>
-            <p className="setu-text-2 text-sm">
-              {stats.total} Scheduled & Past Meeting{stats.total === 1 ? "" : "s"} · {stats.external} External · {stats.virtual} Virtual
-            </p>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+        <div>
+          <h2 className="text-base font-semibold">Meetings</h2>
+          <p className="setu-text-2 text-xs">
+            {stats.total} scheduled & past meeting{stats.total === 1 ? "" : "s"} · {stats.external} external · {stats.virtual} virtual
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2.5">
-          <SetuButton onClick={() => setDialog({ kind: "log" })}>
-            <CalendarPlus /> Add Meeting Details
+        <div className="flex items-center gap-2">
+          <SetuButton size="sm" onClick={() => setDialog({ kind: "log" })}>
+            Log Meeting
           </SetuButton>
-          <SetuButton variant="primary" asChild>
+          <SetuButton variant="primary" size="sm" asChild>
             <Link href={scheduleHref(deal.id)}>
-              <Plus /> Schedule Meeting
+              Schedule Meeting
             </Link>
           </SetuButton>
         </div>
-      </section>
+      </div>
 
       {/* Next meeting banner */}
       {next && (
@@ -238,19 +231,19 @@ function UpcomingMeetingCard({
         </div>
         <div className="flex items-center gap-1.5">
           <SetuButton size="sm" asChild>
-            <Link href={ROUTES.setuMeetingEdit(m.id)}>Reschedule</Link>
+            <Link href={ROUTES.setuMeetingEdit(m.id)}>Edit / Reschedule</Link>
           </SetuButton>
-          <SetuButton size="sm" asChild>
-            <Link href={ROUTES.setuMeetingEdit(m.id)}>Edit</Link>
+          <SetuButton size="sm" variant="soft" asChild>
+            <Link href={ROUTES.setuMeeting(m.id)}>View Details</Link>
           </SetuButton>
           <MeetingMenu>
-            <DropdownMenuItem asChild>
-              <Link href={ROUTES.setuMeeting(m.id)}>
-                <Eye size={14} /> View details
-              </Link>
-            </DropdownMenuItem>
             <DropdownMenuItem onSelect={onComplete}>
               <CircleCheck size={14} /> Complete & log summary
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={ROUTES.setuMeeting(m.id)}>
+                <Eye size={14} /> Full meeting page
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuItem className="text-red-600 focus:text-red-600" onSelect={onCancel}>
               <Ban size={14} /> Cancel meeting

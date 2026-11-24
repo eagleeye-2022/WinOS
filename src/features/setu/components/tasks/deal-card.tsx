@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   ArrowUpRight,
   Calendar,
+  ChevronDown,
   Clock3,
   ExternalLink,
   GripVertical,
@@ -14,8 +16,19 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
-import { MEETING_CHANNEL_LABEL, STAGE_DOT, isOnlineChannel } from "../../constants";
-import type { Deal, DealMeeting } from "../../types";
+import { toast } from "@/components/shared/toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useSetuStore } from "../../provider";
+import { DEAL_STAGES, MEETING_CHANNEL_LABEL, STAGE_BY_ID, STAGE_DOT, isOnlineChannel } from "../../constants";
+import type { Deal, DealMeeting, DealStage } from "../../types";
 import {
   dealTitle,
   displayCode,
@@ -91,6 +104,7 @@ export function DealCard({
         </div>
 
         <div className="flex items-center gap-1">
+          <StageSelect deal={deal} />
           <span className="opacity-0 group-hover:opacity-100 transition-opacity text-[var(--setu-text-3)] hover:text-[var(--setu-accent)]">
             <ArrowUpRight size={13} />
           </span>
@@ -148,6 +162,58 @@ export function DealCard({
         )}
       </div>
     </article>
+  );
+}
+
+/**
+ * Stage picker on the card — same move as dragging to another column. The menu renders in a
+ * portal, but React events still bubble to the card, so clicks/keys/drags are stopped here
+ * to keep the card from navigating to the deal.
+ */
+function StageSelect({ deal }: { deal: Deal }) {
+  const moveDeal = useSetuStore((s) => s.moveDeal);
+  const [saving, setSaving] = useState(false);
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+
+  const change = (value: string) => {
+    const stage = value as DealStage;
+    if (stage === deal.stage || saving) return;
+    setSaving(true);
+    moveDeal(deal.id, stage)
+      .then(() => toast.success(`${deal.company} → ${STAGE_BY_ID[stage].label}`))
+      .catch((err: Error) => toast.error(err.message))
+      .finally(() => setSaving(false));
+  };
+
+  return (
+    <div onClick={stop} onKeyDown={stop} onPointerDown={stop} onDragStart={(e) => e.preventDefault()} draggable={false}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            disabled={saving}
+            aria-label={`Change stage (currently ${STAGE_BY_ID[deal.stage].label})`}
+            className="inline-flex h-6 cursor-pointer items-center gap-1 rounded-md border border-[var(--setu-line)] bg-[var(--setu-card)] px-1.5 text-[10px] font-semibold text-[var(--setu-text-2)] transition-colors hover:border-[var(--setu-accent)] hover:text-[var(--setu-accent)] disabled:opacity-60"
+          >
+            <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STAGE_DOT[deal.stage])} />
+            <span className="max-w-[80px] truncate">{STAGE_BY_ID[deal.stage].label}</span>
+            <ChevronDown size={11} className="shrink-0" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="min-w-40" onClick={stop} onKeyDown={stop}>
+          <DropdownMenuLabel className="text-[11px]">Move to stage</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuRadioGroup value={deal.stage} onValueChange={change}>
+            {DEAL_STAGES.map((s) => (
+              <DropdownMenuRadioItem key={s.id} value={s.id} className="text-xs">
+                <span className={cn("mr-1.5 h-1.5 w-1.5 shrink-0 rounded-full", STAGE_DOT[s.id])} />
+                {s.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }
 

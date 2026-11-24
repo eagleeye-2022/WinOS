@@ -165,16 +165,11 @@ export function MeetingFormDialog({
     <>
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
         <DialogContent className="setu-scope setu-dialog max-h-[92vh] max-w-[680px] gap-0 overflow-y-auto p-0 [&>button:last-child]:right-6 [&>button:last-child]:top-6">
-          <div className="flex items-center gap-3 border-b border-[var(--setu-line)] bg-[var(--setu-well)] px-6 py-4">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
-              <Icon size={18} />
-            </span>
-            <div>
-              <DialogTitle className="text-lg font-semibold">{copy.title}</DialogTitle>
-              <DialogDescription className="setu-text-2 text-xs">
-                {deal.company} · {displayCode(deal)}
-              </DialogDescription>
-            </div>
+          <div className="border-b border-[var(--setu-line)] px-6 py-4">
+            <DialogTitle className="text-base font-semibold">{copy.title}</DialogTitle>
+            <DialogDescription className="setu-text-2 mt-0.5 text-xs">
+              {deal.company} · {displayCode(deal)}
+            </DialogDescription>
           </div>
           <form onSubmit={submit} noValidate>
             <div className="grid gap-4 px-6 py-5 sm:grid-cols-2">
@@ -239,7 +234,7 @@ export function MeetingFormDialog({
               </div>
               {error && <p className="text-xs text-red-500 sm:col-span-2">{error}</p>}
             </div>
-            <div className="flex items-center justify-between gap-3 border-t border-[var(--setu-line)] bg-[var(--setu-well)] px-6 py-4">
+            <div className="flex items-center justify-between gap-3 border-t border-[var(--setu-line)] bg-[var(--setu-card)] px-6 py-3.5">
               <SetuButton variant="ghost" onClick={onClose}>
                 Cancel
               </SetuButton>
@@ -306,25 +301,20 @@ export function CompleteMeetingDialog({
     <>
       <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
         <DialogContent className="setu-scope setu-dialog max-h-[92vh] max-w-[680px] gap-0 overflow-y-auto p-0 [&>button:last-child]:right-6 [&>button:last-child]:top-6">
-          <div className="flex items-start gap-3 border-b border-[var(--setu-line)] px-6 py-5">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-400">
-              <CircleCheck size={20} />
-            </span>
-            <div className="min-w-0 pr-8">
-              <DialogTitle className="flex flex-wrap items-center gap-2 text-lg font-semibold">
-                Complete Meeting & Log Summary
-                <span className="rounded-full bg-[var(--setu-accent-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--setu-accent)]">Deal #{displayCode(deal)}</span>
-              </DialogTitle>
-              <DialogDescription className="setu-text-2 mt-0.5 text-xs">
-                Meeting #{number} — {meeting.title} · <span className="font-semibold text-[var(--setu-text)]">{deal.company}</span>
-              </DialogDescription>
+          <div className="border-b border-[var(--setu-line)] px-6 py-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <DialogTitle className="text-base font-semibold">Complete Meeting & Log Summary</DialogTitle>
+              <span className="rounded-full bg-[var(--setu-accent-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--setu-accent)]">Deal #{displayCode(deal)}</span>
             </div>
+            <DialogDescription className="setu-text-2 mt-0.5 text-xs">
+              Meeting #{number} — {meeting.title} · <span className="font-semibold text-[var(--setu-text)]">{deal.company}</span>
+            </DialogDescription>
           </div>
 
-          <form onSubmit={submit} noValidate className="space-y-5 bg-[var(--setu-well)] px-6 py-5">
-            <div className="setu-card flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs">
+          <form onSubmit={submit} noValidate className="space-y-5 px-6 py-5">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)]/40 px-4 py-3 text-xs">
               <span className="setu-text-2 flex items-center gap-2">
-                <Clock3 size={15} className="setu-accent-text" />
+                <Clock3 size={14} className="setu-accent-text" />
                 Session Held:{" "}
                 <span className="font-semibold text-[var(--setu-text)]">
                   {day ? `${day} / ` : ""}
@@ -342,7 +332,7 @@ export function CompleteMeetingDialog({
 
             <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold uppercase tracking-wider">Attendees & Participation</h3>
+                <h3 className="text-xs font-semibold text-[var(--setu-text)]">Attendees & Participation</h3>
                 <span className="setu-text-2 text-xs">{present} marked present</span>
               </div>
               <div className="grid gap-2.5 sm:grid-cols-3">
@@ -350,7 +340,7 @@ export function CompleteMeetingDialog({
                   <label
                     key={a.id}
                     className={cn(
-                      "flex cursor-pointer items-start gap-2.5 rounded-lg border bg-[var(--setu-card)] px-3 py-2.5",
+                      "flex cursor-pointer items-start gap-2.5 rounded-lg border bg-[var(--setu-card)] px-3 py-2.5 transition-colors",
                       a.attended ? "border-[var(--setu-accent-ring)]" : "border-[var(--setu-line)]"
                     )}
                   >
@@ -375,7 +365,7 @@ export function CompleteMeetingDialog({
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider">
+              <h3 className="text-xs font-semibold text-[var(--setu-text)]">
                 Meeting Notes & Discussion Summary <span className="text-red-500">*</span>
               </h3>
               <RichDescriptionEditor value={summary} onChange={setSummary} />
@@ -383,7 +373,7 @@ export function CompleteMeetingDialog({
 
             {error && <p className="text-xs text-red-500">{error}</p>}
 
-            <div className="setu-card flex items-center justify-end gap-3 px-4 py-3">
+            <div className="flex items-center justify-end gap-3 border-t border-[var(--setu-line)] bg-[var(--setu-card)] pt-4">
               <SetuButton variant="ghost" onClick={onClose}>
                 Cancel
               </SetuButton>

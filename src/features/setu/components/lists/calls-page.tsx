@@ -42,6 +42,7 @@ import {
   formatTime,
   isoDate,
   logSeconds,
+  plainText,
 } from "../../utils";
 import { downloadCsv, inPeriod, matchesText, toCsv, type Period } from "../../insights";
 import { CallCard, LogCallDialog, SortMenu } from "../deal/deal-calls-tab";
@@ -94,7 +95,7 @@ export function CallsPage() {
           (outcome === "all" || c.outcome === outcome) &&
           (!rep || c.repName === rep) &&
           inPeriod(c.startedAt, period, today) &&
-          matchesText(q, c.title, c.summary, c.contactName, c.repName, d?.company, d?.title)
+          matchesText(q, c.title, plainText(c.summary), c.contactName, c.repName, d?.company, d?.title)
         );
       })
       .sort((a, b) =>
@@ -140,7 +141,7 @@ export function CallsPage() {
           c.repName,
           CALL_DIRECTION[c.direction].label,
           CALL_OUTCOME[c.outcome].label,
-          c.summary,
+          plainText(c.summary),
         ]),
       ])
     );

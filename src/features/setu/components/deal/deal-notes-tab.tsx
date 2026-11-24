@@ -5,34 +5,29 @@ import { EllipsisVertical, FileText, MessagesSquare, Pin, PinOff, Plus, SquarePe
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { RichDescriptionEditor, RichDescriptionView, isEmptyDescription } from "@/components/shared/rich-description";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useClearPageDraft, usePageDraft, usePageViewState } from "@/lib/navigation/use-url-state";
 import { useSetuStore } from "../../provider";
 import type { DealNote, NoteCategory } from "../../types";
 import { formatDate, formatTime, sortNotes } from "../../utils";
-import { SetuButton, attempt } from "../setu-ui";
+import { SETU_RICH_VIEW, SetuButton, attempt } from "../setu-ui";
 
-/** Notes tab: header card with "Add Note" (opens the composer) + the notes feed. */
+/** Notes tab: header row with "Add Note" (opens the composer) + the notes feed. */
 export function DealNotesTab({ dealId }: { dealId: string }) {
   const [adding, setAdding] = usePageViewState("DealNotes:adding", false);
 
   return (
     <div className="space-y-4">
-      <section className="setu-card flex flex-wrap items-center justify-between gap-4 px-6 py-5">
-        <div className="flex items-center gap-4">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
-            <FileText size={20} />
-          </span>
-          <div>
-            <h2 className="text-lg font-semibold">Notes</h2>
-            <p className="setu-text-2 text-sm">Notes and important information related to this client.</p>
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+        <div>
+          <h2 className="text-base font-semibold">Notes & Information</h2>
+          <p className="setu-text-2 text-xs">Client context, callouts, and internal updates.</p>
         </div>
-        <SetuButton variant="primary" onClick={() => setAdding(true)} disabled={adding}>
-          <Plus /> Add Note
+        <SetuButton variant="primary" size="sm" onClick={() => setAdding(true)} disabled={adding}>
+          <Plus size={14} /> Add Note
         </SetuButton>
-      </section>
+      </div>
 
       <NotesFeed
         dealId={dealId}
@@ -125,7 +120,7 @@ export function NotesFeed({
       {notes.length === 0 && !composerOpen ? (
         <div className="setu-card setu-text-2 px-6 py-12 text-center text-sm">{empty}</div>
       ) : (
-        notes.map((n, i) => <NoteCard key={n.id} note={n} highlight={highlightPinned} pinnedBadge={pinnedBadge} dotIndex={i} />)
+        notes.map((n) => <NoteCard key={n.id} note={n} highlight={highlightPinned} pinnedBadge={pinnedBadge} />)
       )}
     </div>
   );
@@ -149,7 +144,7 @@ function NoteComposer({ dealId, category, labels, onDone }: { dealId: string; ca
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !body.trim()) {
+    if (!title.trim() || isEmptyDescription(body)) {
       setError("Add a title and the text.");
       return;
     }
@@ -169,7 +164,7 @@ function NoteComposer({ dealId, category, labels, onDone }: { dealId: string; ca
         <h3 className={cn(category === "NOTE" ? "text-base font-semibold" : "text-xs font-bold uppercase tracking-wide")}>{labels.form}</h3>
       )}
       <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={labels.title} className="setu-input h-9" />
-      <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder={labels.body} className="setu-input min-h-24" />
+      <RichDescriptionEditor value={body} onChange={setBody} />
       {error && <p className="text-xs text-red-500">{error}</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <label className="flex cursor-pointer items-center gap-2.5 text-sm">
@@ -189,9 +184,7 @@ function NoteComposer({ dealId, category, labels, onDone }: { dealId: string; ca
   );
 }
 
-const DOTS = ["bg-violet-500", "bg-sky-500", "bg-slate-400", "bg-amber-500"];
-
-function NoteCard({ note, highlight, pinnedBadge, dotIndex }: { note: DealNote; highlight?: boolean; pinnedBadge?: boolean; dotIndex: number }) {
+function NoteCard({ note, highlight, pinnedBadge }: { note: DealNote; highlight?: boolean; pinnedBadge?: boolean }) {
   const updateNote = useSetuStore((s) => s.updateNote);
   const deleteNote = useSetuStore((s) => s.deleteNote);
   const [editing, setEditing] = useState(false);
@@ -206,7 +199,7 @@ function NoteCard({ note, highlight, pinnedBadge, dotIndex }: { note: DealNote; 
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !body.trim()) return;
+    if (!title.trim() || isEmptyDescription(body)) return;
     if ((await attempt(updateNote(note.id, { title: title.trim(), body: body.trim() }).then(() => true), "Saved")) === true) setEditing(false);
   };
 
@@ -214,10 +207,10 @@ function NoteCard({ note, highlight, pinnedBadge, dotIndex }: { note: DealNote; 
     return (
       <form onSubmit={save} className="setu-card space-y-3 px-6 py-5">
         <Input value={title} onChange={(e) => setTitle(e.target.value)} className="setu-input h-9 font-semibold" autoFocus />
-        <Textarea value={body} onChange={(e) => setBody(e.target.value)} className="setu-input min-h-24" />
+        <RichDescriptionEditor value={body} onChange={setBody} />
         <div className="flex justify-end gap-2">
           <SetuButton onClick={() => setEditing(false)}>Cancel</SetuButton>
-          <SetuButton variant="primary" type="submit" disabled={!title.trim() || !body.trim()}>
+          <SetuButton variant="primary" type="submit" disabled={!title.trim() || isEmptyDescription(body)}>
             Save
           </SetuButton>
         </div>
@@ -235,10 +228,8 @@ function NoteCard({ note, highlight, pinnedBadge, dotIndex }: { note: DealNote; 
               <Pin size={11} className="fill-current" /> Pinned
             </span>
           ) : note.pinned ? (
-            <Pin size={15} className="setu-accent-text shrink-0 fill-current" aria-label="Pinned" />
-          ) : (
-            highlight && <span className={cn("h-2 w-2 shrink-0 rounded-full", DOTS[dotIndex % DOTS.length])} />
-          )}
+            <Pin size={14} className="setu-accent-text shrink-0 fill-current" aria-label="Pinned" />
+          ) : null}
           {note.title}
         </h3>
         <div className="flex shrink-0 items-center gap-1">
@@ -275,7 +266,9 @@ function NoteCard({ note, highlight, pinnedBadge, dotIndex }: { note: DealNote; 
       <p className="setu-text-2 mt-1 text-xs">
         Added by <span className="font-medium text-[var(--setu-text)]">{note.authorName}</span> · {formatDate(note.createdAt)} - {formatTime(note.createdAt)}
       </p>
-      <p className={cn("mt-3 whitespace-pre-line leading-relaxed", boxed ? "setu-soft px-4 py-3 text-sm" : highlight ? "setu-text-2 text-sm" : "text-sm")}>{note.body}</p>
+      <div className={cn("mt-3", boxed && "setu-soft px-4 py-3")}>
+        <RichDescriptionView value={note.body} className={SETU_RICH_VIEW} />
+      </div>
     </article>
   );
 }

@@ -19,6 +19,10 @@ import { useSetuStore } from "../provider";
 import type { DealStage } from "../types";
 import { avatarColor, initials } from "../utils";
 
+/** Read-only rich text (notes, call summaries, proposal reasons) in Setu's type scale and colours. */
+export const SETU_RICH_VIEW =
+  "prose prose-sm max-w-none text-sm leading-relaxed text-[var(--setu-text)] prose-p:my-1 prose-headings:text-[var(--setu-text)] prose-strong:text-[var(--setu-text)] break-words dark:prose-invert";
+
 // Shared building blocks for the Setu CRM pages. Surfaces and buttons are styled by the scoped
 // classes in setu.css (`setu-card`, `setu-btn-*` …).
 

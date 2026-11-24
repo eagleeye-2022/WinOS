@@ -247,8 +247,8 @@ export function StopTimerDialog({ open, onClose, elapsedSeconds }: { open: boole
       <DialogContent className="setu-scope setu-dialog max-w-md p-6">
         <form onSubmit={save} className="space-y-4">
           <div>
-            <DialogTitle className="text-lg font-semibold">Save session</DialogTitle>
-            <DialogDescription className="setu-text-2 mt-1 text-sm">
+            <DialogTitle className="text-base font-semibold">Save Session</DialogTitle>
+            <DialogDescription className="setu-text-2 mt-1 text-xs">
               <span className="font-mono font-semibold text-[var(--setu-text)]">{formatClock(elapsedSeconds)}</span> logged. What was this time spent on?
             </DialogDescription>
           </div>
@@ -259,15 +259,21 @@ export function StopTimerDialog({ open, onClose, elapsedSeconds }: { open: boole
                 key={r}
                 type="button"
                 onClick={() => setReason(r)}
-                className="setu-text-2 cursor-pointer rounded-full border border-[var(--setu-line)] bg-[var(--setu-soft)] px-2.5 py-1 text-xs font-medium hover:text-[var(--setu-text)]"
+                className={cn(
+                  "cursor-pointer rounded-full border px-2.5 py-0.5 text-xs transition-colors",
+                  reason === r
+                    ? "border-[var(--setu-accent)] bg-[var(--setu-accent-soft)] font-semibold text-[var(--setu-accent)]"
+                    : "border-[var(--setu-line)] bg-[var(--setu-card)] setu-text-2 hover:bg-[var(--setu-well)]/60 hover:text-[var(--setu-text)]"
+                )}
               >
                 {r}
               </button>
             ))}
           </div>
-          <div className="flex items-center justify-between gap-2 pt-1">
+          <div className="flex items-center justify-between gap-2 border-t border-[var(--setu-line)] pt-3.5">
             <SetuButton
               variant="ghost"
+              size="sm"
               className="text-red-600 hover:text-red-600"
               onClick={async () => {
                 if (await attempt(discardTimer().then(() => true), "Timer discarded")) close();
@@ -276,8 +282,8 @@ export function StopTimerDialog({ open, onClose, elapsedSeconds }: { open: boole
               Discard
             </SetuButton>
             <div className="flex gap-2">
-              <SetuButton onClick={close}>Keep Running</SetuButton>
-              <SetuButton variant="primary" type="submit" disabled={!reason.trim() || saving}>
+              <SetuButton size="sm" onClick={close}>Keep Running</SetuButton>
+              <SetuButton variant="primary" size="sm" type="submit" disabled={!reason.trim() || saving}>
                 Save Session
               </SetuButton>
             </div>

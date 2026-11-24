@@ -2,23 +2,15 @@
 
 import Link from "next/link";
 import {
-  CalendarDays,
-  CircleX,
-  Clock3,
-  FileText,
-  Handshake,
   Mail,
   MapPin,
   MessageCircle,
-  MessagesSquare,
   Network,
-  NotebookText,
   PencilLine,
   Phone,
   Play,
   Send,
   Square,
-  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -39,15 +31,15 @@ import { DealTimeLogsTab, StopTimerDialog } from "./deal-time-logs-tab";
 import { useElapsedSeconds } from "./use-elapsed-seconds";
 
 const TABS = [
-  { id: "calls", label: "Calls", icon: Phone },
-  { id: "meetings", label: "Meetings", icon: CalendarDays },
-  { id: "notes", label: "Notes", icon: NotebookText },
-  { id: "time-logs", label: "Time Logs", icon: Clock3 },
-  { id: "discussions", label: "Discussions", icon: MessagesSquare },
-  { id: "proposals", label: "Proposals & Docs", icon: FileText },
-  { id: "negotiations", label: "Negotiations", icon: Handshake },
-  { id: "closed-won", label: "Closed Won", icon: Trophy },
-  { id: "closed-lost", label: "Closed Lost", icon: CircleX },
+  { id: "calls", label: "Calls" },
+  { id: "meetings", label: "Meetings" },
+  { id: "notes", label: "Notes" },
+  { id: "time-logs", label: "Time Logs" },
+  { id: "discussions", label: "Discussions" },
+  { id: "proposals", label: "Proposals & Docs" },
+  { id: "negotiations", label: "Negotiations" },
+  { id: "closed-won", label: "Closed Won" },
+  { id: "closed-lost", label: "Closed Lost" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -142,21 +134,15 @@ function DealDetailBody({ deal }: { deal: Deal }) {
         </div>
       </div>
 
-      {/* Header card (accent top edge on the closed tabs) */}
-      <section
-        className={cn(
-          "setu-card p-6",
-          tab === "closed-won" && "border-t-2 border-t-green-600",
-          tab === "closed-lost" && "border-t-2 border-t-red-500"
-        )}
-      >
+      {/* Header card */}
+      <section className="setu-card p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-xl font-bold leading-tight tracking-tight">{deal.company}</h1>
               <StageBadge stage={deal.stage} />
             </div>
-            <p className="setu-text-2 mt-1 text-xs">
+            <p className="setu-text-2 mt-1.5 text-xs">
               {deal.contactName} • {deal.contactRole}
               {deal.stage !== "LEAD" && deal.title && <span className="setu-text-3"> · {dealTitle(deal)}</span>}
             </p>
@@ -172,25 +158,25 @@ function DealDetailBody({ deal }: { deal: Deal }) {
           </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--setu-line)] pt-5">
-          <div className="setu-text-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--setu-line)] pt-4">
+          <div className="setu-text-2 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
             {deal.phone && (
               <a
                 href={`tel:+${phoneDigits(deal.phone)}`}
-                className="flex items-center gap-2 rounded-lg border border-[var(--setu-line-strong)] px-3 py-1.5 font-medium text-[var(--setu-text)] hover:bg-[var(--setu-soft)]"
+                className="inline-flex items-center gap-1.5 font-medium text-[var(--setu-text)] transition-colors hover:text-[var(--setu-accent)]"
               >
-                <Phone size={14} className="setu-accent-text" /> {deal.phone}
+                <Phone size={13} className="setu-accent-text" /> {deal.phone}
               </a>
             )}
             {deal.email && <InfoItem icon={Mail}>{deal.email}</InfoItem>}
             {deal.location && <InfoItem icon={MapPin}>{deal.location}</InfoItem>}
             {deal.source && (
               <InfoItem icon={Network}>
-                Source: <span className="font-semibold text-[var(--setu-text)]">{deal.source}</span>
+                Source: <span className="font-medium text-[var(--setu-text)]">{deal.source}</span>
               </InfoItem>
             )}
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             {deal.email && (
               <SetuButton variant="soft" size="sm" asChild>
                 <a href={`mailto:${deal.email}`}>
@@ -213,7 +199,6 @@ function DealDetailBody({ deal }: { deal: Deal }) {
       <nav className="setu-scroll-x flex overflow-x-auto border-b border-[var(--setu-line)]" aria-label="Deal sections">
         {TABS.map((t) => {
           const active = tab === t.id;
-          const Icon = t.icon;
           const count = counts[t.id];
           return (
             <button
@@ -222,18 +207,25 @@ function DealDetailBody({ deal }: { deal: Deal }) {
               onClick={() => setTab(t.id)}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "-mb-px flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors",
-                active ? "border-[var(--setu-accent)] text-[var(--setu-accent)]" : "setu-text-2 border-transparent hover:text-[var(--setu-text)]"
+                "-mb-px flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-3.5 py-2.5 text-xs font-medium transition-colors",
+                active
+                  ? "border-[var(--setu-accent)] font-semibold text-[var(--setu-accent)]"
+                  : "setu-text-2 border-transparent hover:text-[var(--setu-text)]"
               )}
             >
-              <Icon size={15} className={cn(t.id === "closed-won" && "text-green-600", t.id === "closed-lost" && "text-red-500")} />
               {t.label}
-              {outcome[t.id] && <span className={cn("rounded-full px-1.5 py-px text-[11px] font-semibold", outcome[t.id]?.tone)}>{outcome[t.id]?.label}</span>}
+              {outcome[t.id] && (
+                <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-medium", outcome[t.id]?.tone)}>
+                  {outcome[t.id]?.label}
+                </span>
+              )}
               {count !== undefined && (
                 <span
                   className={cn(
-                    "rounded-full px-1.5 py-px text-[11px] font-semibold tabular-nums",
-                    active ? "bg-[var(--setu-accent)] text-[var(--setu-accent-ink)]" : "bg-[var(--setu-well)] text-[var(--setu-text-2)]"
+                    "rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+                    active
+                      ? "bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]"
+                      : "bg-[var(--setu-well)] text-[var(--setu-text-2)]"
                   )}
                 >
                   {count}
@@ -263,9 +255,9 @@ function DealDetailBody({ deal }: { deal: Deal }) {
 
 function InfoItem({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
   return (
-    <span className="flex items-center gap-1.5 before:mr-2.5 before:h-1 before:w-1 before:rounded-full before:bg-[var(--setu-line-strong)] before:content-['']">
-      <Icon size={14} className="setu-text-3" />
-      {children}
+    <span className="inline-flex items-center gap-1.5">
+      <Icon size={13} className="setu-text-3 shrink-0" />
+      <span>{children}</span>
     </span>
   );
 }
