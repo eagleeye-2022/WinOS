@@ -21,12 +21,17 @@ const nextConfig: NextConfig = {
       { source: "/dsr", destination: "/report", permanent: false },
       { source: "/dsr/manage", destination: "/report/all", permanent: false },
       { source: "/dsr/:path*", destination: "/report/:path*", permanent: false },
-      // The "Sales" placeholder module became Setu (sales CRM).
-      { source: "/sales", destination: "/setu/tasks", permanent: false },
-      // Old Setu (BNI) tabs that no longer exist land on the Tasks board.
-      { source: "/setu/pipeline", destination: "/setu/tasks", permanent: false },
-      { source: "/setu/referrals", destination: "/setu/tasks", permanent: false },
-      { source: "/setu/whatsapp-bot", destination: "/setu/tasks", permanent: false },
+      // The "Sales" placeholder module became Setu (BNI networking).
+      { source: "/sales", destination: "/setu/121-meetings", permanent: false },
+      // The sales-CRM list pages Setu had before the BNI restructure.
+      { source: "/setu/tasks", destination: "/setu/pipeline", permanent: false },
+      { source: "/setu/leads", destination: "/setu/pipeline", permanent: false },
+      { source: "/setu/deals", destination: "/setu/pipeline", permanent: false },
+      { source: "/setu/dashboard", destination: "/setu/pipeline", permanent: false },
+      { source: "/setu/forecast", destination: "/setu/pipeline", permanent: false },
+      { source: "/setu/activities", destination: "/setu/121-meetings", permanent: false },
+      { source: "/setu/calls", destination: "/setu/121-meetings", permanent: false },
+      { source: "/setu/meetings", destination: "/setu/121-meetings", permanent: false },
       // Pulse opens on its Home page, which moved from /people/home.
       { source: "/pulse", destination: "/pulse/home", permanent: false },
       { source: "/people/home", destination: "/pulse/home", permanent: false },

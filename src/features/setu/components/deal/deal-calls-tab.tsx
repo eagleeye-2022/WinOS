@@ -6,7 +6,7 @@ import { ChevronDown, EllipsisVertical, PencilLine, PhoneCall, PhoneForwarded, P
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { RichDescriptionEditor, RichDescriptionView, isEmptyDescription } from "@/components/shared/rich-description";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   DropdownMenu,
@@ -33,7 +33,7 @@ import {
   logSeconds,
   searchCalls,
 } from "../../utils";
-import { Field, SetuButton, attempt } from "../setu-ui";
+import { Field, SETU_RICH_VIEW, SetuButton, attempt } from "../setu-ui";
 
 type CallFilter = "all" | "outbound" | "inbound" | "audio";
 type CallSort = "recent" | "oldest" | "longest";
@@ -240,8 +240,10 @@ export function CallCard({
           </DropdownMenu>
         </div>
       </div>
-      {call.summary && (
-        <blockquote className="setu-text-2 ml-1 mt-4 border-l-2 border-[var(--setu-line-strong)] pl-5 text-sm italic leading-relaxed">“{call.summary}”</blockquote>
+      {!isEmptyDescription(call.summary) && (
+        <blockquote className="ml-1 mt-4 border-l-2 border-[var(--setu-line-strong)] pl-5">
+          <RichDescriptionView value={call.summary} className={SETU_RICH_VIEW} />
+        </blockquote>
       )}
     </article>
   );
@@ -352,7 +354,7 @@ export function LogCallDialog({ deal: fixedDeal, open, call, onClose }: { deal?:
       repRole: form.repRole.trim() || undefined,
       contactName: form.contactName.trim(),
       contactRole: form.contactRole.trim() || undefined,
-      summary: form.summary.trim(),
+      summary: isEmptyDescription(form.summary) ? "" : form.summary.trim(),
       recordingUrl: form.recordingUrl.trim() || undefined,
     };
     setSaving(true);
@@ -364,14 +366,9 @@ export function LogCallDialog({ deal: fixedDeal, open, call, onClose }: { deal?:
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="setu-scope setu-dialog max-h-[92vh] max-w-[640px] gap-0 overflow-y-auto p-0 [&>button:last-child]:right-6 [&>button:last-child]:top-6">
-        <div className="flex items-center gap-3 border-b border-[var(--setu-line)] bg-[var(--setu-well)] px-6 py-4">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
-            <PhoneCall size={18} />
-          </span>
-          <div>
-            <DialogTitle className="text-lg font-semibold">{call ? "Edit Call" : "Log Call"}</DialogTitle>
-            <DialogDescription className="setu-text-2 text-xs">{deal ? deal.company : "Pick the lead or deal this call was about"}</DialogDescription>
-          </div>
+        <div className="border-b border-[var(--setu-line)] px-6 py-4">
+          <DialogTitle className="text-base font-semibold">{call ? "Edit Call" : "Log Call"}</DialogTitle>
+          <DialogDescription className="setu-text-2 mt-0.5 text-xs">{deal ? deal.company : "Pick the lead or deal this call was about"}</DialogDescription>
         </div>
         <form onSubmit={submit} noValidate>
           <div className="grid gap-4 px-6 py-5 sm:grid-cols-2">
@@ -472,14 +469,14 @@ export function LogCallDialog({ deal: fixedDeal, open, call, onClose }: { deal?:
               <Input value={form.contactRole} onChange={(e) => set({ contactRole: e.target.value })} placeholder="e.g. Client VP" className="setu-input h-9" />
             </Field>
             <Field label="Call Summary" className="sm:col-span-2">
-              <Textarea value={form.summary} onChange={(e) => set({ summary: e.target.value })} placeholder="What was discussed and agreed?" className="setu-input min-h-24" />
+              <RichDescriptionEditor value={form.summary} onChange={(summary) => set({ summary })} />
             </Field>
             <Field label="Recording Link" className="sm:col-span-2">
               <Input type="url" value={form.recordingUrl} onChange={(e) => set({ recordingUrl: e.target.value })} placeholder="https://…" className="setu-input h-9" />
             </Field>
             {error && <p className="text-xs text-red-500 sm:col-span-2">{error}</p>}
           </div>
-          <div className="flex items-center justify-between gap-3 border-t border-[var(--setu-line)] bg-[var(--setu-well)] px-6 py-4">
+          <div className="flex items-center justify-between gap-3 border-t border-[var(--setu-line)] bg-[var(--setu-card)] px-6 py-3.5">
             <SetuButton variant="ghost" onClick={onClose}>
               Cancel
             </SetuButton>

@@ -5,7 +5,7 @@ import { BellRing, CalendarDays, CalendarSync, CircleCheck, FileCheck2, Flag, In
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { RichDescriptionEditor, isEmptyDescription } from "@/components/shared/rich-description";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CONTRACT_TERMS, LOSS_REASONS, LOSS_REASON_SHORT } from "../../constants";
 import { useSetuStore } from "../../provider";
@@ -56,19 +56,16 @@ function SummaryCard({
   );
 }
 
-function FormHeader({ icon: Icon, tone, title, badge, badgeTone, subtitle }: { icon: React.ElementType; tone: string; title: string; badge: string; badgeTone: string; subtitle: string }) {
+function FormHeader({ icon: Icon, tone, title, badge, badgeTone }: { icon: React.ElementType; tone: string; title: string; badge: string; badgeTone: string }) {
   return (
-    <div className="flex items-start gap-3 border-b border-[var(--setu-line)] pb-4">
+    <div className="flex items-center gap-3 border-b border-[var(--setu-line)] pb-4">
       <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", tone)}>
         <Icon size={19} />
       </span>
-      <div>
-        <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
-          {title}
-          <span className={cn("rounded border px-1.5 py-0.5 text-[11px] font-semibold", badgeTone)}>{badge}</span>
-        </h3>
-        <p className="setu-text-2 text-xs">{subtitle}</p>
-      </div>
+      <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
+        {title}
+        <span className={cn("rounded border px-1.5 py-0.5 text-[11px] font-semibold", badgeTone)}>{badge}</span>
+      </h3>
     </div>
   );
 }
@@ -156,14 +153,11 @@ export function DealClosedWonTab({ deal }: { deal: Deal }) {
       {w && (
         <section className="setu-card px-6 py-5">
           <div className="flex items-start justify-between gap-3 border-b border-[var(--setu-line)] pb-4">
-            <div className="flex items-start gap-3">
+            <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
                 <FileCheck2 size={17} />
               </span>
-              <div>
-                <h3 className="text-base font-semibold">Executed Documents & Invoices</h3>
-                <p className="setu-text-2 text-xs">Official signed agreements and verified transaction documents</p>
-              </div>
+              <h3 className="text-base font-semibold">Executed Documents & Invoices</h3>
             </div>
             <span className="setu-text-3 text-xs">
               {w.documents.length} File{w.documents.length === 1 ? "" : "s"}
@@ -188,7 +182,6 @@ export function DealClosedWonTab({ deal }: { deal: Deal }) {
           title="Enter Deal Closure Details"
           badge="Stage: Won"
           badgeTone="border-green-300 bg-green-50 text-green-700 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-400"
-          subtitle="Fill in contract, financial closure & handover details"
         />
         <div className="grid gap-4 md:grid-cols-3">
           <Field label="Final Deal Value (₹)" required>
@@ -314,7 +307,7 @@ export function DealClosedLostTab({ deal }: { deal: Deal }) {
       primaryReason: form.reason,
       secondaryFactor: form.secondary.trim(),
       closedDate: form.closedDate,
-      analysis: form.analysis.trim(),
+      analysis: isEmptyDescription(form.analysis) ? "" : form.analysis.trim(),
       reengageDate: form.reengageDate || undefined,
       reengageNote: form.reengageNote.trim(),
       keepNurturing: form.keepNurturing,
@@ -366,7 +359,6 @@ export function DealClosedLostTab({ deal }: { deal: Deal }) {
           title="Enter Deal Loss Details"
           badge="STAGE: LOST"
           badgeTone="border-red-200 bg-red-50 text-red-600 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400"
-          subtitle="Document loss rationale, competitor insight, and future re-engagement strategy to improve win rates."
         />
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Primary Loss Reason" required>
@@ -394,7 +386,7 @@ export function DealClosedLostTab({ deal }: { deal: Deal }) {
           </Field>
         </div>
         <Field label="Loss Analysis & Detailed Feedback">
-          <Textarea value={form.analysis} onChange={(e) => set({ analysis: e.target.value })} placeholder="What happened, what the client said, what we'd do differently…" className="setu-input min-h-24" />
+          <RichDescriptionEditor value={form.analysis} onChange={(analysis) => set({ analysis })} />
         </Field>
         <div className="grid items-end gap-4 md:grid-cols-2">
           <div className="space-y-1.5">

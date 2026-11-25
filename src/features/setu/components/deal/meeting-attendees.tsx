@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
-import { Building2, Check, CircleDollarSign, Contact, Filter, Mail, PlusCircle, UserPlus, Users, X } from "lucide-react";
+import { Check, CircleDollarSign, Contact, Filter, Mail, PlusCircle, UserPlus, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -232,64 +232,35 @@ export function AddExternalAttendeeDialog({ open, onClose, onAdd }: { open: bool
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && close()}>
-      <DialogContent className="setu-scope setu-dialog max-w-[520px] gap-0 p-0 [&>button:last-child]:right-6 [&>button:last-child]:top-6">
-        <div className="flex items-center gap-3 rounded-t-2xl bg-[var(--setu-well)] px-6 py-5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
-            <UserPlus size={18} />
-          </span>
-          <div>
-            <DialogTitle className="text-lg font-semibold">Add External Attendee</DialogTitle>
-            <DialogDescription className="setu-text-2 text-xs">Send calendar invites directly to external contacts</DialogDescription>
-          </div>
+      <DialogContent className="setu-scope setu-dialog max-w-[500px] gap-0 p-0 [&>button:last-child]:right-6 [&>button:last-child]:top-6">
+        <div className="border-b border-[var(--setu-line)] px-6 py-4">
+          <DialogTitle className="text-base font-semibold">Add External Attendee</DialogTitle>
+          <DialogDescription className="sr-only">Add an external attendee</DialogDescription>
         </div>
-        <form onSubmit={submit} noValidate className="space-y-4 px-6 py-5">
-          <Field label="Full Name" required>
-            <IconInput icon={Contact} value={name} onChange={setName} placeholder="e.g. Vikram Anand" autoFocus />
-          </Field>
-          <Field label="Work Email" required>
-            <IconInput icon={Mail} type="email" value={email} onChange={setEmail} placeholder="e.g. vikram@abc.com" />
-          </Field>
-          <label className="block space-y-1.5">
-            <span className="flex items-center justify-between text-xs font-semibold">
-              Company / Organization <span className="setu-text-3 text-xs font-normal">Optional</span>
-            </span>
-            <IconInput icon={Building2} value={company} onChange={setCompany} placeholder="e.g. HealthTech Sol • Procurement Lead" />
-          </label>
-          {error && <p className="text-xs text-red-500">{error}</p>}
-          <div className="flex justify-end gap-2 border-t border-[var(--setu-line)] pt-4">
-            <SetuButton onClick={close} className="bg-[var(--setu-soft)]">
+        <form onSubmit={submit} noValidate>
+          <div className="space-y-4 px-6 py-5">
+            <Field label="Full Name" required>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Vikram Anand" autoFocus className="setu-input h-9" />
+            </Field>
+            <Field label="Work Email" required>
+              <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="e.g. vikram@abc.com" className="setu-input h-9" />
+            </Field>
+            <Field label="Company / Organization">
+              <Input value={company} onChange={(e) => setCompany(e.target.value)} placeholder="e.g. HealthTech Sol • Procurement Lead" className="setu-input h-9" />
+            </Field>
+            {error && <p className="text-xs text-red-500">{error}</p>}
+          </div>
+          <div className="flex items-center justify-end gap-2.5 border-t border-[var(--setu-line)] bg-[var(--setu-card)] px-6 py-3.5">
+            <SetuButton variant="ghost" onClick={close}>
               Cancel
             </SetuButton>
             <SetuButton variant="primary" type="submit">
-              <UserPlus /> Add Attendee
+              Add Attendee
             </SetuButton>
           </div>
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function IconInput({
-  icon: Icon,
-  value,
-  onChange,
-  placeholder,
-  type = "text",
-  autoFocus,
-}: {
-  icon: React.ElementType;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  type?: string;
-  autoFocus?: boolean;
-}) {
-  return (
-    <div className="relative">
-      <Icon size={15} className="setu-text-3 absolute left-3 top-1/2 -translate-y-1/2" />
-      <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoFocus={autoFocus} className="setu-input h-9 pl-9" />
-    </div>
   );
 }
 

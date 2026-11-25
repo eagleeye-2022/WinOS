@@ -101,10 +101,10 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Total Time" value={formatHoursMinutes(stats.totalSeconds)} hint="Overall deal effort" />
-        <StatCard label="Today" value={formatHoursMinutes(stats.todaySeconds)} hint="Active sessions today" accent />
-        <StatCard label="Sessions" value={String(stats.sessions)} hint="Recorded sessions" />
-        <StatCard label="Employees" value={String(stats.employees)} hint="Active contributors" />
+        <StatCard label="Total Time" value={formatHoursMinutes(stats.totalSeconds)} />
+        <StatCard label="Today" value={formatHoursMinutes(stats.todaySeconds)} accent />
+        <StatCard label="Sessions" value={String(stats.sessions)} />
+        <StatCard label="Employees" value={String(stats.employees)} />
       </div>
 
       {/* History */}
@@ -208,12 +208,11 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
   );
 }
 
-function StatCard({ label, value, hint, accent }: { label: string; value: string; hint: string; accent?: boolean }) {
+function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="setu-card px-4 py-5">
       <p className="setu-text-2 text-xs font-semibold uppercase tracking-wide">{label}</p>
       <p className={cn("mt-2 text-2xl font-bold leading-none tracking-tight", accent && "setu-accent-text")}>{value}</p>
-      <p className="mt-2 text-xs font-medium">{hint}</p>
     </div>
   );
 }
@@ -247,8 +246,8 @@ export function StopTimerDialog({ open, onClose, elapsedSeconds }: { open: boole
       <DialogContent className="setu-scope setu-dialog max-w-md p-6">
         <form onSubmit={save} className="space-y-4">
           <div>
-            <DialogTitle className="text-lg font-semibold">Save session</DialogTitle>
-            <DialogDescription className="setu-text-2 mt-1 text-sm">
+            <DialogTitle className="text-base font-semibold">Save Session</DialogTitle>
+            <DialogDescription className="setu-text-2 mt-1 text-xs">
               <span className="font-mono font-semibold text-[var(--setu-text)]">{formatClock(elapsedSeconds)}</span> logged. What was this time spent on?
             </DialogDescription>
           </div>
@@ -259,15 +258,21 @@ export function StopTimerDialog({ open, onClose, elapsedSeconds }: { open: boole
                 key={r}
                 type="button"
                 onClick={() => setReason(r)}
-                className="setu-text-2 cursor-pointer rounded-full border border-[var(--setu-line)] bg-[var(--setu-soft)] px-2.5 py-1 text-xs font-medium hover:text-[var(--setu-text)]"
+                className={cn(
+                  "cursor-pointer rounded-full border px-2.5 py-0.5 text-xs transition-colors",
+                  reason === r
+                    ? "border-[var(--setu-accent)] bg-[var(--setu-accent-soft)] font-semibold text-[var(--setu-accent)]"
+                    : "border-[var(--setu-line)] bg-[var(--setu-card)] setu-text-2 hover:bg-[var(--setu-well)]/60 hover:text-[var(--setu-text)]"
+                )}
               >
                 {r}
               </button>
             ))}
           </div>
-          <div className="flex items-center justify-between gap-2 pt-1">
+          <div className="flex items-center justify-between gap-2 border-t border-[var(--setu-line)] pt-3.5">
             <SetuButton
               variant="ghost"
+              size="sm"
               className="text-red-600 hover:text-red-600"
               onClick={async () => {
                 if (await attempt(discardTimer().then(() => true), "Timer discarded")) close();
@@ -276,8 +281,8 @@ export function StopTimerDialog({ open, onClose, elapsedSeconds }: { open: boole
               Discard
             </SetuButton>
             <div className="flex gap-2">
-              <SetuButton onClick={close}>Keep Running</SetuButton>
-              <SetuButton variant="primary" type="submit" disabled={!reason.trim() || saving}>
+              <SetuButton size="sm" onClick={close}>Keep Running</SetuButton>
+              <SetuButton variant="primary" size="sm" type="submit" disabled={!reason.trim() || saving}>
                 Save Session
               </SetuButton>
             </div>

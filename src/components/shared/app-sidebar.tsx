@@ -259,7 +259,7 @@ export function AppSidebar({
           { label: "Effort Logs", href: "/projects/effort-log-report", icon: ClockFading, section: "OVERVIEW" },
         ];
   } else if (activeModuleTitle === "Setu") {
-    // Setu CRM: Dashboard, Leads, Contacts, Deals, Activities (Tasks / Calls / Meetings), Forecast.
+    // Setu (BNI networking): 121 Meetings, Sales Pipeline, WhatsApp Bot, Contacts, Referrals.
     navItems = SETU_NAV.map((item) => ({ ...item, children: item.children ? [...item.children] : undefined }));
   } else if (activeModuleTitle === "User Management") {
     navItems = [

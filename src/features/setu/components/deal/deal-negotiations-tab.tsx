@@ -24,10 +24,7 @@ export function DealNegotiationsTab({ deal }: { deal: Deal }) {
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
           <Handshake size={20} />
         </span>
-        <div>
-          <h2 className="text-lg font-semibold">Negotiation & Commercial Alignment</h2>
-          <p className="setu-text-2 text-sm">Active term discussions, discount requests, and contract revisions for {deal.company}.</p>
-        </div>
+        <h2 className="text-lg font-semibold">Negotiation & Commercial Alignment</h2>
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)]">
@@ -38,24 +35,17 @@ export function DealNegotiationsTab({ deal }: { deal: Deal }) {
             <span className="h-2 w-2 rounded-full bg-[var(--setu-accent)]" />
           </div>
           <p className="mt-3 text-2xl font-bold tracking-tight tabular-nums">{deal.value !== undefined ? formatInr(deal.value) : "Not set"}</p>
-          <p className="setu-text-2 mt-2 text-xs leading-snug">
-            {deal.value !== undefined
-              ? `Current contract quote${deal.proposalVersion ? ` (proposal V${deal.proposalVersion})` : ""}.`
-              : "Set the deal value from Edit Deal."}
-          </p>
+          {deal.value !== undefined && deal.proposalVersion ? <p className="setu-text-2 mt-2 text-xs">Proposal V{deal.proposalVersion}</p> : null}
         </section>
 
         {/* Client requests */}
         <section className="setu-card px-5 py-5">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--setu-line)] pb-4">
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
                 <Handshake size={15} />
               </span>
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wide">Active Client Requests (Multi-Level)</h3>
-                <p className="setu-text-3 text-xs">Track concessions, pricing negotiations, and commercial covenants across tiers</p>
-              </div>
+              <h3 className="text-xs font-bold uppercase tracking-wide">Active Client Requests (Multi-Level)</h3>
             </div>
             <SetuButton variant="soft" size="sm" onClick={() => setEditing("new")} disabled={editing === "new"}>
               <Plus /> Add Request

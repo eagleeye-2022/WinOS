@@ -1,24 +1,18 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
-  CalendarDays,
-  CircleX,
-  Clock3,
-  FileText,
-  Handshake,
   Mail,
   MapPin,
   MessageCircle,
-  MessagesSquare,
   Network,
-  NotebookText,
   PencilLine,
   Phone,
   Play,
   Send,
   Square,
-  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
@@ -26,9 +20,10 @@ import { toast } from "@/components/shared/toast";
 import { useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
 import { useSetuStore } from "../../provider";
 import type { Deal } from "../../types";
-import { dealTitle, displayCode, formatClock, formatHoursMinutes, logSeconds, phoneDigits } from "../../utils";
-import { EditDealDialog } from "../deal-form-dialog";
-import { Breadcrumbs, ComingSoon, SetuButton, SetuPage, StageBadge } from "../setu-ui";
+import { BNI_STAGE_BY_ID, bniStageOf, isMember, prospectSources } from "../../bni";
+import { displayCode, formatClock, formatHoursMinutes, logSeconds, phoneDigits } from "../../utils";
+import { ProspectDialog } from "../bni/bni-forms";
+import { Breadcrumbs, ComingSoon, SetuButton, SetuPage } from "../setu-ui";
 import { DealCallsTab } from "./deal-calls-tab";
 import { DealMeetingsTab } from "./deal-meetings-tab";
 import { DealNegotiationsTab } from "./deal-negotiations-tab";
@@ -39,15 +34,15 @@ import { DealTimeLogsTab, StopTimerDialog } from "./deal-time-logs-tab";
 import { useElapsedSeconds } from "./use-elapsed-seconds";
 
 const TABS = [
-  { id: "calls", label: "Calls", icon: Phone },
-  { id: "meetings", label: "Meetings", icon: CalendarDays },
-  { id: "notes", label: "Notes", icon: NotebookText },
-  { id: "time-logs", label: "Time Logs", icon: Clock3 },
-  { id: "discussions", label: "Discussions", icon: MessagesSquare },
-  { id: "proposals", label: "Proposals & Docs", icon: FileText },
-  { id: "negotiations", label: "Negotiations", icon: Handshake },
-  { id: "closed-won", label: "Closed Won", icon: Trophy },
-  { id: "closed-lost", label: "Closed Lost", icon: CircleX },
+  { id: "calls", label: "Calls" },
+  { id: "meetings", label: "Meetings" },
+  { id: "notes", label: "Notes" },
+  { id: "time-logs", label: "Time Logs" },
+  { id: "discussions", label: "Discussions" },
+  { id: "proposals", label: "Proposals & Docs" },
+  { id: "negotiations", label: "Negotiations" },
+  { id: "closed-won", label: "Closed Won" },
+  { id: "closed-lost", label: "Closed Lost" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -55,15 +50,26 @@ const TAB_IDS: readonly TabId[] = TABS.map((t) => t.id);
 
 export function DealDetail({ dealId }: { dealId: string }) {
   const deal = useSetuStore((s) => s.deals.find((d) => d.id === dealId));
+  const router = useRouter();
+  const member = deal ? isMember(deal) : false;
 
-  if (!deal) {
+  // BNI members live on 121 Meetings, not in the prospect workspace.
+  useEffect(() => {
+    if (member) router.replace(ROUTES.setuMember(dealId));
+  }, [member, dealId, router]);
+
+  if (!deal || member) {
     return (
       <SetuPage>
-        <Breadcrumbs items={[{ label: "Sales" }, { label: "Deals" }, { label: "Not found" }]} />
-        <ComingSoon title="Deal not found" text="This deal doesn't exist (design-phase data resets when the page is refreshed)." />
+        <Breadcrumbs items={[{ label: "Sales Pipeline", href: ROUTES.setuPipeline }, { label: member ? "Opening…" : "Not found" }]} />
+        {member ? (
+          <ComingSoon title="Opening the member's 121 record…" text="BNI members are managed from 121 Meetings." />
+        ) : (
+          <ComingSoon title="Prospect not found" text="This record doesn't exist any more — it may have been removed." />
+        )}
         <div className="flex justify-center">
           <SetuButton variant="primary" asChild>
-            <Link href={ROUTES.setuTasks}>Back to Tasks</Link>
+            <Link href={member ? ROUTES.setuMember(dealId) : ROUTES.setuPipeline}>{member ? "Open 121 record" : "Back to Sales Pipeline"}</Link>
           </SetuButton>
         </div>
       </SetuPage>
@@ -82,6 +88,8 @@ function DealDetailBody({ deal }: { deal: Deal }) {
   const callCount = useSetuStore((s) => s.calls.filter((c) => c.dealId === deal.id).length);
   const meetingCount = useSetuStore((s) => s.meetings.filter((m) => m.dealId === deal.id).length);
   const loggedSeconds = useSetuStore((s) => s.timeLogs.filter((l) => l.dealId === deal.id).reduce((n, l) => n + logSeconds(l), 0));
+  const fromMember = useSetuStore((s) => prospectSources(s.deals, s.notes).get(deal.id));
+  const stage = BNI_STAGE_BY_ID[bniStageOf(deal)];
   const [tab, setTab] = useUrlState<TabId>("tab", "notes", { allowed: TAB_IDS });
   const [editOpen, setEditOpen] = usePageViewState("DealDetail:edit", false);
   const [stopOpen, setStopOpen] = usePageViewState("DealDetail:stopTimer", false);
@@ -95,7 +103,7 @@ function DealDetailBody({ deal }: { deal: Deal }) {
       return;
     }
     if (activeTimer) {
-      toast.warning("Another deal's timer is running. Stop it first (Tasks → Active Task).");
+      toast.warning("Another prospect's timer is running. Stop it there first.");
       return;
     }
     startTimer(deal.id)
@@ -125,7 +133,7 @@ function DealDetailBody({ deal }: { deal: Deal }) {
     <SetuPage>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <Breadcrumbs items={[{ label: "Sales" }, { label: "Deals", href: ROUTES.setuDeals }, { label: deal.company }]} />
+          <Breadcrumbs items={[{ label: "Sales Pipeline", href: ROUTES.setuPipeline }, { label: deal.contactName }]} />
           <span className="setu-text-2 rounded-md border border-[var(--setu-line)] bg-[var(--setu-well)] px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide">
             {displayCode(deal)}
           </span>
@@ -142,28 +150,30 @@ function DealDetailBody({ deal }: { deal: Deal }) {
         </div>
       </div>
 
-      {/* Header card (accent top edge on the closed tabs) */}
-      <section
-        className={cn(
-          "setu-card p-6",
-          tab === "closed-won" && "border-t-2 border-t-green-600",
-          tab === "closed-lost" && "border-t-2 border-t-red-500"
-        )}
-      >
+      {/* Header card */}
+      <section className="setu-card p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-xl font-bold leading-tight tracking-tight">{deal.company}</h1>
-              <StageBadge stage={deal.stage} />
+              <h1 className="text-xl font-bold leading-tight tracking-tight">{deal.contactName}</h1>
+              <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold", stage.pill)}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", stage.dot)} />
+                {stage.label}
+              </span>
+              {fromMember && (
+                <Link href={ROUTES.setuMember(fromMember.id)} className="setu-accent-text text-[11px] font-semibold hover:underline">
+                  ↑ From 121 {fromMember.contactName}
+                </Link>
+              )}
+              {!fromMember && deal.bni?.origin === "BOT" && <span className="setu-accent-text text-[11px] font-semibold">↑ Via WhatsApp Bot</span>}
             </div>
-            <p className="setu-text-2 mt-1 text-xs">
-              {deal.contactName} • {deal.contactRole}
-              {deal.stage !== "LEAD" && deal.title && <span className="setu-text-3"> · {dealTitle(deal)}</span>}
+            <p className="setu-text-2 mt-1.5 text-xs">
+              {[deal.company !== deal.contactName ? deal.company : "", deal.contactRole, deal.title].filter(Boolean).join(" · ") || "Prospect"}
             </p>
           </div>
           <div className="flex items-center gap-2.5">
             <SetuButton onClick={() => setEditOpen(true)}>
-              <PencilLine /> Edit Deal
+              <PencilLine /> Edit
             </SetuButton>
             <SetuButton variant="primary" onClick={onTimerClick} className="min-w-[124px] font-mono" title={runningHere ? "Stop & save session" : "Start timer"}>
               {runningHere ? <Square className="fill-current" /> : <Play className="fill-current" />}
@@ -172,25 +182,25 @@ function DealDetailBody({ deal }: { deal: Deal }) {
           </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--setu-line)] pt-5">
-          <div className="setu-text-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--setu-line)] pt-4">
+          <div className="setu-text-2 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
             {deal.phone && (
               <a
                 href={`tel:+${phoneDigits(deal.phone)}`}
-                className="flex items-center gap-2 rounded-lg border border-[var(--setu-line-strong)] px-3 py-1.5 font-medium text-[var(--setu-text)] hover:bg-[var(--setu-soft)]"
+                className="inline-flex items-center gap-1.5 font-medium text-[var(--setu-text)] transition-colors hover:text-[var(--setu-accent)]"
               >
-                <Phone size={14} className="setu-accent-text" /> {deal.phone}
+                <Phone size={13} className="setu-accent-text" /> {deal.phone}
               </a>
             )}
             {deal.email && <InfoItem icon={Mail}>{deal.email}</InfoItem>}
             {deal.location && <InfoItem icon={MapPin}>{deal.location}</InfoItem>}
             {deal.source && (
               <InfoItem icon={Network}>
-                Source: <span className="font-semibold text-[var(--setu-text)]">{deal.source}</span>
+                Connected via: <span className="font-medium text-[var(--setu-text)]">Co {deal.source}</span>
               </InfoItem>
             )}
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             {deal.email && (
               <SetuButton variant="soft" size="sm" asChild>
                 <a href={`mailto:${deal.email}`}>
@@ -213,7 +223,6 @@ function DealDetailBody({ deal }: { deal: Deal }) {
       <nav className="setu-scroll-x flex overflow-x-auto border-b border-[var(--setu-line)]" aria-label="Deal sections">
         {TABS.map((t) => {
           const active = tab === t.id;
-          const Icon = t.icon;
           const count = counts[t.id];
           return (
             <button
@@ -222,18 +231,25 @@ function DealDetailBody({ deal }: { deal: Deal }) {
               onClick={() => setTab(t.id)}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "-mb-px flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors",
-                active ? "border-[var(--setu-accent)] text-[var(--setu-accent)]" : "setu-text-2 border-transparent hover:text-[var(--setu-text)]"
+                "-mb-px flex shrink-0 cursor-pointer items-center gap-2 border-b-2 px-3.5 py-2.5 text-xs font-medium transition-colors",
+                active
+                  ? "border-[var(--setu-accent)] font-semibold text-[var(--setu-accent)]"
+                  : "setu-text-2 border-transparent hover:text-[var(--setu-text)]"
               )}
             >
-              <Icon size={15} className={cn(t.id === "closed-won" && "text-green-600", t.id === "closed-lost" && "text-red-500")} />
               {t.label}
-              {outcome[t.id] && <span className={cn("rounded-full px-1.5 py-px text-[11px] font-semibold", outcome[t.id]?.tone)}>{outcome[t.id]?.label}</span>}
+              {outcome[t.id] && (
+                <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] font-medium", outcome[t.id]?.tone)}>
+                  {outcome[t.id]?.label}
+                </span>
+              )}
               {count !== undefined && (
                 <span
                   className={cn(
-                    "rounded-full px-1.5 py-px text-[11px] font-semibold tabular-nums",
-                    active ? "bg-[var(--setu-accent)] text-[var(--setu-accent-ink)]" : "bg-[var(--setu-well)] text-[var(--setu-text-2)]"
+                    "rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+                    active
+                      ? "bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]"
+                      : "bg-[var(--setu-well)] text-[var(--setu-text-2)]"
                   )}
                 >
                   {count}
@@ -255,7 +271,7 @@ function DealDetailBody({ deal }: { deal: Deal }) {
       {tab === "closed-won" && <DealClosedWonTab key={`won-${deal.won ? deal.updatedAt : "new"}`} deal={deal} />}
       {tab === "closed-lost" && <DealClosedLostTab key={`lost-${deal.lost ? deal.updatedAt : "new"}`} deal={deal} />}
 
-      <EditDealDialog deal={deal} open={editOpen} onClose={() => setEditOpen(false)} />
+      <ProspectDialog deal={deal} open={editOpen} onClose={() => setEditOpen(false)} />
       <StopTimerDialog open={stopOpen && runningHere} onClose={() => setStopOpen(false)} elapsedSeconds={elapsed} />
     </SetuPage>
   );
@@ -263,9 +279,9 @@ function DealDetailBody({ deal }: { deal: Deal }) {
 
 function InfoItem({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
   return (
-    <span className="flex items-center gap-1.5 before:mr-2.5 before:h-1 before:w-1 before:rounded-full before:bg-[var(--setu-line-strong)] before:content-['']">
-      <Icon size={14} className="setu-text-3" />
-      {children}
+    <span className="inline-flex items-center gap-1.5">
+      <Icon size={13} className="setu-text-3 shrink-0" />
+      <span>{children}</span>
     </span>
   );
 }

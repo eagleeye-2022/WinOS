@@ -1,6 +1,7 @@
 // Server-only module (imports the DB client) — import from Server Components / Server Actions only.
 import { db } from "@/lib/db";
 import type { Prisma } from "../../../../generated/prisma/client";
+import { decodeRole } from "../bni";
 import type {
   ActiveTimer,
   Deal,
@@ -53,6 +54,7 @@ function toFile(f: { id: string; name: string; size: number; url: string }): Dea
 }
 
 export function toDeal(d: DealRow): Deal {
+  const { role, tags } = decodeRole(d.contactRole);
   return {
     id: d.id,
     leadCode: d.leadCode,
@@ -60,7 +62,8 @@ export function toDeal(d: DealRow): Deal {
     title: d.title,
     company: d.company,
     contactName: d.contactName,
-    contactRole: d.contactRole,
+    contactRole: role,
+    bni: tags,
     phone: d.phone,
     email: d.email,
     location: d.location,

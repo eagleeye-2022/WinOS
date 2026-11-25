@@ -166,6 +166,19 @@ export function meetingStats(meetings: DealMeeting[]) {
 
 const stripTags = (html?: string) => html?.replace(/<[^>]*>/g, " ");
 
+/** Rich-text HTML (notes, call summaries…) as one line of plain text, for CSV export and search. */
+export function plainText(html?: string): string {
+  return (stripTags(html) ?? "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function searchMeetings(meetings: DealMeeting[], q: string, extra?: (m: DealMeeting) => string): DealMeeting[] {
   const needle = q.trim().toLowerCase();
   if (!needle) return meetings;
@@ -276,7 +289,7 @@ export function callStats(calls: DealCall[]) {
 export function searchCalls(calls: DealCall[], q: string): DealCall[] {
   const needle = q.trim().toLowerCase();
   if (!needle) return calls;
-  return calls.filter((c) => [c.title, c.summary, c.repName, c.contactName].join(" ").toLowerCase().includes(needle));
+  return calls.filter((c) => [c.title, plainText(c.summary), c.repName, c.contactName].join(" ").toLowerCase().includes(needle));
 }
 
 // ── Proposals ─────────────────────────────────────────────────────────────────

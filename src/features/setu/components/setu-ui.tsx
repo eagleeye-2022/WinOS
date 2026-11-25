@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Slot } from "@radix-ui/react-slot";
-import { ChevronDown, ChevronRight, Construction } from "lucide-react";
+import { ChevronDown, ChevronRight, Construction, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -12,12 +12,15 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants/routes";
-import { STAGE_BADGE, STAGE_BY_ID, STAGE_DOT } from "../constants";
 import { toast } from "@/components/shared/toast";
 import { useSetuStore } from "../provider";
-import type { DealStage } from "../types";
 import { avatarColor, initials } from "../utils";
+
+/** Read-only rich text (notes, call summaries, proposal reasons) in Setu's type scale and colours. */
+export const SETU_RICH_VIEW =
+  "prose prose-sm max-w-none text-sm leading-relaxed text-[var(--setu-text)] prose-p:my-1 prose-headings:text-[var(--setu-text)] prose-strong:text-[var(--setu-text)] break-words dark:prose-invert";
 
 // Shared building blocks for the Setu CRM pages. Surfaces and buttons are styled by the scoped
 // classes in setu.css (`setu-card`, `setu-btn-*` …).
@@ -51,9 +54,9 @@ export interface Crumb {
   href?: string;
 }
 
-/** "CRM › Sales › Tasks" — the last crumb is the current page. */
+/** "Setu › Networking › Sales Pipeline" — the last crumb is the current page. */
 export function Breadcrumbs({ items }: { items: Crumb[] }) {
-  const all: Crumb[] = [{ label: "CRM", href: ROUTES.setuTasks }, ...items];
+  const all: Crumb[] = [{ label: "Setu", href: ROUTES.setu121 }, ...items];
   return (
     <nav aria-label="Breadcrumb" className="setu-text-2 flex min-w-0 flex-wrap items-center gap-1 text-xs">
       {all.map((c, i) => {
@@ -87,7 +90,7 @@ export function SetuPage({ children, className }: { children: React.ReactNode; c
 // ── Controls ──────────────────────────────────────────────────────────────────
 
 type SetuButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "soft" | "whatsapp" | "ghost";
+  variant?: "primary" | "solid" | "muted" | "secondary" | "soft" | "whatsapp" | "ghost";
   size?: "md" | "sm";
   asChild?: boolean;
 };
@@ -168,20 +171,13 @@ export function SetuAvatar({ name, size = "sm", className }: { name: string; siz
   );
 }
 
-/** "● Negotiation Stage" pill. */
-export function StageBadge({ stage, suffix = " Stage", className }: { stage: DealStage; suffix?: string; className?: string }) {
+/** Search field with the magnifier (list toolbars). */
+export function SearchBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-semibold",
-        STAGE_BADGE[stage],
-        className
-      )}
-    >
-      <span className={cn("h-1.5 w-1.5 rounded-full", STAGE_DOT[stage])} />
-      {STAGE_BY_ID[stage].label}
-      {suffix}
-    </span>
+    <div className="relative min-w-[220px] flex-1">
+      <Search size={15} className="setu-text-3 absolute left-3 top-1/2 -translate-y-1/2" />
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} className="setu-input h-9 pl-9" />
+    </div>
   );
 }
 
@@ -218,24 +214,5 @@ export function ComingSoon({ title, text }: { title: string; text?: string }) {
       <h2 className="text-lg font-semibold">{title}</h2>
       <p className="setu-text-2 max-w-md text-sm">{text ?? "This section is coming soon."}</p>
     </div>
-  );
-}
-
-/** A Setu page with no design yet: breadcrumb, title and a Coming-soon card. */
-export function ComingSoonPage({ title, crumbs }: { title: string; crumbs?: Crumb[] }) {
-  return (
-    <SetuPage>
-      <Breadcrumbs items={crumbs ?? [{ label: "Sales" }, { label: title }]} />
-      <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-      <ComingSoon
-        title={`${title} is coming soon`}
-        text="This page will be built once its design is ready. Meanwhile, manage leads and deals from the Tasks board."
-      />
-      <div className="flex justify-center">
-        <SetuButton variant="primary" asChild>
-          <Link href={ROUTES.setuTasks}>Open Tasks board</Link>
-        </SetuButton>
-      </div>
-    </SetuPage>
   );
 }

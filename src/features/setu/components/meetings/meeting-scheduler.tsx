@@ -7,10 +7,8 @@ import {
   AlarmClock,
   ArrowRight,
   BadgeCheck,
-  Bookmark,
   Building2,
   CalendarDays,
-  CalendarPlus,
   Check,
   Clipboard,
   Clock3,
@@ -21,7 +19,6 @@ import {
   Lock,
   MapPin,
   Plus,
-  ScanEye,
   TriangleAlert,
   UserPlus,
   Users,
@@ -37,6 +34,7 @@ import { RichDescriptionEditor } from "@/components/shared/rich-description";
 import { useClearPageDraft, usePageDraft } from "@/lib/navigation/use-url-state";
 import { MEETING_MODES, MEETING_REMINDER_LABEL, STAGE_BY_ID, channelFromLink, modeOfChannel, type MeetingMode } from "../../constants";
 import { useSetuStore } from "../../provider";
+import { isMember } from "../../bni";
 import type { DealMeeting, MeetingAttendee, MeetingChannel, MeetingReminder } from "../../types";
 import { avatarColor, dealTitle, findConflicts, formatDate, formatSpan, formatTimeRange, initials, isoDate, istDateTime, istHhmm } from "../../utils";
 import { AddExternalAttendeeDialog, AttendeePicker, ReminderSelect, attendeeId } from "../deal/meeting-attendees";
@@ -87,7 +85,7 @@ export function MeetingScheduler({ meetingId }: { meetingId?: string }) {
   if (meetingId && !meeting) {
     return (
       <SetuPage>
-        <Breadcrumbs items={[{ label: "Sales" }, { label: "Activities" }, { label: "Meetings", href: ROUTES.setuMeetings }, { label: "Not found" }]} />
+        <Breadcrumbs items={[{ label: "Networking" }, { label: "121 Meetings", href: ROUTES.setu121 }, { label: "Not found" }]} />
         <ComingSoon title="Meeting not found" text="This meeting doesn't exist (design-phase data resets when the page is refreshed)." />
       </SetuPage>
     );
@@ -95,7 +93,7 @@ export function MeetingScheduler({ meetingId }: { meetingId?: string }) {
   if (meeting && (meeting.status === "COMPLETED" || meeting.status === "CANCELLED")) {
     return (
       <SetuPage>
-        <Breadcrumbs items={[{ label: "Sales" }, { label: "Activities" }, { label: "Meetings", href: ROUTES.setuMeetings }, { label: meeting.title }]} />
+        <Breadcrumbs items={[{ label: "Networking" }, { label: "121 Meetings", href: ROUTES.setu121 }, { label: meeting.title }]} />
         <ComingSoon
           title={`This meeting is ${meeting.status === "COMPLETED" ? "completed" : "cancelled"}`}
           text="Completed meetings are edited from the deal's Meetings tab (Edit details & summary). Cancelled meetings can't be rescheduled — schedule a new one."
@@ -139,7 +137,14 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
   const endAt = validSlot ? istDateTime(form.date, form.end) : "";
   const conflicts = validSlot ? findConflicts(meetings, { id: meeting?.id, startAt, endAt, hostName, attendees: form.attendees }) : [];
   const channel: MeetingChannel = form.mode === "ONLINE" ? channelFromLink(form.link) : form.mode;
-  const back = meeting ? ROUTES.setuMeeting(meeting.id) : presetDeal ? `${ROUTES.setuDeal(presetDeal)}?tab=meetings` : ROUTES.setuMeetings;
+  const presetIsMember = presetDeal ? deals.some((d) => d.id === presetDeal && isMember(d)) : false;
+  const back = meeting
+    ? ROUTES.setuMeeting(meeting.id)
+    : presetDeal
+      ? presetIsMember
+        ? ROUTES.setuMember(presetDeal)
+        : `${ROUTES.setuDeal(presetDeal)}?tab=meetings`
+      : ROUTES.setu121;
 
   const addAttendee = (a: Omit<MeetingAttendee, "id">) => setForm((f) => ({ ...f, attendees: [...f.attendees, { ...a, id: attendeeId() }] }));
   const removeAttendee = (id: string) => setForm((f) => ({ ...f, attendees: f.attendees.filter((a) => a.id !== id) }));
@@ -222,29 +227,21 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
 
   return (
     <SetuPage className="pb-0">
-      <Breadcrumbs items={[{ label: "Sales" }, { label: "Activities" }, { label: "Meetings", href: ROUTES.setuMeetings }, { label: title }]} />
+      <Breadcrumbs items={[{ label: "Networking" }, { label: "121 Meetings", href: ROUTES.setu121 }, { label: title }]} />
 
       <section className="setu-card flex flex-wrap items-center justify-between gap-4 px-6 py-5">
-        <div className="flex items-center gap-4">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--setu-accent)] text-[var(--setu-accent-ink)]">
-            <CalendarPlus size={24} />
-          </span>
-          <div>
-            <h1 className="text-2xl font-bold leading-tight tracking-tight">{title}</h1>
-            <p className="setu-text-2 text-sm">Create a meeting with your customer, prospect or sales team.</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <SetuButton className="bg-[var(--setu-soft)]" onClick={cancel}>
+        <h1 className="min-w-0 text-xl font-bold leading-tight tracking-tight">{title}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <SetuButton variant="ghost" onClick={cancel}>
             Cancel
           </SetuButton>
           {!editing && (
             <SetuButton onClick={() => save(true)} disabled={saving}>
-              <Bookmark /> Save as Draft
+              Save as Draft
             </SetuButton>
           )}
           <SetuButton variant="primary" onClick={() => save(false)} disabled={saving}>
-            {editing ? <Check /> : <Plus />} {editing ? "Save Changes" : "Schedule Meeting"}
+            {editing ? "Save Changes" : "Schedule Meeting"}
           </SetuButton>
         </div>
       </section>
@@ -293,21 +290,22 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
                       onClick={() => set({ mode: mo.id })}
                       aria-pressed={active}
                       className={cn(
-                        "relative cursor-pointer rounded-xl border px-4 py-3.5 text-left transition-colors",
-                        active ? "border-[var(--setu-accent)] bg-[var(--setu-accent-soft)]" : "border-[var(--setu-line)] bg-[var(--setu-soft)] hover:border-[var(--setu-line-strong)]"
+                        "relative cursor-pointer rounded-xl border p-4 text-left transition-all",
+                        active
+                          ? "border-[var(--setu-accent)] bg-[var(--setu-accent-soft)]"
+                          : "border-[var(--setu-line)] bg-[var(--setu-card)] hover:border-[var(--setu-line-strong)] hover:bg-[var(--setu-well)]/40"
                       )}
                     >
-                      <Icon size={20} className={active ? "setu-accent-text" : "setu-text-2"} />
-                      <span
-                        className={cn(
-                          "absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full",
-                          active ? "bg-[var(--setu-accent)] text-[var(--setu-accent-ink)]" : "bg-[var(--setu-line)]"
+                      <div className="flex items-center justify-between">
+                        <Icon size={18} className={active ? "setu-accent-text" : "setu-text-2"} />
+                        {active && (
+                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[var(--setu-accent)] text-[var(--setu-accent-ink)]">
+                            <Check size={10} />
+                          </span>
                         )}
-                      >
-                        {active && <Check size={12} />}
-                      </span>
-                      <p className={cn("mt-3 text-sm font-semibold", active && "setu-accent-text")}>{mo.label}</p>
-                      <p className="setu-text-2 text-xs">{mo.hint}</p>
+                      </div>
+                      <p className={cn("mt-3 text-sm font-semibold", active ? "text-[var(--setu-accent)]" : "text-[var(--setu-text)]")}>{mo.label}</p>
+                      <p className="setu-text-2 mt-0.5 text-xs">{mo.hint}</p>
                     </button>
                   );
                 })}
@@ -316,14 +314,11 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
 
             {form.mode === "ONLINE" ? (
               <div className="rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)] p-4">
-                <p className="flex items-start gap-3">
+                <p className="flex items-center gap-3">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-card)] text-[var(--setu-accent)]">
                     <Link2 size={15} />
                   </span>
-                  <span>
-                    <span className="block text-sm font-semibold">External Meeting Link</span>
-                    <span className="setu-text-2 block text-xs">Attach your video conference URL (Google Meet, Zoom or Teams)</span>
-                  </span>
+                  <span className="text-sm font-semibold">External Meeting Link</span>
                 </p>
                 <div className="mt-3 flex gap-2">
                   <div className="relative flex-1">
@@ -433,25 +428,23 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
         {/* Summary */}
         <aside className="setu-card space-y-4 px-5 py-5 lg:sticky lg:top-4">
           <div className="flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <ScanEye size={18} className="setu-accent-text" /> Meeting Summary
-            </h2>
+            <h2 className="text-base font-semibold">Meeting Summary</h2>
             <span className="rounded-md bg-[var(--setu-accent-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--setu-accent)]">Live Preview</span>
           </div>
-          <div className="rounded-xl bg-gradient-to-br from-blue-700 to-blue-500 p-4 text-white">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-white/80">Scheduled Slot</p>
+          <div className="rounded-xl border border-[var(--setu-line)] border-l-4 border-l-[var(--setu-accent)] bg-[var(--setu-well)]/40 p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--setu-accent)]">Scheduled Slot</p>
             {validSlot ? (
               <>
-                <p className="mt-1 text-2xl font-bold">{formatDate(form.date)}</p>
-                <p className="text-sm text-white/90">
+                <p className="mt-1 text-xl font-bold text-[var(--setu-text)]">{formatDate(form.date)}</p>
+                <p className="text-sm font-medium text-[var(--setu-text-2)]">
                   {formatTimeRange(startAt, endAt)} ({formatSpan(mins * 60)})
                 </p>
               </>
             ) : (
-              <p className="mt-1 text-sm">Pick a date and time</p>
+              <p className="mt-1 text-sm text-[var(--setu-text-2)]">Pick a date and time</p>
             )}
-            <p className="mt-3 flex items-center gap-1.5 border-t border-white/20 pt-2 text-xs">
-              {form.mode === "ONLINE" ? <Video size={13} /> : <MapPin size={13} />}
+            <p className="mt-3 flex items-center gap-1.5 border-t border-[var(--setu-line)] pt-2.5 text-xs text-[var(--setu-text-2)]">
+              {form.mode === "ONLINE" ? <Video size={13} className="text-[var(--setu-accent)]" /> : <MapPin size={13} className="text-[var(--setu-accent)]" />}
               {form.mode === "ONLINE" ? "Virtual Meeting" : form.location || (form.mode === "IN_OFFICE" ? "In-office" : "Client location")}
             </p>
           </div>
@@ -512,21 +505,21 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
       <div className="sticky bottom-0 z-10 -mx-4 mt-2 border-t border-[var(--setu-line)] bg-[var(--setu-card)]/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="setu-text-2 flex items-center gap-2 text-xs">
-            <span className="h-2 w-2 rounded-full bg-[var(--setu-accent)]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-[var(--setu-accent)]" />
             <span className="font-semibold text-[var(--setu-text)]">Draft auto-saved</span> · kept until you schedule, save or discard
           </p>
           {error && <p className="text-xs font-medium text-red-500">{error}</p>}
-          <div className="flex flex-wrap gap-2">
-            <SetuButton className="bg-[var(--setu-soft)]" onClick={cancel}>
-              <X /> Discard / Cancel
+          <div className="flex flex-wrap items-center gap-2">
+            <SetuButton variant="ghost" onClick={cancel}>
+              Discard
             </SetuButton>
             {!editing && (
-              <SetuButton className="bg-[var(--setu-soft)]" onClick={() => save(true)} disabled={saving}>
+              <SetuButton variant="soft" onClick={() => save(true)} disabled={saving}>
                 Save as Draft
               </SetuButton>
             )}
             <SetuButton variant="primary" onClick={() => save(false)} className="px-5" disabled={saving}>
-              {editing ? "Save Changes" : "Schedule Meeting"} <ArrowRight />
+              {editing ? "Save Changes" : "Schedule Meeting"}
             </SetuButton>
           </div>
         </div>
@@ -537,13 +530,11 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
   );
 }
 
-function CardTitle({ icon: Icon, title, chip }: { icon: React.ElementType; title: string; chip?: string }) {
+function CardTitle({ title, chip }: { title: string; chip?: string; icon?: React.ElementType }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <h2 className="flex items-center gap-2 text-xl font-semibold">
-        <Icon size={20} className="setu-accent-text" /> {title}
-      </h2>
-      {chip && <span className="rounded-md bg-[var(--setu-accent-soft)] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-[var(--setu-accent)]">{chip}</span>}
+      <h2 className="text-base font-semibold">{title}</h2>
+      {chip && <span className="rounded-md bg-[var(--setu-well)] px-2 py-0.5 text-[11px] font-semibold text-[var(--setu-text-2)]">{chip}</span>}
     </div>
   );
 }
@@ -564,23 +555,23 @@ function PersonRow({
   large?: boolean;
 }) {
   return (
-    <div className={cn("flex items-center gap-3 rounded-xl bg-[var(--setu-well)] px-3", large ? "py-3" : "py-2.5")}>
-      <span className={cn("flex shrink-0 items-center justify-center rounded-full font-semibold text-white", avatarColor(name), large ? "h-10 w-10 text-sm" : "h-9 w-9 text-xs")}>
+    <div className={cn("flex items-center gap-3 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-card)] px-3.5 transition-colors hover:bg-[var(--setu-well)]/30", large ? "py-3" : "py-2.5")}>
+      <span className={cn("flex shrink-0 items-center justify-center rounded-full font-semibold text-white", avatarColor(name), large ? "h-9 w-9 text-xs" : "h-8 w-8 text-[11px]")}>
         {initials(name)}
       </span>
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-center gap-2">
-          <span className={cn("font-semibold", large ? "text-base" : "text-sm")}>{name}</span>
-          {badge && <span className="rounded bg-violet-100 px-1.5 py-px text-[10px] font-semibold text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">{badge}</span>}
+          <span className={cn("font-semibold", large ? "text-sm" : "text-xs")}>{name}</span>
+          {badge && <span className="rounded bg-[var(--setu-well)] px-1.5 py-px text-[10px] font-medium text-[var(--setu-text-2)]">{badge}</span>}
         </p>
         <p className="setu-text-2 truncate text-xs">{sub}</p>
       </div>
       {locked ? (
-        <Lock size={15} className="setu-accent-text shrink-0" aria-label="Host can't be removed" />
+        <Lock size={14} className="setu-accent-text shrink-0" aria-label="Host can't be removed" />
       ) : (
         onRemove && (
           <button type="button" onClick={onRemove} aria-label={`Remove ${name}`} className="setu-text-3 cursor-pointer rounded-md p-1 hover:text-[var(--setu-text)]">
-            <X size={16} />
+            <X size={15} />
           </button>
         )
       )}

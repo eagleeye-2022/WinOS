@@ -37,19 +37,19 @@ export const ROUTES = {
   pulseMemberProfile: (userId: string) => `/pulse/profile/${userId}` as const,
   pulseAddMember: "/pulse/profile/new",
   setu: "/setu",
-  setuDashboard: "/setu/dashboard",
-  setuLeads: "/setu/leads",
+  // Setu (BNI networking): five feature tabs.
+  setu121: "/setu/121-meetings",
+  /** A BNI member's 121 record (opens the member dialog on 121 Meetings). */
+  setuMember: (memberId: string) => `/setu/121-meetings?member=${memberId}` as const,
+  setuPipeline: "/setu/pipeline",
+  setuWhatsappBot: "/setu/whatsapp-bot",
   setuContacts: "/setu/contacts",
-  setuDeals: "/setu/deals",
+  setuReferrals: "/setu/referrals",
+  // Prospect workspace (calls, meetings, notes, proposals, negotiation, won / lost) and the meeting scheduler.
   setuDeal: (dealId: string) => `/setu/deals/${dealId}` as const,
-  setuActivities: "/setu/activities",
-  setuTasks: "/setu/tasks",
-  setuCalls: "/setu/calls",
-  setuMeetings: "/setu/meetings",
   setuMeetingNew: "/setu/meetings/new",
   setuMeeting: (meetingId: string) => `/setu/meetings/${meetingId}` as const,
   setuMeetingEdit: (meetingId: string) => `/setu/meetings/${meetingId}/edit` as const,
-  setuForecast: "/setu/forecast",
   restricted: "/restricted",
 } as const;
 

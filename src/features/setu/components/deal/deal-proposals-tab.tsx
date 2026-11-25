@@ -5,12 +5,12 @@ import { CircleCheck, CircleX, Clock3, Eye, FilePen, FileText, GitBranch, Indian
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { RichDescriptionEditor, RichDescriptionView, isEmptyDescription } from "@/components/shared/rich-description";
 import { usePageViewState } from "@/lib/navigation/use-url-state";
 import { useSetuStore } from "../../provider";
 import type { Deal, DealFile, ProposalVersion } from "../../types";
 import { displayCode, formatDate, formatInr, formatPercent, formatTime, parseInr, percentChange, proposalSummary } from "../../utils";
-import { SetuButton, attempt } from "../setu-ui";
+import { SETU_RICH_VIEW, SetuButton, attempt } from "../setu-ui";
 import { FileDropzone, FileRow, downloadDealFile } from "./deal-files";
 
 export function DealProposalsTab({ deal }: { deal: Deal }) {
@@ -172,7 +172,7 @@ function DraftCard({ draft, active, code }: { draft: ProposalVersion; active?: P
   const collect = () => {
     const problem = !title.trim() ? "Proposal scope title is required." : !Number.isFinite(value) || value <= 0 ? "Enter the commercial quote." : "";
     setError(problem);
-    return problem ? null : { title: title.trim(), value, reason: reason.trim() };
+    return problem ? null : { title: title.trim(), value, reason: isEmptyDescription(reason) ? "" : reason.trim() };
   };
 
   const run = async (action: () => Promise<void>, done: string) => {
@@ -207,11 +207,8 @@ function DraftCard({ draft, active, code }: { draft: ProposalVersion; active?: P
 
       <div className="mt-4 grid gap-4 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)] p-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <label className="block space-y-1.5">
-          <span className="flex items-center justify-between text-xs font-semibold">
-            <span>
-              Proposal Scope Title <span className="text-red-500">*</span>
-            </span>
-            <span className="setu-text-3 text-[11px] font-normal">Shown on client PDF header</span>
+          <span className="block text-xs font-semibold">
+            Proposal Scope Title <span className="text-red-500">*</span>
           </span>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} className="setu-input h-9 bg-[var(--setu-card)]!" />
         </label>
@@ -233,13 +230,10 @@ function DraftCard({ draft, active, code }: { draft: ProposalVersion; active?: P
         </label>
       </div>
 
-      <label className="mt-4 block space-y-1.5">
-        <span className="flex items-center justify-between text-xs font-semibold">
-          Revision Justification & Client Covenant Adjustments
-          <span className="setu-text-3 text-[11px] font-normal">Internal & client audit trail</span>
-        </span>
-        <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why is this revision needed?" className="setu-input min-h-20" />
-      </label>
+      <div className="mt-4 space-y-1.5">
+        <span className="block text-xs font-semibold">Revision Justification & Client Covenant Adjustments</span>
+        <RichDescriptionEditor value={reason} onChange={setReason} />
+      </div>
 
       <div className="mt-4">
         {attachment ? (
@@ -327,10 +321,11 @@ function VersionCard({ proposal: p, code, first, onSnapshot }: { proposal: Propo
       </CodeChip>
     </div>
   );
-  const reasonBox = p.reason && (
-    <p className="setu-soft mt-4 px-4 py-3 text-xs">
-      <span className="font-semibold">{first ? "Initial Pitch:" : "Revision Reason:"}</span> {p.reason}
-    </p>
+  const reasonBox = !isEmptyDescription(p.reason) && (
+    <div className="setu-soft mt-4 px-4 py-3 text-xs">
+      <p className="font-semibold">{first ? "Initial Pitch:" : "Revision Reason:"}</p>
+      <RichDescriptionView value={p.reason} className={SETU_RICH_VIEW} />
+    </div>
   );
 
   if (isActive) {
@@ -380,37 +375,37 @@ function SnapshotDialog({ proposal: p, code, onClose }: { proposal?: ProposalVer
         {p && (
           <div className="space-y-4">
             <div>
-              <DialogTitle className="text-lg font-semibold">
+              <DialogTitle className="text-base font-semibold">
                 V{p.version} — {p.title}
               </DialogTitle>
-              <DialogDescription className="setu-text-2 mt-1 font-mono text-xs">
+              <DialogDescription className="setu-text-2 mt-0.5 font-mono text-xs">
                 {code}-V{p.version} · {p.status === "ACTIVE" ? "Active offer" : "Superseded"}
               </DialogDescription>
             </div>
-            <dl className="grid grid-cols-2 gap-3 text-sm">
-              <div className="setu-soft px-3 py-2">
-                <dt className="setu-text-3 text-xs">Commercial Value</dt>
-                <dd className="font-bold">{formatInr(p.value)}</dd>
+            <dl className="grid grid-cols-2 gap-3 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)]/40 p-3.5 text-sm">
+              <div>
+                <dt className="setu-text-3 text-[11px] font-medium">Commercial Value</dt>
+                <dd className="mt-0.5 text-sm font-semibold">{formatInr(p.value)}</dd>
               </div>
-              <div className="setu-soft px-3 py-2">
-                <dt className="setu-text-3 text-xs">Generated</dt>
-                <dd className="font-medium">
+              <div>
+                <dt className="setu-text-3 text-[11px] font-medium">Generated</dt>
+                <dd className="mt-0.5 text-xs font-medium">
                   {formatDate(p.createdAt)}, {formatTime(p.createdAt)}
                 </dd>
               </div>
-              <div className="setu-soft px-3 py-2">
-                <dt className="setu-text-3 text-xs">Author</dt>
-                <dd className="font-medium">
+              <div>
+                <dt className="setu-text-3 text-[11px] font-medium">Author</dt>
+                <dd className="mt-0.5 text-xs font-medium">
                   {p.authorName}
                   {p.authorRole && ` (${p.authorRole})`}
                 </dd>
               </div>
-              <div className="setu-soft px-3 py-2">
-                <dt className="setu-text-3 text-xs">Sent via</dt>
-                <dd className="font-medium">{p.sentVia ?? "—"}</dd>
+              <div>
+                <dt className="setu-text-3 text-[11px] font-medium">Sent via</dt>
+                <dd className="mt-0.5 text-xs font-medium">{p.sentVia ?? "—"}</dd>
               </div>
             </dl>
-            {p.reason && <p className="setu-text-2 text-sm leading-relaxed">{p.reason}</p>}
+            {!isEmptyDescription(p.reason) && <RichDescriptionView value={p.reason} className={SETU_RICH_VIEW} />}
             {p.attachment && (
               <div className="rounded-xl border border-[var(--setu-line)] px-4">
                 <FileRow file={p.attachment} />
