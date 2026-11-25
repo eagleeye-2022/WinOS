@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useEffect, useRef, useTransition, type Dispatch, type SetStateAction } from "react";
-import { Plus, X, ChevronRight, ChevronDown, CheckCircle2, AlertCircle, ClipboardList, GraduationCap, Calendar as CalendarIcon, Clock, Loader2, Pencil, Trash2, Archive, ArrowUpRight } from "lucide-react";
+import { Plus, X, ChevronRight, ChevronDown, CheckCircle2, AlertCircle, ClipboardList, GraduationCap, Calendar as CalendarIcon, Clock, Loader2, Pencil, Trash2, Archive, ArrowUpRight, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
 import {
@@ -16,7 +16,11 @@ import {
 import { ensureNatTaskForTimerAction } from "../actions/create-project-items";
 import { toast } from "@/components/shared/toast";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "../actions/parking-lot";
-import type { EntryWithDetails, TeamMember, ParkedTask } from "../queries";
+import type { EntryWithDetails, TeamMember, ParkedTask, RecurringTaskItem } from "../queries";
+import { RecurringTasksManager } from "./recurring-tasks-manager";
+import { DsmRecurrencePicker } from "./dsm-recurrence-picker";
+import { formatRecurrenceBadge, parseRule, type RecurrenceRule } from "../recurring-utils";
+import { createRecurringTaskAction, skipRecurringTaskForDateAction, updateRecurringTaskAction, deleteRecurringTaskAction } from "../actions/recurring-tasks";
 import { MentionInput } from "@/components/shared/mention-input";
 import { YesterdayAdditionalWork, type AdditionalWorkItem } from "./yesterday-additional-work";
 import { YesterdayTaskList } from "./yesterday-task-list";
@@ -93,7 +97,7 @@ const inputCls =
 
 /** `projectTaskId` and `projectId` are saved (a row can link a project with no task);
  *  `taskListCode` is client-only picker state. */
-type Task = { id: string; text: string; priority: string; carried: boolean; projectTaskId?: string; projectId?: string; taskListCode?: string; dueDate?: string; createdAt?: string };
+type Task = { id: string; text: string; priority: string; carried: boolean; projectTaskId?: string; projectId?: string; taskListCode?: string; dueDate?: string; createdAt?: string; recurringTaskId?: string; recurrenceLabel?: string };
 
 type ProjectsUpdater = (update: (prev: CascadingProjectOption[]) => CascadingProjectOption[]) => void;
 
@@ -164,6 +168,9 @@ function TaskRows({
   onParkTask,
   onProjectsChange,
   onlyNotAligned = false,
+  todayDateStr,
+  userRecurringTasks = [],
+  onRecurringChange,
 }: {
   tasks: Task[];
   teamMembers: TeamMember[];
@@ -177,7 +184,12 @@ function TaskRows({
   /** "Not Aligned Task" filter (see isNotAlignedTask). Other rows are hidden with CSS, not
    *  unmounted — their hidden inputs must still submit with the form. */
   onlyNotAligned?: boolean;
+  todayDateStr: string;
+  userRecurringTasks?: RecurringTaskItem[];
+  onRecurringChange?: (updater: (prev: RecurringTaskItem[]) => RecurringTaskItem[]) => void;
 }) {
+  const [openRepeatRowId, setOpenRepeatRowId] = useState<string | null>(null);
+
   // Functional, id-keyed update — safe to call after an await (creating a task list / task),
   // when `tasks` from this render may be stale or rows may have moved.
   const patchRow = (id: string, patch: (t: Task) => Partial<Task>) =>
@@ -188,7 +200,13 @@ function TaskRows({
     n[i] = { ...n[i], [field]: v };
     onChange(n);
   };
-  const remove = (i: number) => onChange(tasks.filter((_, j) => j !== i));
+  const remove = (i: number) => {
+    const target = tasks[i];
+    if (target?.recurringTaskId) {
+      void skipRecurringTaskForDateAction(target.recurringTaskId, todayDateStr);
+    }
+    onChange(tasks.filter((_, j) => j !== i));
+  };
   const add = () => onChange([...tasks, { id: crypto.randomUUID(), text: "", priority: "", carried: false, createdAt: new Date().toISOString() }]);
 
   const handleProjectChange = (i: number, newProjectId: string) => {
@@ -303,6 +321,7 @@ function TaskRows({
             {/* Task list picked without a task: on submit, a task is created there from the text. */}
             <input type="hidden" name="taskListCode" value={tree.taskListCode} />
             <input type="hidden" name="taskDueDate" value={task.dueDate || ""} />
+            <input type="hidden" name="taskRecurringTaskId" value={task.recurringTaskId || ""} />
 
               {/* Line 1: Task ID (Code Chip) + Text Input */}
               <div className="flex items-center gap-2 w-full">
@@ -327,11 +346,20 @@ function TaskRows({
                 </div>
               </div>
 
-              {/* Line 2: Carryover Badge + Project Selector + Task Selector + Subtask Selector */}
+              {/* Line 2: Carryover Badge + Recurring Badge + Project Selector + Task Selector + Subtask Selector */}
               <div className="flex items-center gap-2.5 flex-wrap pt-0.5">
                 {task.carried && (
                   <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-amber-600 dark:text-amber-400 shrink-0" title="Carried Over">
                     CO
+                  </span>
+                )}
+                {task.recurringTaskId && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary shrink-0"
+                    title="Recurring standup task"
+                  >
+                    <Repeat size={10} />
+                    {task.recurrenceLabel || "Recurring"}
                   </span>
                 )}
 
@@ -419,6 +447,148 @@ function TaskRows({
                       >
                         Today
                       </button>
+                    );
+                  })()}
+
+                  {/* Inline Repeat toggle */}
+                  {(() => {
+                    const existingRec = task.recurringTaskId
+                      ? userRecurringTasks.find((r) => r.id === task.recurringTaskId)
+                      : undefined;
+                    const currentRule = existingRec ? parseRule(existingRec.recurrenceRule) : null;
+                    const anchor = new Date(todayDateStr + "T00:00:00.000Z");
+                    const isRepeatOpen = openRepeatRowId === task.id;
+
+                    const handleRowRuleChange = async (newRule: RecurrenceRule | null) => {
+                      setOpenRepeatRowId(null);
+                      if (!newRule) {
+                        if (task.recurringTaskId) {
+                          const rid = task.recurringTaskId;
+                          const res = await deleteRecurringTaskAction(rid);
+                          if (res.success) {
+                            patchRow(task.id, () => ({ recurringTaskId: undefined, recurrenceLabel: undefined }));
+                            onRecurringChange?.((prev) => prev.filter((r) => r.id !== rid));
+                            toast.success("Recurrence removed");
+                          } else {
+                            toast.error(res.message ?? "Failed to remove recurrence");
+                          }
+                        }
+                        return;
+                      }
+                      if (!task.text.trim()) {
+                        toast.error("Enter task text before making it recurring");
+                        return;
+                      }
+                      const badge = formatRecurrenceBadge(newRule, anchor);
+                      if (task.recurringTaskId) {
+                        const rid = task.recurringTaskId;
+                        const res = await updateRecurringTaskAction(rid, {
+                          text: task.text.trim(),
+                          priority: task.priority || null,
+                          projectId: tree.projectId || null,
+                          projectTaskId: projectTaskId || null,
+                          rule: newRule,
+                        });
+                        if (res.success) {
+                          patchRow(task.id, () => ({ recurrenceLabel: badge }));
+                          onRecurringChange?.((prev) =>
+                            prev.map((r) =>
+                              r.id === rid ? { ...r, recurrenceRule: JSON.stringify(newRule) } : r
+                            )
+                          );
+                          toast.success(`Updated schedule: ${badge}`);
+                        } else {
+                          toast.error(res.message ?? "Failed to update recurrence");
+                        }
+                      } else {
+                        const res = await createRecurringTaskAction({
+                          text: task.text.trim(),
+                          priority: task.priority || null,
+                          projectId: tree.projectId || null,
+                          projectTaskId: projectTaskId || null,
+                          rule: newRule,
+                          startDateStr: todayDateStr,
+                        });
+                        if (res.success && res.id) {
+                          const newId = res.id;
+                          patchRow(task.id, () => ({
+                            recurringTaskId: newId,
+                            recurrenceLabel: badge,
+                          }));
+                          onRecurringChange?.((prev) => [
+                            ...prev,
+                            {
+                              id: newId,
+                              userId: "",
+                              text: task.text.trim(),
+                              priority: task.priority || null,
+                              projectId: tree.projectId || null,
+                              projectTaskId: projectTaskId || null,
+                              recurrenceRule: JSON.stringify(newRule),
+                              startDate: anchor,
+                              endDate: null,
+                              isActive: true,
+                              order: prev.length,
+                            },
+                          ]);
+                          toast.success(`Repeats: ${badge}`);
+                        } else {
+                          toast.error(res.message ?? "Failed to save recurring task");
+                        }
+                      }
+                    };
+
+                    return (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setOpenRepeatRowId(isRepeatOpen ? null : task.id)}
+                          title={task.recurringTaskId ? `Recurring (${task.recurrenceLabel || "Active"})` : "Make this task repeat"}
+                          className={cn(
+                            "flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-semibold transition-colors cursor-pointer",
+                            task.recurringTaskId
+                              ? "border-primary/40 bg-primary/10 text-primary"
+                              : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-primary"
+                          )}
+                        >
+                          <Repeat size={12} />
+                          <span>{task.recurringTaskId ? (task.recurrenceLabel || "Recurring") : "Recurring"}</span>
+                        </button>
+                        {isRepeatOpen && (
+                          <div
+                            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+                            onClick={() => setOpenRepeatRowId(null)}
+                          >
+                            <div
+                              className="w-full max-w-sm rounded-xl border bg-card p-4 text-card-foreground shadow-xl space-y-3"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <Repeat size={15} className="shrink-0 text-primary" />
+                                  <span className="text-sm font-semibold truncate">
+                                    {task.text.trim() || "Recurring Task"}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenRepeatRowId(null)}
+                                  className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                  aria-label="Close"
+                                >
+                                  <X size={15} />
+                                </button>
+                              </div>
+                              <DsmRecurrencePicker
+                                value={currentRule}
+                                onChange={handleRowRuleChange}
+                                start={anchor}
+                                variant="inline"
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     );
                   })()}
                 </div>
@@ -1272,6 +1442,8 @@ type SubmitDsmFormProps = {
   todayDateStr: string; // "YYYY-MM-DD"
   todayCalendarEvents?: CalendarEventView[];
   parkedTasks?: ParkedTask[];
+  userRecurringTasks?: RecurringTaskItem[];
+  dueRecurringTasks?: RecurringTaskItem[];
   onCancel?: () => void;
   currentUserId: string;
 };
@@ -1290,9 +1462,12 @@ export function SubmitDsmForm({
   todayDateStr,
   todayCalendarEvents,
   parkedTasks: parkedTasksProp,
+  userRecurringTasks = [],
+  dueRecurringTasks = [],
   onCancel,
   currentUserId,
 }: SubmitDsmFormProps) {
+  const [recurringList, setRecurringList] = useState<RecurringTaskItem[]>(userRecurringTasks);
   const [state, action, pending] = useActionState(saveDsm, initialState);
   const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
 
@@ -1336,32 +1511,69 @@ export function SubmitDsmForm({
         t.projectTaskId || !t.carried ? t : { ...t, projectTaskId: linkByText.get(t.text.trim().toLowerCase()) ?? "" }
       );
     }
+    const toRecurringRow = (r: RecurringTaskItem): Task => {
+      const rule = parseRule(r.recurrenceRule);
+      return {
+        id: crypto.randomUUID(),
+        text: r.text,
+        priority: r.priority ?? "",
+        carried: false,
+        projectTaskId: r.projectTaskId ?? "",
+        projectId: r.projectId ?? "",
+        dueDate: "",
+        recurringTaskId: r.id,
+        recurrenceLabel: rule ? formatRecurrenceBadge(rule, new Date(r.startDate)) : "Recurring",
+      };
+    };
+
     const existingToday = entry?.tasks.filter((t) => t.kind === "TODAY") ?? [];
     if (existingToday.length > 0) {
-      return existingToday.map((t) => ({
-        id: crypto.randomUUID(),
-        text: t.text,
-        priority: t.priority ?? "",
-        // Keep the project link — without it, re-saving a submitted entry wipes every task's Project / Task ID.
-        projectTaskId: t.projectTaskId ?? "",
-        projectId: t.projectId ?? "",
-        carried: yesterdayIncompleteTasks.some((yt) => yt.trim().toLowerCase() === t.text.trim().toLowerCase()),
-        dueDate: t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : "",
-        createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : undefined,
-      }));
+      const mappedExisting: Task[] = existingToday.map((t) => {
+        const recRule = t.recurringTask ? parseRule(t.recurringTask.recurrenceRule) : null;
+        return {
+          id: crypto.randomUUID(),
+          text: t.text,
+          priority: t.priority ?? "",
+          // Keep the project link — without it, re-saving a submitted entry wipes every task's Project / Task ID.
+          projectTaskId: t.projectTaskId ?? "",
+          projectId: t.projectId ?? "",
+          carried: yesterdayIncompleteTasks.some((yt) => yt.trim().toLowerCase() === t.text.trim().toLowerCase()),
+          dueDate: t.dueDate ? new Date(t.dueDate).toISOString().slice(0, 10) : "",
+          createdAt: t.createdAt ? new Date(t.createdAt).toISOString() : undefined,
+          recurringTaskId: t.recurringTaskId ?? undefined,
+          recurrenceLabel: recRule && t.recurringTask
+            ? formatRecurrenceBadge(recRule, new Date(t.recurringTask.startDate))
+            : undefined,
+        };
+      });
+      const existingRecIds = new Set(mappedExisting.map((t) => t.recurringTaskId).filter(Boolean));
+      const missingDue = dueRecurringTasks
+        .filter((r) => !existingRecIds.has(r.id))
+        .map(toRecurringRow);
+      return [...mappedExisting, ...missingDue];
     }
     // Carry yesterday's unfinished tasks into today, keeping their project link.
-    const unfinished = yesterday.tasks.filter((t) => !t.isCompleted);
-    if (unfinished.length > 0) {
-      return unfinished.map((t) => ({
-        id: crypto.randomUUID(),
-        text: t.text,
-        priority: "",
-        carried: true,
-        projectTaskId: t.projectTaskId ?? "",
-        projectId: t.projectId ?? "",
-        dueDate: "",
-      }));
+    // If an unfinished task from yesterday is a recurring task that is ALSO due today
+    // (e.g. a Daily task), don't duplicate it as both a CO row and a new recurring row —
+    // today's recurring row represents it cleanly.
+    const dueRecurringIds = new Set(dueRecurringTasks.map((r) => r.id));
+    const unfinished = yesterday.tasks.filter(
+      (t) => !t.isCompleted && !(t.recurringTaskId && dueRecurringIds.has(t.recurringTaskId))
+    );
+    const carriedRows: Task[] = unfinished.map((t) => ({
+      id: crypto.randomUUID(),
+      text: t.text,
+      priority: "",
+      carried: true,
+      projectTaskId: t.projectTaskId ?? "",
+      projectId: t.projectId ?? "",
+      dueDate: "",
+      recurringTaskId: t.recurringTaskId ?? undefined,
+    }));
+    const dueRows = dueRecurringTasks.map(toRecurringRow);
+    const combined = [...carriedRows, ...dueRows];
+    if (combined.length > 0) {
+      return combined;
     }
     return [{ id: crypto.randomUUID(), text: "", priority: "", carried: false, dueDate: "" }, { id: crypto.randomUUID(), text: "", priority: "", carried: false, dueDate: "" }];
   });
@@ -1782,6 +1994,13 @@ export function SubmitDsmForm({
           required
           headerAction={
             <div className="flex items-center gap-2">
+              <RecurringTasksManager
+                items={recurringList}
+                todayDateStr={todayDateStr}
+                cascadingProjects={cascadingProjects}
+                onProjectsChange={setCascadingProjects}
+                onItemsChange={setRecurringList}
+              />
               <button
                 type="button"
                 onClick={() => setShowNotAligned((v) => !v)}
@@ -1871,6 +2090,9 @@ export function SubmitDsmForm({
                 onParkTask={handleParkTask}
                 onProjectsChange={setCascadingProjects}
                 onlyNotAligned={showNotAligned}
+                todayDateStr={todayDateStr}
+                userRecurringTasks={recurringList}
+                onRecurringChange={setRecurringList}
               />
             </div>
           </div>

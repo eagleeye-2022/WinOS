@@ -17,6 +17,8 @@ import {
   getParkedTasks,
   getCoreDailyTasks,
   getYesterdayAdditionalWork,
+  getUserRecurringTasks,
+  getDueRecurringTasksForDate,
 } from "@/features/dsm/queries";
 import { toIsoDateStr, toUtcDate, formatShortDate } from "@/features/dsm/utils";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
@@ -42,7 +44,7 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justSubmitted = sp.submitted === "1";
 
-  const [todayEntry, yesterday, yesterdayIncompleteTasks, yesterdayBlockers, yesterdaySupportNeeds, yesterdayIncompleteLearningItems, weekEntries, sharedItems, kpiStats, teamMembers, todayCalendarEvents, inAnyTeam, parkedTasks, coreDailyTasks, yesterdayAdditionalWork, todayEffort] =
+  const [todayEntry, yesterday, yesterdayIncompleteTasks, yesterdayBlockers, yesterdaySupportNeeds, yesterdayIncompleteLearningItems, weekEntries, sharedItems, kpiStats, teamMembers, todayCalendarEvents, inAnyTeam, parkedTasks, coreDailyTasks, yesterdayAdditionalWork, todayEffort, userRecurringTasks, dueRecurringTasks] =
     await Promise.all([
       getTodayEntry(),
       getYesterdaySummary(),
@@ -60,6 +62,8 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
       getCoreDailyTasks(),
       getYesterdayAdditionalWork(),
       getMyTodayEffort(),
+      getUserRecurringTasks(),
+      getDueRecurringTasksForDate(),
     ]);
 
   const todayDateStr = toIsoDateStr(toUtcDate());
@@ -98,6 +102,8 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
           currentUserId={session.user.id}
           todayCalendarEvents={todayCalendarEvents}
           parkedTasks={parkedTasks}
+          userRecurringTasks={userRecurringTasks}
+          dueRecurringTasks={dueRecurringTasks}
         />
       </div>
 

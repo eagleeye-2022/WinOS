@@ -16,6 +16,8 @@ import {
   getParkedTasks,
   getCoreDailyTasks,
   getYesterdayAdditionalWork,
+  getUserRecurringTasks,
+  getDueRecurringTasksForDate,
 } from "@/features/dsm/queries";
 import { toIsoDateStr, toUtcDate, formatShortDate } from "@/features/dsm/utils";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
@@ -42,7 +44,7 @@ export default async function DSMPage({ searchParams }: Props) {
   // Managers have their own dedicated pages — redirect them out of the member DSM flow
   if (session.user.role === "MANAGER") redirect("/dsm/all");
 
-  const [todayEntry, yesterday, yesterdayIncompleteTasks, yesterdayBlockers, yesterdaySupportNeeds, yesterdayIncompleteLearningItems, weekEntries, kpiStats, teamMembers, sharedItems, todayCalendarEvents, parkedTasks, coreDailyTasks, yesterdayAdditionalWork, todayEffort] =
+  const [todayEntry, yesterday, yesterdayIncompleteTasks, yesterdayBlockers, yesterdaySupportNeeds, yesterdayIncompleteLearningItems, weekEntries, kpiStats, teamMembers, sharedItems, todayCalendarEvents, parkedTasks, coreDailyTasks, yesterdayAdditionalWork, todayEffort, userRecurringTasks, dueRecurringTasks] =
     await Promise.all([
       getTodayEntry(),
       getYesterdaySummary(),
@@ -59,6 +61,8 @@ export default async function DSMPage({ searchParams }: Props) {
       getCoreDailyTasks(),
       getYesterdayAdditionalWork(),
       getMyTodayEffort(),
+      getUserRecurringTasks(),
+      getDueRecurringTasksForDate(),
     ]);
 
   const today = toUtcDate();
@@ -105,6 +109,8 @@ export default async function DSMPage({ searchParams }: Props) {
           currentUserId={session.user.id}
           todayCalendarEvents={todayCalendarEvents}
           parkedTasks={parkedTasks}
+          userRecurringTasks={userRecurringTasks}
+          dueRecurringTasks={dueRecurringTasks}
         />
       </div>
 

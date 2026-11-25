@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { linkProjectOnlyRowsToNat } from "../nat-rows";
 import { syncDueDateFromDsm } from "../../due-date-sync";
+import { parseRule, serializeRule } from "../../recurring-utils";
 
 export type AddTaskState = { message?: string };
 
@@ -25,6 +26,9 @@ export async function addTask(
   const projectId = (formData.get("projectId") as string)?.trim() || null;
   const dueDateStr = (formData.get("dueDate") as string)?.trim();
   const dueDate = dueDateStr ? new Date(dueDateStr) : null;
+  const rawRecurrenceRule = (formData.get("recurrenceRule") as string)?.trim() || "";
+  const parsedRule = rawRecurrenceRule ? parseRule(rawRecurrenceRule) : null;
+  const serializedRule = parsedRule ? serializeRule(parsedRule) : null;
 
   if (!entryId) return { message: "Missing entry ID" };
   if (!text) return { message: "Task text cannot be empty" };
@@ -34,7 +38,7 @@ export async function addTask(
 
   const entry = await d.standupEntry.findUnique({
     where: { id: entryId },
-    select: { userId: true, status: true, tasks: { select: { order: true } } },
+    select: { userId: true, date: true, status: true, tasks: { select: { order: true } } },
   });
 
   if (!entry) return { message: "Entry not found" };
@@ -49,6 +53,27 @@ export async function addTask(
   const isParking = priority === "PARKING";
   const resolvedKind = isParking ? "PARKED" : (kind as "TODAY" | "YESTERDAY");
 
+  let recurringTaskId: string | null = null;
+  if (serializedRule && !isParking && resolvedKind === "TODAY") {
+    const recCount = await d.recurringStandupTask.count({ where: { userId: entry.userId } });
+    const rec = await d.recurringStandupTask.create({
+      data: {
+        userId: entry.userId,
+        createdById: session.user.id,
+        text,
+        priority: priority || null,
+        projectId,
+        projectTaskId,
+        recurrenceRule: serializedRule,
+        startDate: entry.date,
+        isActive: true,
+        order: recCount,
+      },
+      select: { id: true },
+    });
+    recurringTaskId = rec.id;
+  }
+
   const created = await d.standupTask.create({
     select: { id: true },
     data: {
@@ -61,6 +86,7 @@ export async function addTask(
       projectTaskId,
       projectId,
       dueDate,
+      recurringTaskId,
       order: maxOrder + 1,
       addedAfterReview,
       addedById: session.user.id,

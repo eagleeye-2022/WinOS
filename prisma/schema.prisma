@@ -122,6 +122,8 @@ model User {
   crmMeetingInvites       CrmMeetingAttendee[] @relation("CrmMeetingAttendeeUser")
   crmProposals            CrmProposal[]        @relation("CrmProposalAuthor")
   crmFilesUploaded        CrmFile[]            @relation("CrmFileUploader")
+  recurringStandupTasks   RecurringStandupTask[] @relation("UserRecurringStandupTasks")
+  createdRecurringTasks   RecurringStandupTask[] @relation("CreatedRecurringStandupTasks")
 }
 
 model Account {
@@ -201,6 +203,7 @@ model StandupTask {
   isNewRequest     Boolean       @default(false)
   isParked         Boolean       @default(false)
   dueDate          DateTime?
+  recurringTaskId  String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   entry            StandupEntry  @relation(fields: [entryId], references: [id], onDelete: Cascade)
@@ -208,6 +211,44 @@ model StandupTask {
   editedBy         User?         @relation("TaskEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
   projectTask      ProjectTask?  @relation(fields: [projectTaskId], references: [id], onDelete: SetNull)
   project          Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  recurringTask    RecurringStandupTask? @relation(fields: [recurringTaskId], references: [id], onDelete: SetNull)
+}
+
+model RecurringStandupTask {
+  id             String       @id @default(cuid())
+  userId         String
+  createdById    String?
+  text           String
+  priority       String?
+  projectId      String?
+  projectTaskId  String?
+  recurrenceRule String
+  startDate      DateTime
+  endDate        DateTime?
+  isActive       Boolean      @default(true)
+  order          Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  user           User         @relation("UserRecurringStandupTasks", fields: [userId], references: [id], onDelete: Cascade)
+  createdBy      User?        @relation("CreatedRecurringStandupTasks", fields: [createdById], references: [id], onDelete: SetNull)
+  project        Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectTask    ProjectTask? @relation(fields: [projectTaskId], references: [id], onDelete: SetNull)
+  standupTasks   StandupTask[]
+  skips          StandupRecurringSkip[]
+
+  @@index([userId, isActive])
+}
+
+model StandupRecurringSkip {
+  id              String               @id @default(cuid())
+  recurringTaskId String
+  date            DateTime
+  createdAt       DateTime             @default(now())
+
+  recurringTask   RecurringStandupTask @relation(fields: [recurringTaskId], references: [id], onDelete: Cascade)
+
+  @@unique([recurringTaskId, date])
 }
 
 model StandupTimelineEvent {
@@ -1030,6 +1071,7 @@ model Project {
   activities               ProjectActivity[]
   noteShares               BoardNoteProjectShare[]
   standupTasks             StandupTask[]
+  recurringStandupTasks    RecurringStandupTask[]
 
   @@index([ownerId])
   @@index([createdAt])
@@ -1196,6 +1238,7 @@ model ProjectTask {
   timeLogs             ProjectTimeLog[]
   activeTimers         ActiveTimer[]
   standupTasks         StandupTask[]
+  recurringStandupTasks RecurringStandupTask[]
   standupBlockers      StandupBlocker[]
   checklists           TaskChecklist[]
 

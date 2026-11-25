@@ -216,6 +216,8 @@ export type MemberReviewEntry = {
     createdAt: Date;
     updatedAt: Date;
     projectTaskId?: string | null;
+    recurringTaskId?: string | null;
+    recurringTask?: { id: string; recurrenceRule: string; startDate: Date } | null;
     /** The task's own due date, set directly by the team member — independent of any linked project task. */
     dueDate?: Date | null;
     projectTask?: {
@@ -662,6 +664,7 @@ export async function getMemberReview(
             },
           },
           project: { select: { id: true, name: true } },
+          recurringTask: { select: { id: true, recurrenceRule: true, startDate: true } },
         },
       },
       blockers: {

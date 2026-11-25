@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getMemberReview } from "@/features/dsm/manager/queries";
-import { getSharedWorkspaceNotes, getTeamMembers, getParkedTasks, getCoreDailyTasks } from "@/features/dsm/queries";
+import { getSharedWorkspaceNotes, getTeamMembers, getParkedTasks, getCoreDailyTasks, getUserRecurringTasks } from "@/features/dsm/queries";
 import { CoreDailyTasksPanel } from "@/features/dsm/components/core-daily-tasks-panel";
 import { MemberReviewDetail } from "@/features/dsm/manager/components/member-review-detail";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
@@ -24,12 +24,13 @@ export default async function MemberReviewPage({ params, searchParams }: Props) 
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const dateParam = sp.date;
 
-  const [review, sharedNotesData, teamMembers, parkedTasks, coreDailyTasks] = await Promise.all([
+  const [review, sharedNotesData, teamMembers, parkedTasks, coreDailyTasks, userRecurringTasks] = await Promise.all([
     getMemberReview(userId, weekOffset),
     getSharedWorkspaceNotes(userId),
     getTeamMembers(),
     getParkedTasks(userId),
     getCoreDailyTasks(userId),
+    getUserRecurringTasks(userId),
   ]);
 
   if (!review) redirect("/dsm/all");
@@ -48,6 +49,7 @@ export default async function MemberReviewPage({ params, searchParams }: Props) 
           selectedDateStr={dateParam}
           currentUserId={session.user.id}
           parkedTasks={parkedTasks}
+          userRecurringTasks={userRecurringTasks}
         />
       </div>
       <aside className="flex h-full min-h-0 w-80 shrink-0 flex-col overflow-y-auto border-l xl:w-96">
