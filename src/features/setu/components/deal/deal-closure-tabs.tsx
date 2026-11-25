@@ -43,7 +43,7 @@ function SummaryCard({
   return (
     <section className="setu-card flex items-center gap-4 px-5 py-5">
       {Icon && (
-        <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", tone)}>
+        <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", tone)}>
           <Icon size={22} />
         </span>
       )}
@@ -226,7 +226,7 @@ export function DealClosedWonTab({ deal }: { deal: Deal }) {
             hint="PDF, DOCX up to 25MB (MSA, SOW or Signed Proposal)"
           />
           {form.documents.length > 0 && (
-            <div className="divide-y divide-[var(--setu-line)] rounded-xl border border-[var(--setu-line)] px-4">
+            <div className="divide-y divide-[var(--setu-line)] rounded-lg border border-[var(--setu-line)] px-4">
               {form.documents.map((f, i) => (
                 <FileRow key={f.id} file={f} index={i} onRemove={() => set({ documents: form.documents.filter((d) => d.id !== f.id) })} />
               ))}
@@ -408,7 +408,7 @@ export function DealClosedLostTab({ deal }: { deal: Deal }) {
           </label>
         </div>
         {error && <p className="text-xs text-red-500">{error}</p>}
-        <div className="flex items-center justify-end gap-3 rounded-xl bg-[var(--setu-well)] px-4 py-3">
+        <div className="flex items-center justify-end gap-3 rounded-lg bg-[var(--setu-well)] px-4 py-3">
           <SetuButton
             variant="ghost"
             onClick={() => {

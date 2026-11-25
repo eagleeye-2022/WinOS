@@ -65,9 +65,9 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
   return (
     <div className="space-y-4">
       {/* Timer banner */}
-      <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--setu-line)] bg-[var(--setu-well)] px-6 py-6">
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-lg border border-[var(--setu-line)] bg-[var(--setu-well)] px-6 py-6">
         <div className="flex items-center gap-4">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--setu-accent)] text-[var(--setu-accent-ink)]">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--setu-accent)] text-[var(--setu-accent-ink)]">
             <Timer size={24} />
           </span>
           <div>
@@ -110,7 +110,7 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
       {/* History */}
       <section className="setu-card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-          <h2 className="text-lg font-semibold">Time Log History</h2>
+          <h2 className="text-base font-semibold">Time Log History</h2>
           <div className="flex gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

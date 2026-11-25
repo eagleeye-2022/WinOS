@@ -21,10 +21,10 @@ export function DealNegotiationsTab({ deal }: { deal: Deal }) {
   return (
     <div className="space-y-4">
       <section className="setu-card flex items-center gap-4 px-6 py-5">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
           <Handshake size={20} />
         </span>
-        <h2 className="text-lg font-semibold">Negotiation & Commercial Alignment</h2>
+        <h2 className="text-base font-semibold">Negotiation & Commercial Alignment</h2>
       </section>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)]">

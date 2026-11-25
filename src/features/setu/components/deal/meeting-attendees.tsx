@@ -128,7 +128,7 @@ export function AttendeePicker({
           // Typing / clicking in the search box keeps the list open.
           if (anchorRef.current?.contains(e.target as Node)) e.preventDefault();
         }}
-        className="setu-scope w-[var(--radix-popover-trigger-width)] min-w-[320px] rounded-xl border-[var(--setu-line)] bg-[var(--setu-card)] p-2"
+        className="setu-scope w-[var(--radix-popover-trigger-width)] min-w-[320px] rounded-lg border-[var(--setu-line)] bg-[var(--setu-card)] p-2"
       >
         <div className={cn("grid gap-1 rounded-lg bg-[var(--setu-soft)] p-1", tabs.length === 3 ? "grid-cols-3" : tabs.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
           {tabs.map((t) => (
@@ -268,7 +268,7 @@ export function ReminderSelect({ value, onChange }: { value: MeetingReminder; on
           <Mail size={15} className="setu-accent-text" /> {MEETING_REMINDER_LABEL[value]}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="setu-scope w-[var(--radix-popover-trigger-width)] min-w-[240px] rounded-xl border-[var(--setu-line)] bg-[var(--setu-card)] p-1.5">
+      <PopoverContent align="start" className="setu-scope w-[var(--radix-popover-trigger-width)] min-w-[240px] rounded-lg border-[var(--setu-line)] bg-[var(--setu-card)] p-1.5">
         {MEETING_REMINDERS.map((r) => {
           const active = r === value;
           return (

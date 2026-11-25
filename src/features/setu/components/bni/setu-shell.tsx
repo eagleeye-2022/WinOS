@@ -1,128 +1,75 @@
 "use client";
 
 import { useMemo } from "react";
-import Link from "next/link";
-import { RotateCcw, Search, X } from "lucide-react";
+import { Activity, ArrowDownLeft, ArrowUpRight, CalendarCheck, RotateCcw, Search, Trophy, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageDescription, PageTitle } from "@/components/shared/page-header";
 import { ROUTES } from "@/constants/routes";
 import { Input } from "@/components/ui/input";
 import { BNI_CHAPTER } from "../../constants";
-import { BNI_STAGE_BY_ID, setuStats, buildReferrals, isMember, isPipelineRecord, type BniStage } from "../../bni";
+import { BNI_STAGE_BY_ID, setuStats, isMember, type BniStage } from "../../bni";
 import { useSetuStore } from "../../provider";
 import type { Deal } from "../../types";
 import { isoDate } from "../../utils";
-import { Breadcrumbs, SetuPage } from "../setu-ui";
+import { SetuPage } from "../setu-ui";
 
-// Page frame + shared building blocks for the Setu feature pages, in the Setu Figma style:
-// small breadcrumb row with a live status pill, the page title with its actions, KPI cards,
-// underlined feature tabs with count badges, filter panels, chip pills and section cards.
+// Page frame + shared building blocks for the Setu feature pages, in the standard WinOS page
+// style: page title with the chapter chip and its actions, stat cards, filter panels, chip pills
+// and section cards.
 
 export type SetuTab = "meetings" | "pipeline" | "bot" | "contacts" | "referrals";
 
-const TABS: { id: SetuTab; label: string; href: string }[] = [
-  { id: "meetings", label: "121 Meetings", href: ROUTES.setu121 },
-  { id: "pipeline", label: "Sales Pipeline", href: ROUTES.setuPipeline },
-  { id: "bot", label: "WhatsApp Bot", href: ROUTES.setuWhatsappBot },
-  { id: "contacts", label: "Contacts", href: ROUTES.setuContacts },
-  { id: "referrals", label: "Referrals", href: ROUTES.setuReferrals },
-];
-
-export function SetuShell({ tab, title, actions, children }: { tab: SetuTab; title: string; actions?: React.ReactNode; children: React.ReactNode }) {
+/** Page frame for the five Setu features (navigation between them is the sidebar). */
+export function SetuShell({ title, actions, children }: { tab: SetuTab; title: string; actions?: React.ReactNode; children: React.ReactNode }) {
   const deals = useSetuStore((s) => s.deals);
   const notes = useSetuStore((s) => s.notes);
   const meetings = useSetuStore((s) => s.meetings);
   const today = isoDate(new Date());
   const stats = useMemo(() => setuStats(deals, notes, meetings, today), [deals, notes, meetings, today]);
-  const counts = useMemo<Partial<Record<SetuTab, string | number>>>(
-    () => ({
-      meetings: stats.meetings121,
-      pipeline: deals.filter(isPipelineRecord).length,
-      bot: "Setup",
-      contacts: deals.filter((d) => d.bni?.kind !== "OPPORTUNITY").length,
-      referrals: buildReferrals(deals, notes).length,
-    }),
-    [deals, notes, stats.meetings121]
-  );
-  const current = TABS.find((t) => t.id === tab);
   const health = stats.pipelineHealth === null ? "—" : `${stats.pipelineHealth}%`;
 
   return (
     <SetuPage>
-      {/* Breadcrumb + live status pill */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Breadcrumbs items={[{ label: "Networking" }, { label: current?.label ?? "" }]} />
-        <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-full bg-[var(--setu-accent-soft)] px-3 py-1 text-[11px] font-medium text-[var(--setu-accent)]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[var(--setu-accent)]" />
-          <span className="font-medium">{BNI_CHAPTER.name}</span>
-          <span className="opacity-50">•</span>
-          <span className="tabular-nums">{health} pipeline health</span>
-          <span className="opacity-50">•</span>
-          <span className="tabular-nums">{stats.prospects} prospects</span>
-        </span>
+      {/* Header — same frame as the other WinOS pages: title (+ chapter chip) left, actions right. */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <PageTitle>{title}</PageTitle>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/5 px-2.5 py-0.5 text-xs font-medium text-primary">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+              {BNI_CHAPTER.name}
+            </span>
+          </div>
+          <PageDescription className="mt-1 tabular-nums">
+            {stats.members} BNI members · {stats.prospects} prospects · {health} pipeline health
+          </PageDescription>
+        </div>
+        {actions && <div className="setu-actions flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
 
-      {/* Title row */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <h1 className="min-w-0 text-2xl font-semibold leading-tight">{title}</h1>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-      </div>
-
-      {/* KPI cards: a label and the figure. No icon tiles, one colour (Won). */}
+      {/* Stat cards in the app style: label + small icon, the figure underneath. */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Kpi label="Pipeline health" value={health} />
-        <Kpi label="Prospects" value={stats.prospects} />
-        <Kpi label="121 meetings" value={stats.meetings121} hint={`${stats.members} BNI members`} />
-        <Kpi label="Refs received" value={stats.refsReceived} />
-        <Kpi label="Refs given" value={stats.refsGiven} />
-        <Kpi label="Won" value={stats.won} valueTone="text-emerald-600 dark:text-emerald-400" />
+        <Kpi icon={Activity} label="Pipeline health" value={health} />
+        <Kpi icon={Users} label="Prospects" value={stats.prospects} />
+        <Kpi icon={CalendarCheck} label="121 meetings" value={stats.meetings121} />
+        <Kpi icon={ArrowDownLeft} label="Refs received" value={stats.refsReceived} />
+        <Kpi icon={ArrowUpRight} label="Refs given" value={stats.refsGiven} />
+        <Kpi icon={Trophy} label="Won" value={stats.won} tone="text-success" />
       </div>
-
-      {/* Feature tabs */}
-      <nav className="setu-scroll-x flex overflow-x-auto border-b border-[var(--setu-line)]" aria-label="Setu features">
-        {TABS.map((t) => {
-          const active = t.id === tab;
-          const count = counts[t.id];
-          return (
-            <Link
-              key={t.id}
-              href={t.href}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors",
-                active ? "border-[var(--setu-accent)] text-[var(--setu-accent)]" : "setu-text-2 border-transparent hover:text-[var(--setu-text)]"
-              )}
-            >
-              {t.label}
-              {count !== undefined && (
-                <span
-                  className={cn(
-                    "rounded-md px-1.5 py-0.5 text-[11px] font-medium leading-none tabular-nums",
-                    t.id === "bot"
-                      ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
-                      : active
-                        ? "bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]"
-                        : "bg-[var(--setu-well)] text-[var(--setu-text-2)]"
-                  )}
-                >
-                  {count}
-                </span>
-              )}
-            </Link>
-          );
-        })}
-      </nav>
 
       {children}
     </SetuPage>
   );
 }
 
-function Kpi({ label, value, hint, valueTone }: { label: string; value: string | number; hint?: string; valueTone?: string }) {
+function Kpi({ icon: Icon, label, value, tone }: { icon: React.ElementType; label: string; value: string | number; tone?: string }) {
   return (
-    <div className="setu-card min-w-0 p-4">
-      <p className="setu-text-2 truncate text-xs font-medium">{label}</p>
-      <p className={cn("mt-2 text-2xl font-semibold leading-none tabular-nums", valueTone)}>{value}</p>
-      {hint && <p className="setu-text-3 mt-2 truncate text-[11px]">{hint}</p>}
+    <div className="min-w-0 rounded-lg border bg-card p-4 shadow-2xs">
+      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-muted-foreground">
+        <span className="truncate">{label}</span>
+        <Icon size={15} className="shrink-0 text-muted-foreground/70" />
+      </div>
+      <p className={cn("mt-2 text-2xl font-bold leading-none tabular-nums text-foreground", tone)}>{value}</p>
     </div>
   );
 }
@@ -130,7 +77,7 @@ function Kpi({ label, value, hint, valueTone }: { label: string; value: string |
 /** White panel holding a page's search + filters, with an optional chip row underneath. */
 export function FilterPanel({ children, chips }: { children: React.ReactNode; chips?: React.ReactNode }) {
   return (
-    <div className="setu-card p-3">
+    <div className="rounded-lg border bg-card p-3 shadow-2xs">
       <div className="flex flex-wrap items-center gap-2.5">{children}</div>
       {chips && <div className="mt-3 flex flex-wrap items-center gap-2">{chips}</div>}
     </div>
@@ -146,7 +93,7 @@ export function PanelSearch({ value, onChange, placeholder }: { value: string; o
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="h-10 rounded-xl border-transparent bg-[var(--setu-well)] pl-9 pr-8 text-[13px] shadow-none placeholder:text-[var(--setu-text-3)] focus-visible:border-[var(--setu-accent)] focus-visible:ring-2 focus-visible:ring-[var(--setu-accent-ring)]"
+        className="setu-input h-9 pl-9 pr-8 text-sm"
       />
       {value && (
         <button type="button" onClick={() => onChange("")} aria-label="Clear search" className="setu-text-3 absolute right-2.5 top-1/2 -translate-y-1/2 hover:text-[var(--setu-text)]">
@@ -187,13 +134,13 @@ export function ChipPill({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-        active ? "bg-[var(--setu-solid)] text-white" : "bg-[var(--setu-well)] text-[var(--setu-text-2)] hover:text-[var(--setu-text)]"
+        "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+        active ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground"
       )}
     >
       {Icon && <Icon size={12} />}
       {label}
-      {count !== undefined && <span className={cn("text-[11px] tabular-nums", active ? "text-white/75" : "text-[var(--setu-text-3)]")}>{count}</span>}
+      {count !== undefined && <span className={cn("text-xs tabular-nums", active ? "opacity-75" : "text-[var(--setu-text-3)]")}>{count}</span>}
     </button>
   );
 }
@@ -220,7 +167,7 @@ export function SectionCard({
     <section className={cn("setu-card p-5", className)}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
             <Icon size={17} />
           </span>
           <div className="min-w-0">
@@ -244,7 +191,7 @@ export function DataTable({ head, children, minWidth = 860 }: { head: string[]; 
     <div className="setu-scroll-x overflow-x-auto">
       <table className="w-full text-left text-sm" style={{ minWidth }}>
         <thead>
-          <tr className="border-b border-[var(--setu-line)] text-xs text-[var(--setu-text-2)]">
+          <tr className="border-b border-[var(--setu-line)] bg-muted/50 text-xs text-[var(--setu-text-2)]">
             {head.map((h, i) => (
               <th key={`${h}-${i}`} className={cn("px-4 py-3 font-medium", i === head.length - 1 && "text-right")}>
                 {h}

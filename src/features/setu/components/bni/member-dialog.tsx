@@ -65,7 +65,7 @@ export function MemberDialog({ memberId, onClose }: { memberId: string | null; o
           <div className="grid bg-[var(--setu-canvas)] md:grid-cols-[1fr_270px]">
             {/* Left: referrals, notes, to-dos */}
             <div className="space-y-5 border-[var(--setu-line)] px-6 py-5 md:border-r">
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-card)] px-4 py-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--setu-line)] bg-[var(--setu-card)] px-4 py-3 text-sm">
                 <span className="flex items-center gap-2">
                   <Clock3 size={15} className="text-[var(--setu-accent)]" />
                   <span className="setu-text-2">Last 121:</span>
@@ -161,13 +161,13 @@ export function MemberDialog({ memberId, onClose }: { memberId: string | null; o
               </Section>
 
               {summary.pendingRefs.length > 0 ? (
-                <div className="rounded-xl border border-green-200 bg-green-50 px-3.5 py-2.5 text-xs text-green-700 dark:border-green-500/25 dark:bg-green-500/10 dark:text-green-400">
+                <div className="rounded-lg border border-green-200 bg-green-50 px-3.5 py-2.5 text-xs text-green-700 dark:border-green-500/25 dark:bg-green-500/10 dark:text-green-400">
                   <strong className="font-medium">
                     {summary.pendingRefs.length} referral{summary.pendingRefs.length === 1 ? "" : "s"} to convert
                   </strong>
                 </div>
               ) : summary.prospects.length > 0 ? (
-                <div className="rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-xs text-blue-700 dark:border-blue-500/25 dark:bg-blue-500/10 dark:text-blue-300">
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-xs text-blue-700 dark:border-blue-500/25 dark:bg-blue-500/10 dark:text-blue-300">
                   <strong className="font-medium">Converted to prospects</strong> — {summary.prospects.length} on the Sales Pipeline.
                 </div>
               ) : null}
@@ -227,7 +227,7 @@ export function MemberDialog({ memberId, onClose }: { memberId: string | null; o
               </Section>
 
               <Section title="Pipeline stage">
-                <div className="rounded-xl border border-[var(--setu-line)] bg-[var(--setu-card)] px-3 py-2.5 text-xs">
+                <div className="rounded-lg border border-[var(--setu-line)] bg-[var(--setu-card)] px-3 py-2.5 text-xs">
                   <p className="font-medium">121 Meeting</p>
                   <p className="setu-text-2 mt-0.5 text-[11px]">
                     {summary.pendingRefs.length
@@ -300,7 +300,7 @@ function Section({ title, action, children }: { title: string; action?: React.Re
 
 function Pill({ value, label, tone }: { value: number; label: string; tone?: string }) {
   return (
-    <div className="rounded-xl border border-[var(--setu-line)] bg-[var(--setu-card)] px-3 py-2.5 text-center shadow-[var(--setu-shadow)]">
+    <div className="rounded-lg border border-[var(--setu-line)] bg-[var(--setu-card)] px-3 py-2.5 text-center shadow-[var(--setu-shadow)]">
       <p className={cn("text-xl font-semibold tabular-nums", tone)}>{value}</p>
       <p className="setu-text-2 text-[11px]">{label}</p>
     </div>

@@ -55,7 +55,7 @@ export function DealDiscussionsTab({ dealId }: { dealId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="flex items-center gap-2 text-lg font-semibold">
+        <h2 className="flex items-center gap-2 text-base font-semibold">
           <MessagesSquare size={20} className="setu-text-2" /> Discussions
         </h2>
         <SetuButton variant="primary" onClick={() => setAdding(true)} disabled={adding}>

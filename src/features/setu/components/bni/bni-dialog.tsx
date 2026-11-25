@@ -149,7 +149,7 @@ export function Segmented<T extends string>({ value, onChange, options }: { valu
           aria-pressed={value === o.value}
           className={cn(
             "rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors",
-            value === o.value ? "bg-[var(--setu-solid)] text-white" : "setu-text-2 hover:text-[var(--setu-text)]"
+            value === o.value ? "bg-[var(--setu-solid)] text-[var(--setu-solid-ink)]" : "setu-text-2 hover:text-[var(--setu-text)]"
           )}
         >
           {o.label}

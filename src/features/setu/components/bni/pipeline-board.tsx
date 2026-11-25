@@ -191,7 +191,7 @@ export function PipelineBoard() {
                   {cards.length === 0 ? (
                     <div
                       className={cn(
-                        "flex min-h-24 flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-dashed p-4 text-center text-xs text-[var(--setu-text-3)]",
+                        "flex min-h-24 flex-1 flex-col items-center justify-center gap-1 rounded-lg border border-dashed p-4 text-center text-xs text-[var(--setu-text-3)]",
                         dragOver === stage.id ? "border-[var(--setu-accent)] text-[var(--setu-accent)]" : "border-[var(--setu-line-strong)]"
                       )}
                     >

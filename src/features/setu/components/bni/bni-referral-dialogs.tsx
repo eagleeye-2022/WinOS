@@ -200,7 +200,7 @@ export function ConvertRefsDialog({ open, onClose, member }: { open: boolean; on
             const r = rows[n.id];
             if (!r) return null;
             return (
-              <div key={n.id} className={cn("rounded-xl border border-[var(--setu-line)] p-3", !r.on && "opacity-60")}>
+              <div key={n.id} className={cn("rounded-lg border border-[var(--setu-line)] p-3", !r.on && "opacity-60")}>
                 <label className="mb-2 flex cursor-pointer items-center gap-2 text-xs font-semibold">
                   <Checkbox checked={r.on} onCheckedChange={(c) => edit(n.id, { on: c === true })} />
                   Referral {i + 1}

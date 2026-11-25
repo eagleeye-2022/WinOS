@@ -76,11 +76,11 @@ export function DealCallsTab({ deal }: { deal: Deal }) {
     <div className="space-y-4">
       <section className="setu-card flex flex-wrap items-center justify-between gap-4 px-6 py-5">
         <div className="flex items-center gap-4">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
             <PhoneForwarded size={20} />
           </span>
           <div>
-            <h2 className="text-lg font-semibold">Calls Stream</h2>
+            <h2 className="text-base font-semibold">Calls Stream</h2>
             <p className="setu-text-2 text-sm">
               {stats.total} Total Call{stats.total === 1 ? "" : "s"} · {formatHoursMinutes(stats.talkSeconds)} Talk Time · {stats.connectRate}% Connect Rate
             </p>

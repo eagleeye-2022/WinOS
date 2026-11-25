@@ -300,7 +300,7 @@ export function CompleteMeetingDialog({
         width="max-w-2xl"
       >
           <form onSubmit={submit} noValidate className="space-y-5 px-6 py-5">
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)]/40 px-4 py-3 text-xs">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--setu-line)] bg-[var(--setu-well)]/40 px-4 py-3 text-xs">
               <span className="setu-text-2 flex items-center gap-2">
                 <Clock3 size={14} className="setu-accent-text" />
                 Session Held:{" "}

@@ -58,18 +58,18 @@ export interface Crumb {
 export function Breadcrumbs({ items }: { items: Crumb[] }) {
   const all: Crumb[] = [{ label: "Setu", href: ROUTES.setu121 }, ...items];
   return (
-    <nav aria-label="Breadcrumb" className="setu-text-2 flex min-w-0 flex-wrap items-center gap-1 text-xs">
+    <nav aria-label="Breadcrumb" className="flex min-w-0 flex-wrap items-center gap-1 text-sm text-muted-foreground">
       {all.map((c, i) => {
         const last = i === all.length - 1;
         return (
           <React.Fragment key={`${c.label}-${i}`}>
             {i > 0 && <ChevronRight size={13} className="setu-text-3 shrink-0" />}
             {c.href && !last ? (
-              <Link href={c.href} className="hover:text-[var(--setu-text)]">
+              <Link href={c.href} className="transition-colors hover:text-primary">
                 {c.label}
               </Link>
             ) : (
-              <span className={cn(last && "font-semibold text-[var(--setu-text)]")}>{c.label}</span>
+              <span className={cn(last && "font-medium text-foreground")}>{c.label}</span>
             )}
           </React.Fragment>
         );
@@ -81,8 +81,9 @@ export function Breadcrumbs({ items }: { items: Crumb[] }) {
 /** Page wrapper: one scroll area with the standard Setu gutters. */
 export function SetuPage({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="h-full overflow-y-auto" data-scroll-key="setu-page">
-      <div className={cn("mx-auto w-full max-w-[1600px] space-y-5 px-4 pb-10 pt-5 sm:px-6", className)}>{children}</div>
+    <div className="h-full overflow-y-auto bg-background" data-scroll-key="setu-page">
+      {/* Same gutters as the other WinOS pages (p-6, full width). */}
+      <div className={cn("w-full space-y-6 p-4 pb-10 sm:p-6 sm:pb-10", className)}>{children}</div>
     </div>
   );
 }
@@ -131,7 +132,7 @@ export function FilterDropdown({
         <button
           type="button"
           className={cn(
-            "flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)] px-3.5 text-xs text-[var(--setu-text)] transition-colors hover:border-[var(--setu-line-strong)] focus-visible:border-[var(--setu-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--setu-accent-ring)] data-[state=open]:border-[var(--setu-accent)]",
+            "setu-input flex h-9 cursor-pointer items-center gap-1.5 border px-3 text-xs text-foreground transition-colors hover:bg-accent focus-visible:outline-none",
             className
           )}
         >
@@ -207,11 +208,11 @@ export function Field({
 /** Placeholder for pages and tabs whose design hasn't been delivered yet. */
 export function ComingSoon({ title, text }: { title: string; text?: string }) {
   return (
-    <div className="setu-card flex flex-col items-center justify-center gap-3 px-6 py-20 text-center">
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
+    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed bg-card px-6 py-20 text-center">
+      <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
         <Construction size={22} />
       </span>
-      <h2 className="text-lg font-semibold">{title}</h2>
+      <h2 className="text-base font-semibold">{title}</h2>
       <p className="setu-text-2 max-w-md text-sm">{text ?? "This section is coming soon."}</p>
     </div>
   );

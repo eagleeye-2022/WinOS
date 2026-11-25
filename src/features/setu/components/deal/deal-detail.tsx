@@ -15,6 +15,7 @@ import {
   Square,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageTitle } from "@/components/shared/page-header";
 import { ROUTES } from "@/constants/routes";
 import { toast } from "@/components/shared/toast";
 import { useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
@@ -155,7 +156,7 @@ function DealDetailBody({ deal }: { deal: Deal }) {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-xl font-bold leading-tight tracking-tight">{deal.contactName}</h1>
+              <PageTitle>{deal.contactName}</PageTitle>
               <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold", stage.pill)}>
                 <span className={cn("h-1.5 w-1.5 rounded-full", stage.dot)} />
                 {stage.label}
@@ -171,7 +172,7 @@ function DealDetailBody({ deal }: { deal: Deal }) {
               {[deal.company !== deal.contactName ? deal.company : "", deal.contactRole, deal.title].filter(Boolean).join(" · ") || "Prospect"}
             </p>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="setu-actions flex items-center gap-2">
             <SetuButton onClick={() => setEditOpen(true)}>
               <PencilLine /> Edit
             </SetuButton>

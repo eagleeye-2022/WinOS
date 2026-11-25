@@ -33,11 +33,11 @@ export function DealProposalsTab({ deal }: { deal: Deal }) {
   return (
     <div className="space-y-4">
       <section className="setu-card flex items-center gap-4 px-6 py-5">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
           <FileText size={20} />
         </span>
         <div>
-          <h2 className="text-lg font-semibold">Proposals & Commercial Versions</h2>
+          <h2 className="text-base font-semibold">Proposals & Commercial Versions</h2>
           <p className="setu-text-2 text-sm">
             Track formal commercial proposals, scope revisions, and legal attachments for {deal.company} (<span className="font-mono text-xs">{code}</span>).
           </p>
@@ -86,7 +86,7 @@ export function DealProposalsTab({ deal }: { deal: Deal }) {
           </span>
         </section>
 
-        <section className="flex items-start justify-between gap-3 rounded-2xl border border-[var(--setu-accent-ring)] bg-[var(--setu-accent-soft)] px-5 py-5">
+        <section className="flex items-start justify-between gap-3 rounded-lg border border-[var(--setu-accent-ring)] bg-[var(--setu-accent-soft)] px-5 py-5">
           <div className="min-w-0">
             <p className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wider text-[var(--setu-accent)]">
               Next Iteration
@@ -205,7 +205,7 @@ function DraftCard({ draft, active, code }: { draft: ProposalVersion; active?: P
         )}
       </p>
 
-      <div className="mt-4 grid gap-4 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)] p-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="mt-4 grid gap-4 rounded-lg border border-[var(--setu-line)] bg-[var(--setu-well)] p-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <label className="block space-y-1.5">
           <span className="block text-xs font-semibold">
             Proposal Scope Title <span className="text-red-500">*</span>
@@ -237,7 +237,7 @@ function DraftCard({ draft, active, code }: { draft: ProposalVersion; active?: P
 
       <div className="mt-4">
         {attachment ? (
-          <div className="rounded-xl border border-[var(--setu-line)] px-4">
+          <div className="rounded-lg border border-[var(--setu-line)] px-4">
             <FileRow file={attachment} onRemove={() => setAttachment(undefined)} />
           </div>
         ) : (
@@ -382,7 +382,7 @@ function SnapshotDialog({ proposal: p, code, onClose }: { proposal?: ProposalVer
                 {code}-V{p.version} · {p.status === "ACTIVE" ? "Active offer" : "Superseded"}
               </DialogDescription>
             </div>
-            <dl className="grid grid-cols-2 gap-3 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)]/40 p-3.5 text-sm">
+            <dl className="grid grid-cols-2 gap-3 rounded-lg border border-[var(--setu-line)] bg-[var(--setu-well)]/40 p-3.5 text-sm">
               <div>
                 <dt className="setu-text-3 text-[11px] font-medium">Commercial Value</dt>
                 <dd className="mt-0.5 text-sm font-semibold">{formatInr(p.value)}</dd>
@@ -407,7 +407,7 @@ function SnapshotDialog({ proposal: p, code, onClose }: { proposal?: ProposalVer
             </dl>
             {!isEmptyDescription(p.reason) && <RichDescriptionView value={p.reason} className={SETU_RICH_VIEW} />}
             {p.attachment && (
-              <div className="rounded-xl border border-[var(--setu-line)] px-4">
+              <div className="rounded-lg border border-[var(--setu-line)] px-4">
                 <FileRow file={p.attachment} />
               </div>
             )}

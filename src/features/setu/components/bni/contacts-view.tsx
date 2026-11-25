@@ -110,9 +110,9 @@ export function ContactsView() {
 
       <section className="setu-card overflow-hidden p-4">
         {/* Summary strip */}
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[var(--setu-accent-soft)] px-4 py-3">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[var(--setu-accent-soft)] px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--setu-card)] text-[var(--setu-accent)] shadow-sm">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--setu-card)] text-[var(--setu-accent)] shadow-sm">
               <Contact size={16} />
             </span>
             <div>
@@ -196,7 +196,7 @@ function ContactRow({ c, onOpen }: { c: BniContact; onOpen: () => void }) {
               <MessageCircle size={14} />
             </a>
           )}
-          <button type="button" onClick={onOpen} className="inline-flex h-8 items-center gap-1 rounded-lg bg-[var(--setu-solid)] px-3 text-xs font-medium text-white transition-colors hover:bg-[var(--setu-solid-hover)]">
+          <button type="button" onClick={onOpen} className="inline-flex h-8 items-center gap-1 rounded-lg bg-[var(--setu-solid)] px-3 text-xs font-medium text-[var(--setu-solid-ink)] transition-colors hover:bg-[var(--setu-solid-hover)]">
             {c.kind === "MEMBER" ? "121 Record" : "Open"} <ArrowUpRight size={12} />
           </button>
         </div>
@@ -264,7 +264,7 @@ function VCardImportDialog({ people, onClose }: { people: PersonInput[] | null; 
         </div>
         <ul className="space-y-2">
           {list.map((p, i) => (
-            <li key={i} className="flex items-center gap-3 rounded-xl bg-[var(--setu-well)] px-3 py-2.5 text-xs">
+            <li key={i} className="flex items-center gap-3 rounded-lg bg-[var(--setu-well)] px-3 py-2.5 text-xs">
               <Checkbox
                 checked={!off.has(i)}
                 onCheckedChange={(c) =>
