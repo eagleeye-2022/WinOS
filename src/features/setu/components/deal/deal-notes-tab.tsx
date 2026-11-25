@@ -13,19 +13,25 @@ import type { DealNote, NoteCategory } from "../../types";
 import { formatDate, formatTime, sortNotes } from "../../utils";
 import { isBniNote } from "../../bni";
 import { SETU_RICH_VIEW, SetuButton, attempt } from "../setu-ui";
+import { DealTabHeader } from "./deal-tab-header";
 
 /** Notes tab: header row with "Add Note" (opens the composer) + the notes feed. */
 export function DealNotesTab({ dealId }: { dealId: string }) {
   const [adding, setAdding] = usePageViewState("DealNotes:adding", false);
+  const count = useSetuStore((s) => s.notes.filter((n) => n.dealId === dealId && n.category === "NOTE").length);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-        <h2 className="text-base font-semibold">Notes & Information</h2>
-        <SetuButton variant="primary" size="sm" onClick={() => setAdding(true)} disabled={adding}>
-          <Plus size={14} /> Add Note
-        </SetuButton>
-      </div>
+      <DealTabHeader
+        icon={FileText}
+        title="Notes & Information"
+        subtitle={`${count} note${count === 1 ? "" : "s"}`}
+        actions={
+          <SetuButton variant="primary" size="sm" onClick={() => setAdding(true)} disabled={adding}>
+            <Plus size={14} /> Add Note
+          </SetuButton>
+        }
+      />
 
       <NotesFeed
         dealId={dealId}
@@ -52,16 +58,19 @@ interface FeedLabels {
 /** Discussions tab: client queries and scope alignment, same feed as notes. */
 export function DealDiscussionsTab({ dealId }: { dealId: string }) {
   const [adding, setAdding] = usePageViewState("DealDiscussions:adding", false);
+  const count = useSetuStore((s) => s.notes.filter((n) => n.dealId === dealId && n.category === "DISCUSSION").length);
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="flex items-center gap-2 text-base font-semibold">
-          <MessagesSquare size={20} className="setu-text-2" /> Discussions
-        </h2>
-        <SetuButton variant="primary" onClick={() => setAdding(true)} disabled={adding}>
-          <Plus /> Add Discussion
-        </SetuButton>
-      </div>
+      <DealTabHeader
+        icon={MessagesSquare}
+        title="Discussions"
+        subtitle={`${count} discussion${count === 1 ? "" : "s"}`}
+        actions={
+          <SetuButton variant="primary" size="sm" onClick={() => setAdding(true)} disabled={adding}>
+            <Plus size={14} /> Add Discussion
+          </SetuButton>
+        }
+      />
       <NotesFeed
         dealId={dealId}
         category="DISCUSSION"
@@ -170,7 +179,7 @@ function NoteComposer({ dealId, category, labels, onDone }: { dealId: string; ca
           <SetuButton variant={onDone ? "secondary" : "ghost"} onClick={close}>
             Cancel
           </SetuButton>
-          <SetuButton variant="primary" type="submit" disabled={saving}>
+          <SetuButton variant="secondary" type="submit" disabled={saving}>
             {saving ? "Saving…" : (labels.save ?? "Save Note")}
           </SetuButton>
         </div>
@@ -205,7 +214,7 @@ function NoteCard({ note, highlight, pinnedBadge }: { note: DealNote; highlight?
         <RichDescriptionEditor value={body} onChange={setBody} />
         <div className="flex justify-end gap-2">
           <SetuButton onClick={() => setEditing(false)}>Cancel</SetuButton>
-          <SetuButton variant="primary" type="submit" disabled={!title.trim() || isEmptyDescription(body)}>
+          <SetuButton variant="secondary" type="submit" disabled={!title.trim() || isEmptyDescription(body)}>
             Save
           </SetuButton>
         </div>
@@ -215,15 +224,15 @@ function NoteCard({ note, highlight, pinnedBadge }: { note: DealNote; highlight?
 
   const boxed = highlight && note.pinned;
   return (
-    <article className={cn("setu-card px-6 py-5", boxed && "border-[var(--setu-accent-ring)] ring-1 ring-[var(--setu-accent-ring)]")}>
+    <article className={cn("setu-card px-6 py-5", boxed && "border-[var(--setu-line-strong)]")}>
       <div className="flex items-start justify-between gap-4">
         <h3 className="flex flex-wrap items-center gap-2 text-base font-semibold">
           {note.pinned && pinnedBadge ? (
-            <span className="inline-flex items-center gap-1 rounded bg-[var(--setu-accent-soft)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--setu-accent)]">
+            <span className="inline-flex items-center gap-1 rounded bg-[var(--setu-well)] px-1.5 py-0.5 text-[11px] font-semibold text-foreground">
               <Pin size={11} className="fill-current" /> Pinned
             </span>
           ) : note.pinned ? (
-            <Pin size={14} className="setu-accent-text shrink-0 fill-current" aria-label="Pinned" />
+            <Pin size={14} className="shrink-0 fill-current text-foreground" aria-label="Pinned" />
           ) : null}
           {note.title}
         </h3>
@@ -233,7 +242,7 @@ function NoteCard({ note, highlight, pinnedBadge }: { note: DealNote; highlight?
               <SquarePen size={15} />
             </button>
           ) : (
-            <button type="button" onClick={startEdit} className="setu-accent-text cursor-pointer px-2 text-xs font-semibold hover:underline">
+            <button type="button" onClick={startEdit} className="setu-text-2 cursor-pointer px-2 text-xs font-semibold hover:text-foreground hover:underline">
               Edit
             </button>
           )}

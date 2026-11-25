@@ -13,6 +13,7 @@ import type { Deal, DealFile, DealLostDetails, DealWonDetails } from "../../type
 import { fiscalQuarter, formatDate, formatInr, isoDate, parseInr, percentOf, proposalSummary } from "../../utils";
 import { Field, SetuButton, attempt } from "../setu-ui";
 import { FileDropzone, FileRow } from "./deal-files";
+import { DealTabHeader } from "./deal-tab-header";
 
 const inr = (n: number | undefined) => (n === undefined || !Number.isFinite(n) ? "" : n.toLocaleString("en-IN"));
 
@@ -132,6 +133,20 @@ export function DealClosedWonTab({ deal }: { deal: Deal }) {
 
   return (
     <div className="space-y-4">
+      <DealTabHeader
+        icon={Trophy}
+        iconTone={w ? "bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-400" : undefined}
+        title="Closed Won"
+        badge={
+          w ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-500/15 dark:text-green-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> Won
+            </span>
+          ) : undefined
+        }
+        subtitle={w ? `Closed on ${formatDate(w.closedDate)} · ${formatInr(w.finalValue)}` : "Record final deal value, payment terms, and contract documents."}
+      />
+
       {w && (
         <div className="grid gap-4 md:grid-cols-3">
           <SummaryCard
@@ -319,6 +334,20 @@ export function DealClosedLostTab({ deal }: { deal: Deal }) {
 
   return (
     <div className="space-y-4">
+      <DealTabHeader
+        icon={Flag}
+        iconTone={l ? "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400" : undefined}
+        title="Closed Lost"
+        badge={
+          l ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-500/15 dark:text-red-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-red-500" /> Lost
+            </span>
+          ) : undefined
+        }
+        subtitle={l ? `Closed on ${formatDate(l.closedDate)} · ${LOSS_REASON_SHORT[l.primaryReason] ?? l.primaryReason}` : "Record loss reason, post-mortem analysis, and re-engagement plan."}
+      />
+
       {l && (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryCard

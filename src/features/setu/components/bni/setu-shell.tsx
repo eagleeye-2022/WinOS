@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { Activity, ArrowDownLeft, ArrowUpRight, CalendarCheck, RotateCcw, Search, Trophy, Users, X } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, CalendarCheck, RotateCcw, Search, Trophy, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PageDescription, PageTitle } from "@/components/shared/page-header";
 import { ROUTES } from "@/constants/routes";
@@ -26,7 +26,6 @@ export function SetuShell({ title, actions, children }: { tab: SetuTab; title: s
   const meetings = useSetuStore((s) => s.meetings);
   const today = isoDate(new Date());
   const stats = useMemo(() => setuStats(deals, notes, meetings, today), [deals, notes, meetings, today]);
-  const health = stats.pipelineHealth === null ? "—" : `${stats.pipelineHealth}%`;
 
   return (
     <SetuPage>
@@ -41,15 +40,14 @@ export function SetuShell({ title, actions, children }: { tab: SetuTab; title: s
             </span>
           </div>
           <PageDescription className="mt-1 tabular-nums">
-            {stats.members} BNI members · {stats.prospects} prospects · {health} pipeline health
+            {stats.members} BNI members · {stats.prospects} prospects
           </PageDescription>
         </div>
         {actions && <div className="setu-actions flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
 
       {/* Stat cards in the app style: label + small icon, the figure underneath. */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Kpi icon={Activity} label="Pipeline health" value={health} />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <Kpi icon={Users} label="Prospects" value={stats.prospects} />
         <Kpi icon={CalendarCheck} label="121 meetings" value={stats.meetings121} />
         <Kpi icon={ArrowDownLeft} label="Refs received" value={stats.refsReceived} />

@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, BadgeCheck, ChevronDown, Contact, FileUp, LayoutGrid, Link2, MessageCircle, Phone, Plus, UserPlus, UserRoundPlus, UserRoundSearch, Users } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, ChevronDown, FileUp, LayoutGrid, Link2, MessageCircle, Phone, Plus, UserPlus, UserRoundPlus, UserRoundSearch, Users } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
 import { toast } from "@/components/shared/toast";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,9 +10,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { usePageViewState, useUrlState } from "@/lib/navigation/use-url-state";
 import { BNI_STAGE_BY_ID, buildContacts, matchesContactFilter, parseVCards, type BniContact, type ContactFilter, type PersonInput } from "../../bni";
 import { useBni } from "../../bni-client";
-import { downloadCsv, matchesText, toCsv } from "../../insights";
+import { matchesText } from "../../insights";
 import { useSetuStore } from "../../provider";
-import { formatDate, isoDate, phoneDigits } from "../../utils";
+import { formatDate, phoneDigits } from "../../utils";
 import { SetuAvatar, SetuButton } from "../setu-ui";
 import { BniDialog, Segmented } from "./bni-dialog";
 import { MemberFormDialog, ProspectDialog } from "./bni-forms";
@@ -42,7 +42,6 @@ export function ContactsView() {
 
   const contacts = useMemo(() => buildContacts(deals, notes), [deals, notes]);
   const rows = contacts.filter((c) => matchesContactFilter(c, filter) && matchesText(q, c.name, c.business, c.phone, c.email));
-  const members = contacts.filter((c) => c.kind === "MEMBER").length;
 
   const onFile = async (file: File | undefined) => {
     if (!file) return;
@@ -50,17 +49,6 @@ export function ContactsView() {
     if (fileRef.current) fileRef.current.value = "";
     if (!people.length) return toast.error("No contacts found in that file.");
     setImported(people);
-  };
-
-  const exportCsv = () => {
-    if (!rows.length) return toast.info("No contacts to export");
-    downloadCsv(
-      `setu-contacts-${isoDate(new Date())}.csv`,
-      toCsv([
-        ["Name", "Type", "Business", "Phone", "Email", "Stage"],
-        ...rows.map((c) => [c.name, c.kind === "MEMBER" ? "BNI Member" : "Prospect", c.business, c.phone, c.email, c.stage ? BNI_STAGE_BY_ID[c.stage].label : ""]),
-      ])
-    );
   };
 
   const open = (c: BniContact) => (c.kind === "MEMBER" ? setOpenMember(c.deal.id) : router.push(ROUTES.setuDeal(c.deal.id)));
@@ -108,26 +96,7 @@ export function ContactsView() {
         />
       </FilterPanel>
 
-      <section className="setu-card overflow-hidden p-4">
-        {/* Summary strip */}
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[var(--setu-accent-soft)] px-4 py-3">
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--setu-card)] text-[var(--setu-accent)] shadow-sm">
-              <Contact size={16} />
-            </span>
-            <div>
-              <p className="setu-text-2 text-xs">Directory</p>
-              <p className="text-sm font-medium tabular-nums">
-                <span>{contacts.length - members} prospects</span> • <span>{members} members</span> •{" "}
-                <span className="text-[var(--setu-text-2)]">{rows.length} shown</span>
-              </p>
-            </div>
-          </div>
-          <SetuButton size="sm" onClick={exportCsv}>
-            Export CSV
-          </SetuButton>
-        </div>
-
+      <section className="setu-card overflow-hidden">
         <DataTable head={["Contact", "Type", "Business", "Phone", "Stage & Tags", "Actions"]}>
           {rows.length === 0 ? (
             <tr>
