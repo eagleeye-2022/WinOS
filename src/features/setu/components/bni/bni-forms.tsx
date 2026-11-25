@@ -20,7 +20,7 @@ import { useSetuStore } from "../../provider";
 import type { Deal } from "../../types";
 import { isoDate } from "../../utils";
 import { SetuButton, attempt } from "../setu-ui";
-import { BniDialog, InfoStrip, Segmented, SelectInput, TextArea, TextInput } from "./bni-dialog";
+import { BniDialog, Segmented, SelectInput, TextArea, TextInput } from "./bni-dialog";
 
 const ORIGIN_OPTIONS: { value: BniOrigin; label: string }[] = [
   { value: "DIRECT", label: "Direct / manual" },
@@ -136,7 +136,6 @@ export function Log121Dialog({ open, onClose, memberId, prefill }: { open: boole
       onClose={close}
       icon={CalendarPlus}
       title={fixedMember ? `Log 121 — ${fixedMember.contactName}` : "Log 121 Meeting"}
-      description="One-on-one with a BNI member: what was discussed and the referrals exchanged."
       footer={
         <>
           <SetuButton variant="muted" onClick={close}>
@@ -195,9 +194,6 @@ export function Log121Dialog({ open, onClose, memberId, prefill }: { open: boole
           placeholder={"Parth Promunch Ji\nSheetal Badole Ji"}
         />
         <TextArea label="Meeting Notes" className="sm:col-span-2" rows={4} value={form.notes} onChange={(notes) => set({ notes })} placeholder="What was discussed, follow-ups, referral names…" />
-        <div className="sm:col-span-2">
-          <InfoStrip>Tip: named referrals count toward Refs Received. Unnamed ones stay pending on the member until you convert them.</InfoStrip>
-        </div>
       </div>
     </BniDialog>
   );
@@ -285,7 +281,6 @@ export function ProspectDialog({
       onClose={close}
       icon={opp ? Lightbulb : UserRoundPlus}
       title={deal ? `Edit ${opp ? "Opportunity" : "Prospect"}` : opp ? "Add Opportunity" : "Add Prospect"}
-      description={opp ? "A campaign, pitch or offering you're working on (Mixed / Opportunity column)." : "Someone who wants your service — they go on the Sales Pipeline."}
       footer={
         <>
           <SetuButton variant="muted" onClick={close}>
@@ -377,7 +372,6 @@ export function MemberFormDialog({
       onClose={onClose}
       icon={UserPlus}
       title={member ? "Edit Member" : "Add BNI Member"}
-      description="A chapter member you meet for 121s and exchange referrals with."
       footer={
         <>
           <SetuButton variant="muted" onClick={onClose}>

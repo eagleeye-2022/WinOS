@@ -23,6 +23,9 @@
     --setu-accent-ink: var(--primary-foreground);
     --setu-accent-soft: color-mix(in oklch, var(--primary) 10%, transparent);
     --setu-accent-ring: color-mix(in oklch, var(--primary) 28%, transparent);
+    /* Solid call-to-action blue (Figma), and its hover. One token instead of hex in components. */
+    --setu-solid: #1d4ed8;
+    --setu-solid-hover: #1e40af;
     --setu-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
     --setu-shadow-lg: 0 12px 28px -12px rgba(16, 24, 40, 0.22);
 
@@ -39,6 +42,8 @@
     --setu-line-strong: var(--dark-border-hover);
     --setu-text-3: var(--dark-text-meta);
     --setu-accent-soft: color-mix(in oklch, var(--primary) 18%, transparent);
+    --setu-solid: #2563eb;
+    --setu-solid-hover: #1d4ed8;
     --setu-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
     --setu-shadow-lg: 0 16px 36px -14px rgba(0, 0, 0, 0.8);
   }
@@ -135,19 +140,15 @@
 
   /* Solid blue call-to-action (page-level "Schedule Meeting", "Create Task", dialog confirm). */
   .setu-btn-solid {
-    background: #1d4ed8;
+    background: var(--setu-solid);
     color: #fff;
-    border: 1px solid #1d4ed8;
-    font-weight: 600;
-    box-shadow: 0 1px 2px rgba(29, 78, 216, 0.25);
+    border: 1px solid var(--setu-solid);
+    font-weight: 500;
+    box-shadow: var(--setu-shadow);
   }
   .setu-btn-solid:hover {
-    background: #1e40af;
-    border-color: #1e40af;
-  }
-  .dark .setu-btn-solid {
-    background: #2563eb;
-    border-color: #2563eb;
+    background: var(--setu-solid-hover);
+    border-color: var(--setu-solid-hover);
   }
 
   /* Soft grey ("Cancel", "Save as Draft"). */

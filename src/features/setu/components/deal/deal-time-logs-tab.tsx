@@ -101,10 +101,10 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard label="Total Time" value={formatHoursMinutes(stats.totalSeconds)} hint="Overall deal effort" />
-        <StatCard label="Today" value={formatHoursMinutes(stats.todaySeconds)} hint="Active sessions today" accent />
-        <StatCard label="Sessions" value={String(stats.sessions)} hint="Recorded sessions" />
-        <StatCard label="Employees" value={String(stats.employees)} hint="Active contributors" />
+        <StatCard label="Total Time" value={formatHoursMinutes(stats.totalSeconds)} />
+        <StatCard label="Today" value={formatHoursMinutes(stats.todaySeconds)} accent />
+        <StatCard label="Sessions" value={String(stats.sessions)} />
+        <StatCard label="Employees" value={String(stats.employees)} />
       </div>
 
       {/* History */}
@@ -208,12 +208,11 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
   );
 }
 
-function StatCard({ label, value, hint, accent }: { label: string; value: string; hint: string; accent?: boolean }) {
+function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="setu-card px-4 py-5">
       <p className="setu-text-2 text-xs font-semibold uppercase tracking-wide">{label}</p>
       <p className={cn("mt-2 text-2xl font-bold leading-none tracking-tight", accent && "setu-accent-text")}>{value}</p>
-      <p className="mt-2 text-xs font-medium">{hint}</p>
     </div>
   );
 }

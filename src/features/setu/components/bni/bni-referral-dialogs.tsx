@@ -76,7 +76,7 @@ export function ReferralDialog({ open, onClose, memberId, direction }: { open: b
       onClose={onClose}
       icon={Link2}
       title="Log Referral"
-      description={fixed ? `With ${fixed.contactName}` : "A referral you received from, or gave to, a BNI member."}
+      description={fixed ? `With ${fixed.contactName}` : undefined}
       footer={
         <>
           <SetuButton variant="muted" onClick={onClose}>
@@ -184,7 +184,7 @@ export function ConvertRefsDialog({ open, onClose, member }: { open: boolean; on
       headerTone="bg-green-50 dark:bg-green-500/10"
       iconTone="bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-400"
       title="Convert Referrals → Prospects"
-      description={member ? `Pending referrals from ${member.contactName}. Fill in what you know — each becomes a Prospect.` : undefined}
+      description={member ? `Pending referrals from ${member.contactName}` : undefined}
       footer={
         <>
           <SetuButton variant="muted" onClick={onClose}>

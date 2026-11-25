@@ -3,10 +3,9 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { ArrowDownLeft, ArrowRight, ArrowUpRight, CheckCheck, Clock3, LayoutGrid, Link2, Plus, Trash2, Trophy } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { usePageViewState, useUrlState } from "@/lib/navigation/use-url-state";
-import { BNI_STAGE_BY_ID, bniStageOf, buildReferrals, type ReferralRow } from "../../bni";
+import { bniStageOf, buildReferrals, type ReferralRow } from "../../bni";
 import { useBni } from "../../bni-client";
 import { matchesText } from "../../insights";
 import { useSetuStore } from "../../provider";
@@ -14,7 +13,7 @@ import { formatDate } from "../../utils";
 import { SetuAvatar, SetuButton, attempt } from "../setu-ui";
 import { ConvertRefsDialog, ReferralDialog } from "./bni-referral-dialogs";
 import { MemberDialog } from "./member-dialog";
-import { ChipPill, ClearFilters, FilterPanel, PanelSearch, SectionCard, SetuShell, TAG_TONE, Tag } from "./setu-shell";
+import { ChipPill, ClearFilters, FilterPanel, PanelSearch, SectionCard, SetuShell, StageTag, TAG_TONE, Tag } from "./setu-shell";
 
 type Filter = "all" | "received" | "given" | "pending";
 const FILTERS: Filter[] = ["all", "received", "given", "pending"];
@@ -59,7 +58,6 @@ export function ReferralsView() {
     <SetuShell
       tab="referrals"
       title="Referrals Tracker"
-      subtitle="Referrals received from and given to chapter members — and which reached the pipeline."
       actions={
         <SetuButton variant="solid" onClick={() => setLogOpen(true)}>
           <Plus /> Log Referral
@@ -67,7 +65,7 @@ export function ReferralsView() {
       }
     >
       {top.length > 0 && (
-        <SectionCard icon={Trophy} title="Top Referrers" description="Members who sent you the most referrals." badge="Chapter">
+        <SectionCard icon={Trophy} title="Top Referrers" badge="Chapter">
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {top.map((t, i) => (
               <button
@@ -79,12 +77,12 @@ export function ReferralsView() {
               >
                 <span className="relative">
                   <SetuAvatar name={t.name} size="md" className="h-10 w-10 text-sm" />
-                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#1d4ed8] text-[9px] font-bold text-white">{i + 1}</span>
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--setu-card)] text-[10px] font-medium tabular-nums text-[var(--setu-text)] ring-1 ring-[var(--setu-line)]">{i + 1}</span>
                 </span>
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold">{t.name}</span>
-                  <span className="setu-text-2 block text-[11px]">
-                    <span className="font-semibold text-green-600 dark:text-green-400">{t.received}</span> received • <span className="font-semibold text-blue-600 dark:text-blue-400">{t.given}</span> given
+                  <span className="block truncate text-sm font-medium">{t.name}</span>
+                  <span className="setu-text-2 block text-[11px] tabular-nums">
+                    <span className="font-medium text-[var(--setu-text)]">{t.received}</span> received • <span className="font-medium text-[var(--setu-text)]">{t.given}</span> given
                   </span>
                 </span>
               </button>
@@ -112,21 +110,20 @@ export function ReferralsView() {
         icon={Link2}
         title="Referral Log"
         description={`${rows.length} of ${all.length} referrals`}
-        action={<span className="rounded-full bg-[var(--setu-well)] px-2.5 py-0.5 text-[11px] font-semibold">{all.filter((r) => r.status === "CONVERTED").length} Converted</span>}
+        action={<span className="setu-text-2 text-xs tabular-nums">{all.filter((r) => r.status === "CONVERTED").length} converted</span>}
       >
         {rows.length === 0 ? (
           <div className="rounded-xl bg-[var(--setu-well)] px-6 py-12 text-center">
-            <p className="text-sm font-semibold">{all.length ? "No referrals match" : "No referrals yet"}</p>
-            <p className="setu-text-2 mt-1 text-xs">{all.length ? "Try another filter or search." : "Log a 121 with referrals, or log one here."}</p>
+            <p className="text-sm font-medium">{all.length ? "No referrals match" : "No referrals yet"}</p>
           </div>
         ) : (
-          <ul className="space-y-2.5">
+          <ul className="space-y-2">
             {rows.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-[var(--setu-well)] px-4 py-3">
                 <SetuAvatar name={r.direction === "GIVEN" ? r.memberName : r.details.name} size="md" className="h-10 w-10 text-sm" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-semibold">
+                    <p className="text-sm font-medium">
                       {r.direction === "GIVEN" ? (
                         <>
                           You → <MemberLink r={r} onOpen={setMember} />
@@ -137,7 +134,7 @@ export function ReferralsView() {
                         </>
                       )}
                     </p>
-                    <Tag className={r.direction === "GIVEN" ? TAG_TONE.orange : TAG_TONE.blue}>{r.direction === "GIVEN" ? "Given" : "Received"}</Tag>
+                    <Tag className={r.direction === "GIVEN" ? TAG_TONE.neutral : TAG_TONE.blue}>{r.direction === "GIVEN" ? "Given" : "Received"}</Tag>
                   </div>
                   <p className="setu-text-2 mt-0.5 text-xs">
                     {[r.direction === "GIVEN" ? r.details.business || "Referral given" : r.details.business, r.details.phone, r.details.via ? `Co ${r.details.via}` : "", formatDate(r.at)].filter(Boolean).join(" • ")}
@@ -146,7 +143,7 @@ export function ReferralsView() {
                 <div className="flex items-center gap-2">
                   {r.status === "PENDING" && (
                     <>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
                         <Clock3 size={12} /> Pending
                       </span>
                       {r.memberId && (
@@ -157,16 +154,16 @@ export function ReferralsView() {
                     </>
                   )}
                   {r.status === "GIVEN" && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[var(--setu-card)] px-2.5 py-1 text-[11px] font-semibold text-orange-600 dark:text-orange-400">
+                    <span className="setu-text-2 inline-flex items-center gap-1 rounded-md bg-[var(--setu-card)] px-2 py-0.5 text-[11px] font-medium">
                       <ArrowUpRight size={12} /> Given
                     </span>
                   )}
                   {r.status === "CONVERTED" && r.prospect && (
                     <Link href={ROUTES.setuDeal(r.prospect.id)} className="inline-flex items-center gap-1.5">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--setu-card)] px-2.5 py-1 text-[11px] font-semibold text-green-700 dark:text-green-400">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-[var(--setu-card)] px-2 py-0.5 text-[11px] font-medium text-green-700 dark:text-green-400">
                         <CheckCheck size={12} /> Received
                       </span>
-                      <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", BNI_STAGE_BY_ID[bniStageOf(r.prospect)].pill)}>{BNI_STAGE_BY_ID[bniStageOf(r.prospect)].label}</span>
+                      <StageTag stage={bniStageOf(r.prospect)} />
                     </Link>
                   )}
                   {r.noteId && (
@@ -197,7 +194,7 @@ export function ReferralsView() {
 function MemberLink({ r, onOpen }: { r: ReferralRow; onOpen: (id: string) => void }) {
   if (!r.memberId) return <span>{r.memberName}</span>;
   return (
-    <button type="button" onClick={() => onOpen(r.memberId as string)} className="font-semibold hover:text-[var(--setu-accent)] hover:underline">
+    <button type="button" onClick={() => onOpen(r.memberId as string)} className="font-medium hover:text-[var(--setu-accent)] hover:underline">
       {r.memberName}
     </button>
   );

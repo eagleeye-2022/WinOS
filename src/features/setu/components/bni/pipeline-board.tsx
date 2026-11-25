@@ -48,25 +48,27 @@ type OriginFilter = "all" | "BOT" | "121" | "DIRECT";
 const ORIGIN_VALUES: OriginFilter[] = ["all", "BOT", "121", "DIRECT"];
 const ORIGIN_LABEL: Record<OriginFilter, string> = { all: "All Sources", BOT: "WhatsApp Bot", "121": "From 121s", DIRECT: "Direct" };
 
-/** Column icon + its tile colours (header) for each of the 12 stages. */
-const STAGE_ICON: Record<BniStage, { icon: React.ElementType; tile: string }> = {
-  PROSPECT: { icon: UserRoundSearch, tile: "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400" },
-  DISCOVERY: { icon: CalendarDays, tile: "bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400" },
-  ESTIMATION: { icon: FileText, tile: "bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400" },
-  ESTIMATE_SENT: { icon: FileCheck2, tile: "bg-cyan-50 text-cyan-600 dark:bg-cyan-500/15 dark:text-cyan-400" },
-  CLIENT_MEET_1: { icon: UsersRound, tile: "bg-sky-50 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400" },
-  CLIENT_MEET_2: { icon: CalendarCheck2, tile: "bg-blue-600 text-white" },
-  NEGOTIATION: { icon: Handshake, tile: "bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400" },
-  AGREEMENT: { icon: Signature, tile: "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-400" },
-  WON: { icon: BadgeCheck, tile: "bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-400" },
-  ON_HOLD: { icon: PauseCircle, tile: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300" },
-  LOST: { icon: CircleX, tile: "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400" },
-  OPPORTUNITY: { icon: Lightbulb, tile: "bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400" },
+/** Column icon for each of the 12 stages. */
+const STAGE_ICON: Record<BniStage, React.ElementType> = {
+  PROSPECT: UserRoundSearch,
+  DISCOVERY: CalendarDays,
+  ESTIMATION: FileText,
+  ESTIMATE_SENT: FileCheck2,
+  CLIENT_MEET_1: UsersRound,
+  CLIENT_MEET_2: CalendarCheck2,
+  NEGOTIATION: Handshake,
+  AGREEMENT: Signature,
+  WON: BadgeCheck,
+  ON_HOLD: PauseCircle,
+  LOST: CircleX,
+  OPPORTUNITY: Lightbulb,
 };
 
-const COUNT_TONE: Partial<Record<BniStage, string>> = {
-  WON: "bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-400",
-  LOST: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400",
+/** Column header tiles are neutral; only the two outcomes carry colour. */
+const NEUTRAL_TILE = "bg-[var(--setu-card)] text-[var(--setu-text-2)]";
+const OUTCOME_TILE: Partial<Record<BniStage, string>> = {
+  WON: "bg-green-50 text-green-600 dark:bg-green-500/15 dark:text-green-400",
+  LOST: "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400",
 };
 
 /** Setu → Sales Pipeline: the BNI prospects board, 12 stages; drag a card (or use its menu) to move it. */
@@ -109,13 +111,6 @@ export function PipelineBoard() {
     <SetuShell
       tab="pipeline"
       title="Sales Pipeline"
-      subtitle="BNI prospects board — every referral from Prospect to Deal Won, across 12 stages."
-      hint={
-        <>
-          Prospects enter from <strong className="text-[var(--setu-text)]">121 Meetings</strong> (converted referrals) or directly via the{" "}
-          <strong className="text-[var(--setu-text)]">WhatsApp Bot</strong> (visiting card). Open a card for calls, meetings, estimates and closure.
-        </>
-      }
       actions={
         <SetuButton variant="solid" onClick={() => setCreate({ stage: "PROSPECT" })}>
           <Plus /> Add Prospect
@@ -131,7 +126,7 @@ export function PipelineBoard() {
                 key={s.id}
                 active={stageFilter === s.id}
                 onClick={() => setStageFilter((cur) => (cur === s.id ? "" : s.id))}
-                icon={STAGE_ICON[s.id].icon}
+                icon={STAGE_ICON[s.id]}
                 label={s.label}
                 count={byStage.get(s.id)?.length ?? 0}
               />
@@ -155,7 +150,7 @@ export function PipelineBoard() {
         <div className="flex min-w-max items-start gap-4" onDragEnd={() => setDragOver(null)}>
           {columns.map((stage) => {
             const cards = byStage.get(stage.id) ?? [];
-            const { icon: Icon, tile } = STAGE_ICON[stage.id];
+            const Icon = STAGE_ICON[stage.id];
             return (
               <section
                 key={stage.id}
@@ -173,16 +168,16 @@ export function PipelineBoard() {
                   move(e.dataTransfer.getData("text/setu-deal-id"), stage.id);
                 }}
                 className={cn(
-                  "setu-well flex w-[300px] shrink-0 flex-col transition-all",
+                  "setu-well flex w-[300px] shrink-0 flex-col transition-[border-color,box-shadow]",
                   dragOver === stage.id && "border-[var(--setu-accent)] shadow-[0_0_0_2px_var(--setu-accent-ring)]"
                 )}
               >
-                <header className="flex items-center gap-2.5 px-3.5 py-3">
-                  <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", tile)}>
+                <header className="flex items-center gap-2 px-3 py-3">
+                  <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg", OUTCOME_TILE[stage.id] ?? NEUTRAL_TILE)}>
                     <Icon size={14} />
                   </span>
-                  <h3 className="min-w-0 truncate text-xs font-bold uppercase tracking-wider">{stage.label}</h3>
-                  <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums", COUNT_TONE[stage.id] ?? "bg-[var(--setu-card)] text-[var(--setu-text-2)]")}>{cards.length}</span>
+                  <h3 className="min-w-0 truncate text-sm font-medium">{stage.label}</h3>
+                  <span className="setu-text-3 text-xs tabular-nums">{cards.length}</span>
                   <button
                     type="button"
                     onClick={() => setCreate({ stage: stage.id })}
@@ -205,7 +200,7 @@ export function PipelineBoard() {
                       ) : (
                         <>
                           <span>No prospects here</span>
-                          <button type="button" onClick={() => setCreate({ stage: stage.id })} className="font-semibold text-[var(--setu-accent)] hover:underline">
+                          <button type="button" onClick={() => setCreate({ stage: stage.id })} className="font-medium text-[var(--setu-accent)] hover:underline">
                             + Add one
                           </button>
                         </>
@@ -246,14 +241,14 @@ function ProspectCard({ deal, stage, fromMember, onMove }: { deal: Deal; stage: 
       }}
       onClick={open}
       onKeyDown={(e) => e.key === "Enter" && open()}
-      className="setu-card group relative cursor-grab p-4 transition-all hover:-translate-y-0.5 hover:shadow-md active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--setu-accent-ring)]"
+      className="setu-card group relative cursor-grab p-4 transition-colors hover:border-[var(--setu-line-strong)] active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--setu-accent-ring)]"
     >
-      <div className="absolute right-2.5 top-2.5 flex items-center">
+      <div className="absolute right-2 top-2 flex items-center">
         <StageMenu current={stage} onChange={onMove} />
         <GripVertical size={14} className="setu-text-3 opacity-50 group-hover:opacity-100" aria-hidden />
       </div>
 
-      <h4 className="pr-12 text-[13px] font-bold leading-snug group-hover:text-[var(--setu-accent)]">{deal.contactName}</h4>
+      <h4 className="pr-12 text-sm font-semibold leading-snug group-hover:text-[var(--setu-accent)]">{deal.contactName}</h4>
       <p className="setu-text-2 mt-0.5 truncate text-xs">
         {business} • {deal.leadCode}
       </p>
@@ -266,8 +261,8 @@ function ProspectCard({ deal, stage, fromMember, onMove }: { deal: Deal; stage: 
               stage === "WON" ? "bg-green-50 text-green-800 dark:bg-green-500/10 dark:text-green-300" : "bg-red-50 text-red-800 dark:bg-red-500/10 dark:text-red-300"
             )}
           >
-            <span className="text-[10px] font-bold uppercase tracking-wider">{stage === "WON" ? "Closed Deal" : "Deal Value"}</span>
-            <span className="text-sm font-bold tabular-nums">{formatInr(deal.value)}</span>
+            <span className="text-xs font-medium">{stage === "WON" ? "Closed deal" : "Deal value"}</span>
+            <span className="text-sm font-semibold tabular-nums">{formatInr(deal.value)}</span>
           </div>
         ) : (
           !opp &&
@@ -285,7 +280,7 @@ function ProspectCard({ deal, stage, fromMember, onMove }: { deal: Deal; stage: 
           <p className="rounded-lg border-l-[3px] border-[var(--setu-accent)] bg-[var(--setu-well)] px-3 py-2 text-xs leading-snug text-[var(--setu-text)]">
             {deal.remark ? (
               <>
-                <span className="font-semibold">Note:</span> {deal.remark}
+                <span className="font-medium">Note:</span> {deal.remark}
               </>
             ) : (
               [deal.source ? `Co ${deal.source}` : "", deal.title].filter(Boolean).join(" · ")
@@ -294,15 +289,15 @@ function ProspectCard({ deal, stage, fromMember, onMove }: { deal: Deal; stage: 
         )}
       </div>
 
-      <div className="mt-3 flex items-center justify-between gap-2 text-[10px]">
+      <div className="mt-3 flex items-center justify-between gap-2 text-[11px]">
         {origin ? (
-          <span className="inline-flex items-center gap-0.5 font-semibold text-[var(--setu-accent)]">
-            <ArrowUp size={10} /> {origin}
+          <span className="inline-flex items-center gap-1 font-medium text-[var(--setu-accent)]">
+            <ArrowUp size={11} /> {origin}
           </span>
         ) : (
           <span />
         )}
-        <span className="setu-text-2">Last Updated : {formatDateTime(deal.updatedAt)}</span>
+        <span className="setu-text-3 tabular-nums">Updated {formatDateTime(deal.updatedAt)}</span>
       </div>
     </article>
   );
@@ -325,7 +320,7 @@ function StageMenu({ current, onChange }: { current: BniStage; onChange: (s: Bni
           <DropdownMenuRadioGroup value={current} onValueChange={(v) => onChange(v as BniStage)}>
             {BNI_STAGES.map((s) => (
               <DropdownMenuRadioItem key={s.id} value={s.id} className="text-xs">
-                <span className={cn("mr-1.5 h-1.5 w-1.5 shrink-0 rounded-full", s.dot)} />
+                <span className={cn("mr-2 h-1.5 w-1.5 shrink-0 rounded-full", s.dot)} />
                 {s.label}
               </DropdownMenuRadioItem>
             ))}

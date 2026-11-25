@@ -17,7 +17,7 @@ import { SetuAvatar, SetuButton } from "../setu-ui";
 import { BniDialog, Segmented } from "./bni-dialog";
 import { MemberFormDialog, ProspectDialog } from "./bni-forms";
 import { MemberDialog } from "./member-dialog";
-import { ChipPill, ClearFilters, DataTable, FilterPanel, PanelSearch, SetuShell, TAG_TONE, Tag } from "./setu-shell";
+import { ChipPill, ClearFilters, DataTable, FilterPanel, PanelSearch, SetuShell, StageTag, TAG_TONE, Tag } from "./setu-shell";
 
 const FILTERS: ContactFilter[] = ["all", "prospects", "members", "referrals", "won"];
 const FILTER_META: Record<ContactFilter, { label: string; icon: React.ElementType }> = {
@@ -69,7 +69,6 @@ export function ContactsView() {
     <SetuShell
       tab="contacts"
       title="BNI Contacts"
-      subtitle="Members you hold 121s with and the prospects they've sent your way."
       actions={
         <>
           <input ref={fileRef} type="file" accept=".vcf,text/vcard,text/x-vcard" className="hidden" onChange={(e) => void onFile(e.target.files?.[0])} />
@@ -117,9 +116,9 @@ export function ContactsView() {
               <Contact size={16} />
             </span>
             <div>
-              <p className="setu-text-2 text-[10px] font-bold uppercase tracking-wider">Directory</p>
-              <p className="text-sm font-semibold">
-                <span className="text-[var(--setu-accent)]">{contacts.length - members} Prospects</span> • <span className="text-pink-600 dark:text-pink-400">{members} Members</span> •{" "}
+              <p className="setu-text-2 text-xs">Directory</p>
+              <p className="text-sm font-medium tabular-nums">
+                <span>{contacts.length - members} prospects</span> • <span>{members} members</span> •{" "}
                 <span className="text-[var(--setu-text-2)]">{rows.length} shown</span>
               </p>
             </div>
@@ -133,8 +132,7 @@ export function ContactsView() {
           {rows.length === 0 ? (
             <tr>
               <td colSpan={6} className="px-4 py-14 text-center">
-                <p className="text-sm font-semibold">{contacts.length ? "No contacts match" : "No contacts yet"}</p>
-                <p className="setu-text-2 mt-1 text-xs">{contacts.length ? "Try another filter or search." : "Log a 121, add a prospect or import a vCard to get started."}</p>
+                <p className="text-sm font-medium">{contacts.length ? "No contacts match" : "No contacts yet"}</p>
               </td>
             </tr>
           ) : (
@@ -152,20 +150,19 @@ export function ContactsView() {
 }
 
 function ContactRow({ c, onOpen }: { c: BniContact; onOpen: () => void }) {
-  const st = c.stage ? BNI_STAGE_BY_ID[c.stage] : undefined;
   return (
     <tr onClick={onOpen} className="group cursor-pointer transition-colors hover:bg-[var(--setu-well)]/60">
       <td className="px-4 py-3.5">
         <div className="flex items-center gap-3">
           <SetuAvatar name={c.name} size="md" />
           <div className="min-w-0">
-            <p className="truncate font-semibold group-hover:text-[var(--setu-accent)]">{c.name}</p>
+            <p className="truncate font-medium group-hover:text-[var(--setu-accent)]">{c.name}</p>
             <p className="setu-text-2 truncate text-[11px]">{c.email || `Updated ${formatDate(c.deal.updatedAt)}`}</p>
           </div>
         </div>
       </td>
       <td className="px-4 py-3.5">
-        {c.kind === "MEMBER" ? <Tag className={TAG_TONE.pink}>BNI Member</Tag> : <Tag className={TAG_TONE.blue}>Prospect</Tag>}
+        {c.kind === "MEMBER" ? <Tag className={TAG_TONE.neutral}>BNI Member</Tag> : <Tag className={TAG_TONE.blue}>Prospect</Tag>}
       </td>
       <td className="px-4 py-3.5 text-[13px]">{c.business || <span className="setu-text-3">—</span>}</td>
       <td className="px-4 py-3.5 text-[13px] tabular-nums" onClick={(e) => e.stopPropagation()}>
@@ -179,16 +176,11 @@ function ContactRow({ c, onOpen }: { c: BniContact; onOpen: () => void }) {
       </td>
       <td className="px-4 py-3.5">
         <div className="flex flex-wrap gap-1">
-          {st && (
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold ${st.pill}`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${st.dot}`} />
-              {st.label}
-            </span>
-          )}
-          {c.deal.bni?.origin === "BOT" && <Tag className={TAG_TONE.green}>Via Bot</Tag>}
-          {c.kind === "PROSPECT" && c.fromReferral && <Tag className={TAG_TONE.violet}>Referral</Tag>}
-          {c.refsReceived > 0 && <Tag className={TAG_TONE.green}>{c.refsReceived} Refs</Tag>}
-          {c.followUp && <Tag className={TAG_TONE.amber}>Follow Up</Tag>}
+          {c.stage && <StageTag stage={c.stage} />}
+          {c.deal.bni?.origin === "BOT" && <Tag className={TAG_TONE.neutral}>Via bot</Tag>}
+          {c.kind === "PROSPECT" && c.fromReferral && <Tag className={TAG_TONE.neutral}>Referral</Tag>}
+          {c.refsReceived > 0 && <Tag className={TAG_TONE.neutral}>{c.refsReceived} refs</Tag>}
+          {c.followUp && <Tag className={TAG_TONE.amber}>Follow up</Tag>}
         </div>
       </td>
       <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
@@ -204,7 +196,7 @@ function ContactRow({ c, onOpen }: { c: BniContact; onOpen: () => void }) {
               <MessageCircle size={14} />
             </a>
           )}
-          <button type="button" onClick={onOpen} className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#1d4ed8] px-3 text-xs font-semibold text-white hover:bg-[#1e40af] dark:bg-blue-600">
+          <button type="button" onClick={onOpen} className="inline-flex h-8 items-center gap-1 rounded-lg bg-[var(--setu-solid)] px-3 text-xs font-medium text-white transition-colors hover:bg-[var(--setu-solid-hover)]">
             {c.kind === "MEMBER" ? "121 Record" : "Open"} <ArrowUpRight size={12} />
           </button>
         </div>
@@ -247,7 +239,7 @@ function VCardImportDialog({ people, onClose }: { people: PersonInput[] | null; 
       onClose={onClose}
       icon={FileUp}
       title="Import vCard"
-      description={`${list.length} contact${list.length === 1 ? "" : "s"} found. Untick any you don't want.`}
+      description={`${list.length} contact${list.length === 1 ? "" : "s"} found`}
       footer={
         <>
           <SetuButton variant="muted" onClick={onClose}>
@@ -288,7 +280,7 @@ function VCardImportDialog({ people, onClose }: { people: PersonInput[] | null; 
               />
               <SetuAvatar name={p.name || "?"} />
               <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold">{p.name || "(no name)"}</span>
+                <span className="block truncate font-medium">{p.name || "(no name)"}</span>
                 <span className="setu-text-2 block truncate">{[p.business, p.phone, p.email].filter(Boolean).join(" · ")}</span>
               </span>
             </li>

@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { usePageViewState } from "@/lib/navigation/use-url-state";
-import { BNI_STAGE_BY_ID, NOTE_TODO_DONE, bniStageOf, memberSummaries, memberTimeline, textToHtml } from "../../bni";
+import { NOTE_TODO_DONE, bniStageOf, memberSummaries, memberTimeline, textToHtml } from "../../bni";
 import { useBni } from "../../bni-client";
 import { useSetuStore } from "../../provider";
 import { formatDate, phoneDigits } from "../../utils";
@@ -17,7 +17,7 @@ import { SetuAvatar, SetuButton, attempt } from "../setu-ui";
 import { BniDialog } from "./bni-dialog";
 import { Log121Dialog, MemberFormDialog } from "./bni-forms";
 import { CallNoteDialog, ConvertRefsDialog, ReferralDialog } from "./bni-referral-dialogs";
-import { Tag } from "./setu-shell";
+import { StageTag } from "./setu-shell";
 
 type Sub = "call" | "convert" | "edit" | "log" | "ref" | null;
 
@@ -59,8 +59,8 @@ export function MemberDialog({ memberId, onClose }: { memberId: string | null; o
         width="max-w-[880px]"
         icon={CalendarHeart}
         headerTone="bg-[var(--setu-card)]"
-        iconTone="bg-green-50 text-green-600 dark:bg-green-500/10 dark:text-green-400"
-        badge={<span className="rounded-md bg-[var(--setu-accent-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--setu-accent)]">121 Meeting</span>}
+        iconTone="bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]"
+        badge={<span className="rounded-md bg-[var(--setu-well)] px-2 py-0.5 text-[11px] font-medium text-[var(--setu-text-2)]">121 Meeting</span>}
         title={m ? m.contactName : "121 Meeting"}
         description={m ? [m.source ? `Co ${m.source}` : "Direct BNI", m.company !== m.contactName ? m.company : "BNI Member"].filter(Boolean).join(" · ") : undefined}
       >
@@ -72,7 +72,7 @@ export function MemberDialog({ memberId, onClose }: { memberId: string | null; o
                 <span className="flex items-center gap-2">
                   <Clock3 size={15} className="text-[var(--setu-accent)]" />
                   <span className="setu-text-2">Last 121:</span>
-                  <span className="font-semibold">{summary.lastMeeting ? formatDate(summary.lastMeeting.startAt) : "Not logged yet"}</span>
+                  <span className="font-medium tabular-nums">{summary.lastMeeting ? formatDate(summary.lastMeeting.startAt) : "Not logged yet"}</span>
                 </span>
                 {summary.lastMeeting && (
                   <span className="flex items-center gap-1.5 text-xs">
@@ -83,18 +83,18 @@ export function MemberDialog({ memberId, onClose }: { memberId: string | null; o
                   </span>
                 )}
               </div>
-              <Section title="Referral Summary">
-                <div className="grid grid-cols-3 gap-2.5">
-                  <Pill value={summary.refsReceived} label="Refs Received" tone="text-green-600 dark:text-green-400" />
-                  <Pill value={summary.refsGiven} label="Refs Given" tone="text-blue-600 dark:text-blue-400" />
-                  <Pill value={summary.pendingRefs.length} label="Pending Conversion" tone="text-amber-600 dark:text-amber-400" />
+              <Section title="Referral summary">
+                <div className="grid grid-cols-3 gap-2">
+                  <Pill value={summary.refsReceived} label="Refs received" />
+                  <Pill value={summary.refsGiven} label="Refs given" />
+                  <Pill value={summary.pendingRefs.length} label="Pending conversion" tone={summary.pendingRefs.length ? "text-amber-600 dark:text-amber-400" : undefined} />
                 </div>
               </Section>
 
               <Section
-                title="Meeting Notes"
+                title="Meeting notes"
                 action={
-                  <button type="button" onClick={() => setNoteOpen((o) => !o)} className="setu-accent-text inline-flex items-center gap-1 text-[11px] font-semibold hover:underline">
+                  <button type="button" onClick={() => setNoteOpen((o) => !o)} className="setu-accent-text inline-flex items-center gap-1 text-xs font-medium hover:underline">
                     <Plus size={12} /> Add Note
                   </button>
                 }
@@ -113,15 +113,15 @@ export function MemberDialog({ memberId, onClose }: { memberId: string | null; o
                   </div>
                 )}
                 {timeline.length === 0 ? (
-                  <p className="setu-text-3 text-xs">No notes yet. Log a 121, add a note or save a call note.</p>
+                  <p className="setu-text-3 text-xs">No notes yet</p>
                 ) : (
-                  <ul className="space-y-2.5">
+                  <ul className="space-y-3">
                     {timeline.map((e) => (
                       <li key={`${e.kind}-${e.id}`} className="flex gap-3">
-                        <span className="setu-text-3 w-12 shrink-0 pt-0.5 text-[10px] font-bold uppercase">{formatDate(e.at).slice(0, 6)}</span>
+                        <span className="setu-text-3 w-12 shrink-0 pt-0.5 text-[11px] tabular-nums">{formatDate(e.at).slice(0, 6)}</span>
                         <div className="min-w-0 flex-1">
-                          <p className="flex items-center gap-1.5 text-[11px] font-semibold">
-                            {e.kind === "MEETING" ? <CalendarDays size={12} className="text-orange-500" /> : e.kind === "CALL" ? <PhoneCall size={12} className="text-green-600" /> : <StickyNote size={12} className="text-blue-500" />}
+                          <p className="flex items-center gap-1.5 text-xs font-medium">
+                            {e.kind === "MEETING" ? <CalendarDays size={12} className="setu-text-3" /> : e.kind === "CALL" ? <PhoneCall size={12} className="setu-text-3" /> : <StickyNote size={12} className="setu-text-3" />}
                             {e.title}
                           </p>
                           {e.text && <p className="mt-0.5 text-xs leading-relaxed text-[var(--setu-text)]">{e.text}</p>}
@@ -165,14 +165,13 @@ export function MemberDialog({ memberId, onClose }: { memberId: string | null; o
 
               {summary.pendingRefs.length > 0 ? (
                 <div className="rounded-xl border border-green-200 bg-green-50 px-3.5 py-2.5 text-xs text-green-700 dark:border-green-500/25 dark:bg-green-500/10 dark:text-green-400">
-                  <strong>
+                  <strong className="font-medium">
                     {summary.pendingRefs.length} referral{summary.pendingRefs.length === 1 ? "" : "s"} to convert
-                  </strong>{" "}
-                  — convert them here, or send the names through the WhatsApp Bot.
+                  </strong>
                 </div>
               ) : summary.prospects.length > 0 ? (
                 <div className="rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2.5 text-xs text-blue-700 dark:border-blue-500/25 dark:bg-blue-500/10 dark:text-blue-300">
-                  <strong>Converted to Prospects ✓</strong> — {summary.prospects.length} on the Sales Pipeline.
+                  <strong className="font-medium">Converted to prospects</strong> — {summary.prospects.length} on the Sales Pipeline.
                 </div>
               ) : null}
 
@@ -191,10 +190,10 @@ export function MemberDialog({ memberId, onClose }: { memberId: string | null; o
 
             {/* Right: contact + actions */}
             <aside className="space-y-5 px-5 py-5">
-              <Section title="Member Info">
+              <Section title="Member info">
                 <div className="setu-card space-y-2 p-4 text-center">
                   <SetuAvatar name={m.contactName} className="mx-auto h-11 w-11 text-sm" />
-                  <p className="text-sm font-bold">{m.contactName}</p>
+                  <p className="text-sm font-semibold">{m.contactName}</p>
                   <p className="setu-text-2 text-[11px]">{[m.source ? `Co ${m.source}` : "", m.company !== m.contactName ? m.company : "BNI Member"].filter(Boolean).join(" · ")}</p>
                   <p className="setu-text-3 flex items-center justify-center gap-1 text-[11px]">
                     <Phone size={11} /> {m.phone || "Not captured yet"}
@@ -230,9 +229,9 @@ export function MemberDialog({ memberId, onClose }: { memberId: string | null; o
                 </div>
               </Section>
 
-              <Section title="Pipeline Stage">
+              <Section title="Pipeline stage">
                 <div className="rounded-xl border border-[var(--setu-line)] bg-[var(--setu-card)] px-3 py-2.5 text-xs">
-                  <p className="font-semibold">121 Meeting</p>
+                  <p className="font-medium">121 Meeting</p>
                   <p className="setu-text-2 mt-0.5 text-[11px]">
                     {summary.pendingRefs.length
                       ? `→ ${summary.pendingRefs.length} referral${summary.pendingRefs.length === 1 ? "" : "s"} pending conversion`
@@ -243,20 +242,17 @@ export function MemberDialog({ memberId, onClose }: { memberId: string | null; o
                 </div>
                 {summary.prospects.length > 0 && (
                   <ul className="mt-2 space-y-1.5">
-                    {summary.prospects.map((p) => {
-                      const st = BNI_STAGE_BY_ID[bniStageOf(p)];
-                      return (
-                        <li key={p.id}>
-                          <Link href={ROUTES.setuDeal(p.id)} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs hover:bg-[var(--setu-soft)]">
-                            <span className="flex min-w-0 items-center gap-1.5">
-                              <UserRound size={12} className="setu-text-3 shrink-0" />
-                              <span className="truncate font-medium">{p.contactName}</span>
-                            </span>
-                            <Tag className={st.pill}>{st.label}</Tag>
-                          </Link>
-                        </li>
-                      );
-                    })}
+                    {summary.prospects.map((p) => (
+                      <li key={p.id}>
+                        <Link href={ROUTES.setuDeal(p.id)} className="flex items-center justify-between gap-2 rounded-lg px-2 py-1 text-xs hover:bg-[var(--setu-soft)]">
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            <UserRound size={12} className="setu-text-3 shrink-0" />
+                            <span className="truncate font-medium">{p.contactName}</span>
+                          </span>
+                          <StageTag stage={bniStageOf(p)} />
+                        </Link>
+                      </li>
+                    ))}
                   </ul>
                 )}
               </Section>
@@ -297,7 +293,7 @@ function Section({ title, action, children }: { title: string; action?: React.Re
   return (
     <section>
       <div className="mb-2 flex items-center justify-between">
-        <h4 className="setu-text-2 text-[11px] font-bold uppercase tracking-wider">{title}</h4>
+        <h4 className="setu-text-2 text-xs font-medium">{title}</h4>
         {action}
       </div>
       {children}
@@ -305,11 +301,11 @@ function Section({ title, action, children }: { title: string; action?: React.Re
   );
 }
 
-function Pill({ value, label, tone }: { value: number; label: string; tone: string }) {
+function Pill({ value, label, tone }: { value: number; label: string; tone?: string }) {
   return (
     <div className="rounded-xl border border-[var(--setu-line)] bg-[var(--setu-card)] px-3 py-2.5 text-center shadow-[var(--setu-shadow)]">
-      <p className={cn("text-xl font-extrabold tabular-nums", tone)}>{value}</p>
-      <p className="setu-text-2 text-[10px] font-medium">{label}</p>
+      <p className={cn("text-xl font-semibold tabular-nums", tone)}>{value}</p>
+      <p className="setu-text-2 text-[11px]">{label}</p>
     </div>
   );
 }

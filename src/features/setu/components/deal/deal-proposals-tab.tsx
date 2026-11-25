@@ -207,11 +207,8 @@ function DraftCard({ draft, active, code }: { draft: ProposalVersion; active?: P
 
       <div className="mt-4 grid gap-4 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)] p-4 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <label className="block space-y-1.5">
-          <span className="flex items-center justify-between text-xs font-semibold">
-            <span>
-              Proposal Scope Title <span className="text-red-500">*</span>
-            </span>
-            <span className="setu-text-3 text-[11px] font-normal">Shown on client PDF header</span>
+          <span className="block text-xs font-semibold">
+            Proposal Scope Title <span className="text-red-500">*</span>
           </span>
           <Input value={title} onChange={(e) => setTitle(e.target.value)} className="setu-input h-9 bg-[var(--setu-card)]!" />
         </label>
@@ -234,10 +231,7 @@ function DraftCard({ draft, active, code }: { draft: ProposalVersion; active?: P
       </div>
 
       <div className="mt-4 space-y-1.5">
-        <span className="flex items-center justify-between text-xs font-semibold">
-          Revision Justification & Client Covenant Adjustments
-          <span className="setu-text-3 text-[11px] font-normal">Internal & client audit trail</span>
-        </span>
+        <span className="block text-xs font-semibold">Revision Justification & Client Covenant Adjustments</span>
         <RichDescriptionEditor value={reason} onChange={setReason} />
       </div>
 

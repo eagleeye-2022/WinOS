@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { ArrowRight, CalendarDays, CheckCircle2, Clock3, Download, GripVertical, LayoutGrid, Link2, ListChecks, Phone, Plus, UserPlus } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ArrowRight, CalendarDays, CheckCircle2, Clock3, Download, LayoutGrid, Link2, ListChecks, Phone, Plus, UserPlus } from "lucide-react";
 import { toast } from "@/components/shared/toast";
 import { usePageViewState, useUrlState } from "@/lib/navigation/use-url-state";
-import { BNI_STAGES, BNI_STAGE_BY_ID, bniStageOf, memberSummaries, type MemberSummary } from "../../bni";
+import { BNI_STAGES, bniStageOf, memberSummaries, type MemberSummary } from "../../bni";
 import { downloadCsv, matchesText, toCsv } from "../../insights";
 import { useSetuStore } from "../../provider";
 import { formatDate, formatDateTime, isoDate, phoneDigits } from "../../utils";
@@ -13,7 +12,7 @@ import { SetuAvatar, SetuButton } from "../setu-ui";
 import { Log121Dialog, MemberFormDialog } from "./bni-forms";
 import { ConvertRefsDialog } from "./bni-referral-dialogs";
 import { MemberDialog } from "./member-dialog";
-import { ChipPill, ClearFilters, FilterPanel, PanelSearch, SetuShell, TAG_TONE, Tag } from "./setu-shell";
+import { ChipPill, ClearFilters, FilterPanel, PanelSearch, SetuShell, StageTag, TAG_TONE, Tag } from "./setu-shell";
 
 type Filter = "all" | "pending" | "followup" | "converted";
 const FILTERS: Filter[] = ["all", "pending", "followup", "converted"];
@@ -45,14 +44,6 @@ export function MeetingsView() {
   const all = useMemo(() => memberSummaries(deals, notes, meetings), [deals, notes, meetings]);
   const rows = all.filter((s) => matches(s, filter) && matchesText(q, s.member.contactName, s.member.company, s.member.source, s.member.phone));
   const convertMember = deals.find((d) => d.id === convertFor);
-  const totals = useMemo(
-    () => ({
-      meetings: all.reduce((n, s) => n + s.meetings.length, 0),
-      pending: all.reduce((n, s) => n + s.pendingRefs.length, 0),
-      followUps: all.reduce((n, s) => n + s.openTodos, 0),
-    }),
-    [all]
-  );
 
   const exportCsv = () => {
     if (!rows.length) return toast.info("No 121s to export");
@@ -82,14 +73,6 @@ export function MeetingsView() {
     <SetuShell
       tab="meetings"
       title="121 Meetings"
-      subtitle="One-on-one conversations with BNI members and the referrals exchanged."
-      hint={
-        <>
-          <span className="font-semibold text-[var(--setu-accent)]">{totals.meetings} meetings</span> • <span className="font-semibold text-amber-600 dark:text-amber-400">{totals.pending} referrals to convert</span> •{" "}
-          <span className="font-semibold text-[var(--setu-text)]">{totals.followUps} follow-ups</span> — referrals received here become <strong className="text-[var(--setu-text)]">Prospects</strong> on the Sales Pipeline.
-          Log on the go through the WhatsApp Bot.
-        </>
-      }
       actions={
         <>
           <SetuButton variant="muted" onClick={exportCsv}>
@@ -131,11 +114,10 @@ export function MeetingsView() {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
             <Plus size={20} />
           </span>
-          <span className="text-sm font-semibold">Log 121 Meeting</span>
-          <span className="text-[11px]">or send notes through the WhatsApp Bot</span>
+          <span className="text-sm font-medium">Log 121 Meeting</span>
         </button>
       </div>
-      {all.length > 0 && rows.length === 0 && <p className="setu-text-2 py-6 text-center text-sm">No members match. Clear the search or filter.</p>}
+      {all.length > 0 && rows.length === 0 && <p className="setu-text-2 py-6 text-center text-sm">No members match</p>}
 
       <MemberDialog memberId={openMember} onClose={() => setOpenMember(null)} />
       <Log121Dialog open={logOpen} onClose={() => setLogOpen(false)} />
@@ -150,7 +132,7 @@ function MemberCard({ s, onOpen, onConvert }: { s: MemberSummary; onOpen: () => 
   // The most advanced stage any of this member's referrals reached (shown as a tag).
   const order = (id: string) => BNI_STAGES.findIndex((x) => x.id === id);
   const top = s.prospects.map(bniStageOf).sort((a, b) => order(b) - order(a))[0];
-  const third = s.openTodos > 0 ? { v: s.openTodos, l: "Follow-ups", tone: "text-orange-600 dark:text-orange-400" } : { v: s.prospects.length, l: "Prospects", tone: "text-violet-600 dark:text-violet-400" };
+  const third = s.openTodos > 0 ? { v: s.openTodos, l: "Follow-ups" } : { v: s.prospects.length, l: "Prospects" };
 
   return (
     <article
@@ -158,15 +140,14 @@ function MemberCard({ s, onOpen, onConvert }: { s: MemberSummary; onOpen: () => 
       tabIndex={0}
       onClick={onOpen}
       onKeyDown={(e) => e.key === "Enter" && onOpen()}
-      className="setu-card group relative flex cursor-pointer flex-col p-4 transition-all hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--setu-accent-ring)]"
+      className="setu-card group relative flex cursor-pointer flex-col p-4 transition-colors hover:border-[var(--setu-line-strong)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--setu-accent-ring)]"
     >
-      <GripVertical size={14} className="setu-text-3 absolute right-3 top-3 opacity-40" aria-hidden />
-      <div className="flex items-center gap-3 pr-5">
+      <div className="flex items-center gap-3">
         <SetuAvatar name={m.contactName} size="md" className="h-10 w-10 text-sm" />
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <h3 className="truncate text-sm font-bold group-hover:text-[var(--setu-accent)]">{m.contactName}</h3>
-            <Tag className={TAG_TONE.pink}>BNI Member</Tag>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate text-sm font-semibold group-hover:text-[var(--setu-accent)]">{m.contactName}</h3>
+            <Tag className={TAG_TONE.neutral}>BNI Member</Tag>
           </div>
           <p className="setu-text-2 truncate text-xs">
             {m.company !== m.contactName ? m.company : "Chapter member"} • {m.source ? `Co ${m.source}` : "Direct"}
@@ -176,7 +157,7 @@ function MemberCard({ s, onOpen, onConvert }: { s: MemberSummary; onOpen: () => 
 
       <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-[var(--setu-well)] px-3 py-2 text-[11px]">
         <span className="flex min-w-0 items-center gap-1.5 font-medium">
-          <CalendarDays size={13} className="shrink-0 text-violet-500" />
+          <CalendarDays size={13} className="setu-text-3 shrink-0" />
           <span className="truncate">{s.lastMeeting ? s.lastMeeting.type : "No meeting logged yet"}</span>
         </span>
         {s.lastMeeting && (
@@ -197,15 +178,15 @@ function MemberCard({ s, onOpen, onConvert }: { s: MemberSummary; onOpen: () => 
       )}
 
       <div className="mt-3 grid grid-cols-3 gap-2">
-        <Mini v={s.refsReceived} l="Refs Received" tone="text-green-600 dark:text-green-400" />
-        <Mini v={s.refsGiven} l="Refs Given" tone="text-blue-600 dark:text-blue-400" />
-        <Mini v={third.v} l={third.l} tone={third.tone} />
+        <Mini v={s.refsReceived} l="Refs received" />
+        <Mini v={s.refsGiven} l="Refs given" />
+        <Mini v={third.v} l={third.l} />
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-[var(--setu-line)] pt-3">
-        {s.openTodos > 0 && <Tag className={TAG_TONE.amber}>Follow Up</Tag>}
-        {top && <Tag className={BNI_STAGE_BY_ID[top].pill}>{BNI_STAGE_BY_ID[top].label}</Tag>}
-        {s.prospects.length > 0 && s.pendingRefs.length === 0 && <Tag className={TAG_TONE.green}>Converted ✓</Tag>}
+        {s.openTodos > 0 && <Tag className={TAG_TONE.amber}>Follow up</Tag>}
+        {top && <StageTag stage={top} />}
+        {s.prospects.length > 0 && s.pendingRefs.length === 0 && <Tag className={TAG_TONE.green}>Converted</Tag>}
         {s.pendingRefs.length > 0 ? (
           <button
             type="button"
@@ -213,23 +194,23 @@ function MemberCard({ s, onOpen, onConvert }: { s: MemberSummary; onOpen: () => 
               e.stopPropagation();
               onConvert();
             }}
-            className="ml-auto inline-flex items-center gap-1 rounded-md bg-[#1d4ed8] px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm hover:bg-[#1e40af] dark:bg-blue-600"
+            className="ml-auto inline-flex items-center gap-1 rounded-md bg-[var(--setu-solid)] px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-[var(--setu-solid-hover)]"
           >
-            <ArrowRight size={12} /> Convert {s.pendingRefs.length} Ref{s.pendingRefs.length === 1 ? "" : "s"}
+            <ArrowRight size={12} /> Convert {s.pendingRefs.length} ref{s.pendingRefs.length === 1 ? "" : "s"}
           </button>
         ) : (
-          <span className="setu-text-3 ml-auto text-[10px]">Updated {formatDateTime(m.updatedAt)}</span>
+          <span className="setu-text-3 ml-auto text-[11px] tabular-nums">Updated {formatDateTime(m.updatedAt)}</span>
         )}
       </div>
     </article>
   );
 }
 
-function Mini({ v, l, tone }: { v: number; l: string; tone: string }) {
+function Mini({ v, l }: { v: number; l: string }) {
   return (
-    <div className={cn("rounded-lg border border-[var(--setu-line)] px-1.5 py-2 text-center")}>
-      <p className={cn("text-lg font-bold leading-none tabular-nums", tone)}>{v}</p>
-      <p className="setu-text-2 mt-1 text-[9px] font-semibold uppercase tracking-wide">{l}</p>
+    <div className="rounded-lg border border-[var(--setu-line)] px-2 py-2 text-center">
+      <p className="text-lg font-semibold leading-none tabular-nums">{v}</p>
+      <p className="setu-text-2 mt-1 truncate text-[11px]">{l}</p>
     </div>
   );
 }

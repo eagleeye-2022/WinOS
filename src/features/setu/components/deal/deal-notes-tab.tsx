@@ -21,10 +21,7 @@ export function DealNotesTab({ dealId }: { dealId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-        <div>
-          <h2 className="text-base font-semibold">Notes & Information</h2>
-          <p className="setu-text-2 text-xs">Client context, callouts, and internal updates.</p>
-        </div>
+        <h2 className="text-base font-semibold">Notes & Information</h2>
         <SetuButton variant="primary" size="sm" onClick={() => setAdding(true)} disabled={adding}>
           <Plus size={14} /> Add Note
         </SetuButton>
@@ -57,13 +54,10 @@ export function DealDiscussionsTab({ dealId }: { dealId: string }) {
   const [adding, setAdding] = usePageViewState("DealDiscussions:adding", false);
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-semibold">
-            <MessagesSquare size={20} className="setu-text-2" /> Discussions
-          </h2>
-          <p className="setu-text-2 mt-1 text-sm">Discussions, client queries, and scope alignment for this deal.</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h2 className="flex items-center gap-2 text-lg font-semibold">
+          <MessagesSquare size={20} className="setu-text-2" /> Discussions
+        </h2>
         <SetuButton variant="primary" onClick={() => setAdding(true)} disabled={adding}>
           <Plus /> Add Discussion
         </SetuButton>

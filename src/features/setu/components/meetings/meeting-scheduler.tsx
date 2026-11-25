@@ -230,10 +230,7 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
       <Breadcrumbs items={[{ label: "Networking" }, { label: "121 Meetings", href: ROUTES.setu121 }, { label: title }]} />
 
       <section className="setu-card flex flex-wrap items-center justify-between gap-4 px-6 py-5">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold leading-tight tracking-tight">{title}</h1>
-          <p className="setu-text-2 mt-1 text-xs">Create a meeting with your customer, prospect or sales team.</p>
-        </div>
+        <h1 className="min-w-0 text-xl font-bold leading-tight tracking-tight">{title}</h1>
         <div className="flex flex-wrap items-center gap-2">
           <SetuButton variant="ghost" onClick={cancel}>
             Cancel
@@ -317,14 +314,11 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
 
             {form.mode === "ONLINE" ? (
               <div className="rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)] p-4">
-                <p className="flex items-start gap-3">
+                <p className="flex items-center gap-3">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-card)] text-[var(--setu-accent)]">
                     <Link2 size={15} />
                   </span>
-                  <span>
-                    <span className="block text-sm font-semibold">External Meeting Link</span>
-                    <span className="setu-text-2 block text-xs">Attach your video conference URL (Google Meet, Zoom or Teams)</span>
-                  </span>
+                  <span className="text-sm font-semibold">External Meeting Link</span>
                 </p>
                 <div className="mt-3 flex gap-2">
                   <div className="relative flex-1">

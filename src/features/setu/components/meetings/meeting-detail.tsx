@@ -233,7 +233,6 @@ function MeetingDetailBody({ meeting: m }: { meeting: DealMeeting }) {
           <div>
             <span className="setu-text-2 text-xs font-medium">Duration</span>
             <p className="mt-1 text-sm font-semibold">{minutes} mins</p>
-            <p className="setu-text-3 text-xs">Scheduled window</p>
           </div>
           <div>
             <span className="setu-text-2 text-xs font-medium">Attendees</span>
@@ -297,7 +296,7 @@ function MeetingDetailBody({ meeting: m }: { meeting: DealMeeting }) {
             name={m.hostName}
             badge="Host"
             badgeTone="bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]"
-            subtitle={[m.hostRole, "WinOS CRM"].filter(Boolean).join(" • ")}
+            subtitle={m.hostRole ?? ""}
             right={
               <span className="setu-accent-text inline-flex items-center gap-1 rounded-full bg-[var(--setu-accent-soft)] px-2.5 py-0.5 text-xs font-semibold">
                 <CircleCheck size={12} /> Organizer
@@ -326,10 +325,7 @@ function MeetingDetailBody({ meeting: m }: { meeting: DealMeeting }) {
 
       {/* History */}
       <section className="setu-card px-6 py-5">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold">Activity & History</h2>
-          <span className="setu-text-3 text-xs">Logged automatically</span>
-        </div>
+        <h2 className="text-base font-semibold">Activity & History</h2>
         {m.history.length === 0 ? (
           <p className="setu-text-2 mt-4 text-sm">No activity yet.</p>
         ) : (

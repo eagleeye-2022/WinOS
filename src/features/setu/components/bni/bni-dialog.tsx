@@ -50,7 +50,7 @@ export function BniDialog({
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <DialogTitle className="text-lg font-bold leading-tight">{title}</DialogTitle>
+              <DialogTitle className="text-lg font-semibold leading-tight">{title}</DialogTitle>
               {badge}
             </div>
             <DialogDescription className={cn("setu-text-2 mt-0.5 text-xs", !description && "sr-only")}>{description || title}</DialogDescription>
@@ -63,12 +63,12 @@ export function BniDialog({
   );
 }
 
-/** Uppercase section label inside dialogs ("ATTENDEES & PARTICIPATION"). */
+/** Section label inside dialogs ("Attendees & participation"). */
 export function DialogSection({ title, aside, children, className }: { title: string; aside?: React.ReactNode; children: React.ReactNode; className?: string }) {
   return (
     <div className={className}>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h4 className="setu-text-2 text-[11px] font-bold uppercase tracking-wider">{title}</h4>
+        <h4 className="setu-text-2 text-xs font-medium">{title}</h4>
         {aside && <span className="setu-text-2 text-[11px]">{aside}</span>}
       </div>
       {children}
@@ -173,7 +173,7 @@ export function Segmented<T extends string>({ value, onChange, options }: { valu
           aria-pressed={value === o.value}
           className={cn(
             "rounded-md px-3.5 py-1.5 text-xs font-medium transition-colors",
-            value === o.value ? "bg-[#1d4ed8] font-semibold text-white shadow-sm dark:bg-blue-600" : "setu-text-2 hover:text-[var(--setu-text)]"
+            value === o.value ? "bg-[var(--setu-solid)] text-white" : "setu-text-2 hover:text-[var(--setu-text)]"
           )}
         >
           {o.label}

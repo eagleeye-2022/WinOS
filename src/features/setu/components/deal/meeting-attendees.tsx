@@ -235,7 +235,7 @@ export function AddExternalAttendeeDialog({ open, onClose, onAdd }: { open: bool
       <DialogContent className="setu-scope setu-dialog max-w-[500px] gap-0 p-0 [&>button:last-child]:right-6 [&>button:last-child]:top-6">
         <div className="border-b border-[var(--setu-line)] px-6 py-4">
           <DialogTitle className="text-base font-semibold">Add External Attendee</DialogTitle>
-          <DialogDescription className="setu-text-2 mt-0.5 text-xs">Send calendar invites directly to external contacts</DialogDescription>
+          <DialogDescription className="sr-only">Add an external attendee</DialogDescription>
         </div>
         <form onSubmit={submit} noValidate>
           <div className="space-y-4 px-6 py-5">
