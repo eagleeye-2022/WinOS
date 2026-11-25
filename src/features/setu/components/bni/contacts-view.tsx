@@ -237,7 +237,6 @@ function VCardImportDialog({ people, onClose }: { people: PersonInput[] | null; 
     <BniDialog
       open={people !== null}
       onClose={onClose}
-      icon={FileUp}
       title="Import vCard"
       description={`${list.length} contact${list.length === 1 ? "" : "s"} found`}
       footer={

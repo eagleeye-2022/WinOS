@@ -1,65 +1,41 @@
 "use client";
 
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FilePlus2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Field } from "../setu-ui";
+import { SetuDrawer } from "../setu-drawer";
 
-// Shared pieces for the BNI dialogs (Log 121, prospect, member, referral, call note…), in the
-// same surface as the deal dialogs (setu-dialog).
+// Shared pieces for the BNI forms (Log 121, prospect, member, referral, call note…), which open as
+// the app-style right drawer (SetuDrawer).
 
+/** The BNI forms (Log 121, prospect, member, referral, call note…), shown as the app-style right drawer. */
 export function BniDialog({
   open,
   onClose,
   title,
   description,
-  width = "max-w-[560px]",
+  width,
   children,
   footer,
-  headerTone,
-  icon: Icon = FilePlus2,
-  iconTone,
   badge,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   description?: string;
+  /** Drawer width class (default `max-w-xl`). */
   width?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
-  /** Header strip colour (default: light accent tint). */
-  headerTone?: string;
-  icon?: React.ElementType;
-  /** Icon tile colours. */
-  iconTone?: string;
   /** Pill next to the title ("Deal #…", "121 Meeting"). */
   badge?: React.ReactNode;
 }) {
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent
-        className={cn("setu-scope setu-dialog flex max-h-[92vh] flex-col gap-0 overflow-hidden p-0 [&>button:last-child]:right-5 [&>button:last-child]:top-5", width)}
-      >
-        <div className={cn("flex items-start gap-3 border-b border-[var(--setu-line)] px-6 py-4 pr-12", headerTone ?? "bg-[var(--setu-accent-soft)]")}>
-          <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", iconTone ?? "bg-[var(--setu-card)] text-[var(--setu-accent)] shadow-sm")}>
-            <Icon size={19} />
-          </span>
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <DialogTitle className="text-lg font-semibold leading-tight">{title}</DialogTitle>
-              {badge}
-            </div>
-            <DialogDescription className={cn("setu-text-2 mt-0.5 text-xs", !description && "sr-only")}>{description || title}</DialogDescription>
-          </div>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
-        {footer && <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-[var(--setu-line)] bg-[var(--setu-card)] px-6 py-3.5">{footer}</div>}
-      </DialogContent>
-    </Dialog>
+    <SetuDrawer open={open} onClose={onClose} title={title} description={description} badge={badge} width={width} footer={footer}>
+      {children}
+    </SetuDrawer>
   );
 }
 

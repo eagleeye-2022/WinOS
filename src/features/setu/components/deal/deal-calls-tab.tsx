@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, EllipsisVertical, PencilLine, PhoneCall, PhoneForwarded, Plus, Search, Trash2, Volume2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { RichDescriptionEditor, RichDescriptionView, isEmptyDescription } from "@/components/shared/rich-description";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,6 +33,7 @@ import {
   searchCalls,
 } from "../../utils";
 import { Field, SETU_RICH_VIEW, SetuButton, attempt } from "../setu-ui";
+import { SetuDrawer } from "../setu-drawer";
 
 type CallFilter = "all" | "outbound" | "inbound" | "audio";
 type CallSort = "recent" | "oldest" | "longest";
@@ -364,12 +364,7 @@ export function LogCallDialog({ deal: fixedDeal, open, call, onClose }: { deal?:
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="setu-scope setu-dialog max-h-[92vh] max-w-[640px] gap-0 overflow-y-auto p-0 [&>button:last-child]:right-6 [&>button:last-child]:top-6">
-        <div className="border-b border-[var(--setu-line)] px-6 py-4">
-          <DialogTitle className="text-base font-semibold">{call ? "Edit Call" : "Log Call"}</DialogTitle>
-          <DialogDescription className="setu-text-2 mt-0.5 text-xs">{deal ? deal.company : "Pick the lead or deal this call was about"}</DialogDescription>
-        </div>
+    <SetuDrawer open={open} onClose={onClose} title={call ? "Edit Call" : "Log Call"} description={deal?.company} width="max-w-2xl">
         <form onSubmit={submit} noValidate>
           <div className="grid gap-4 px-6 py-5 sm:grid-cols-2">
             {!fixedDeal && (
@@ -476,16 +471,15 @@ export function LogCallDialog({ deal: fixedDeal, open, call, onClose }: { deal?:
             </Field>
             {error && <p className="text-xs text-red-500 sm:col-span-2">{error}</p>}
           </div>
-          <div className="flex items-center justify-between gap-3 border-t border-[var(--setu-line)] bg-[var(--setu-card)] px-6 py-3.5">
-            <SetuButton variant="ghost" onClick={onClose}>
-              Cancel
-            </SetuButton>
-            <SetuButton variant="primary" type="submit" className="px-5" disabled={saving}>
+          <div className="flex items-center gap-3 border-t border-border px-6 py-4">
+            <SetuButton variant="solid" type="submit" className="px-6" disabled={saving}>
               {saving ? "Saving…" : call ? "Save Call" : "Log Call"}
+            </SetuButton>
+            <SetuButton variant="secondary" className="px-6" onClick={onClose}>
+              Cancel
             </SetuButton>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+    </SetuDrawer>
   );
 }

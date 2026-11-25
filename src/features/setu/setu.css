@@ -232,6 +232,46 @@
     box-shadow: 0 30px 70px -20px rgba(16, 24, 40, 0.35) !important;
   }
 
+  /*
+   * Drawers (components/setu-drawer.tsx) follow the app's drawer theme instead of the Setu tints:
+   * app background and borders, the app primary for the main action, app-style inputs.
+   */
+  .setu-drawer {
+    --setu-canvas: var(--background);
+    --setu-solid: var(--primary);
+    --setu-solid-hover: color-mix(in oklch, var(--primary) 90%, black);
+  }
+  .setu-drawer .setu-btn-solid {
+    color: var(--primary-foreground);
+    font-weight: 600;
+  }
+  /* Cancel / secondary actions: the app's bordered button. */
+  .setu-drawer .setu-btn-muted,
+  .setu-drawer .setu-btn-secondary {
+    background: var(--background);
+    color: var(--foreground);
+    border: 1px solid var(--input);
+  }
+  .setu-drawer .setu-btn-muted:hover,
+  .setu-drawer .setu-btn-secondary:hover {
+    background: var(--accent);
+  }
+  .setu-drawer .setu-input {
+    background: var(--background) !important;
+    border-color: var(--input) !important;
+    border-radius: calc(var(--radius) - 2px) !important;
+  }
+  .setu-drawer .setu-input:focus-visible,
+  .setu-drawer .setu-input[data-state="open"] {
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 20%, transparent) !important;
+  }
+  /* App drawers put the main action first, left-aligned: Setu footers list Cancel … Save, so reverse. */
+  .setu-drawer-footer {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
+
   /* Thin horizontal scrollbar for the board. */
   .setu-scroll-x {
     scrollbar-width: thin;

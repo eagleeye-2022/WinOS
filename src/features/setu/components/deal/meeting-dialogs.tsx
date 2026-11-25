@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { CalendarClock, CalendarPlus, CircleCheck, Clock3, Plus, UserPlus, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RichDescriptionEditor, isEmptyDescription } from "@/components/shared/rich-description";
@@ -13,6 +12,7 @@ import { useSetuStore } from "../../provider";
 import type { Deal, DealMeeting, MeetingAttendee, MeetingChannel } from "../../types";
 import { displayCode, formatSpan, formatTimeRange, formatDate, isoDate, istDateTime, istHhmm, relativeDay } from "../../utils";
 import { Field, SetuButton, attempt, useSetuUserName } from "../setu-ui";
+import { SetuDrawer } from "../setu-drawer";
 import { AddExternalAttendeeDialog, AttendeeChips, AttendeePicker, attendeeId } from "./meeting-attendees";
 
 /**
@@ -163,14 +163,7 @@ export function MeetingFormDialog({
   const Icon = copy.icon;
   return (
     <>
-      <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="setu-scope setu-dialog max-h-[92vh] max-w-[680px] gap-0 overflow-y-auto p-0 [&>button:last-child]:right-6 [&>button:last-child]:top-6">
-          <div className="border-b border-[var(--setu-line)] px-6 py-4">
-            <DialogTitle className="text-base font-semibold">{copy.title}</DialogTitle>
-            <DialogDescription className="setu-text-2 mt-0.5 text-xs">
-              {deal.company} · {displayCode(deal)}
-            </DialogDescription>
-          </div>
+      <SetuDrawer open={open} onClose={onClose} title={copy.title} description={`${deal.company} · ${displayCode(deal)}`} width="max-w-2xl">
           <form onSubmit={submit} noValidate>
             <div className="grid gap-4 px-6 py-5 sm:grid-cols-2">
               <Field label="Meeting Title" required className="sm:col-span-2">
@@ -234,17 +227,16 @@ export function MeetingFormDialog({
               </div>
               {error && <p className="text-xs text-red-500 sm:col-span-2">{error}</p>}
             </div>
-            <div className="flex items-center justify-between gap-3 border-t border-[var(--setu-line)] bg-[var(--setu-card)] px-6 py-3.5">
-              <SetuButton variant="ghost" onClick={onClose}>
-                Cancel
-              </SetuButton>
-              <SetuButton variant="primary" type="submit" className="px-5" disabled={saving}>
+            <div className="flex items-center gap-3 border-t border-border px-6 py-4">
+              <SetuButton variant="solid" type="submit" className="px-6" disabled={saving}>
                 {saving ? "Saving…" : copy.submit}
+              </SetuButton>
+              <SetuButton variant="secondary" className="px-6" onClick={onClose}>
+                Cancel
               </SetuButton>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
+      </SetuDrawer>
       <AddExternalAttendeeDialog open={externalOpen} onClose={() => setExternalOpen(false)} onAdd={addAttendee} />
     </>
   );
@@ -299,18 +291,14 @@ export function CompleteMeetingDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="setu-scope setu-dialog max-h-[92vh] max-w-[680px] gap-0 overflow-y-auto p-0 [&>button:last-child]:right-6 [&>button:last-child]:top-6">
-          <div className="border-b border-[var(--setu-line)] px-6 py-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <DialogTitle className="text-base font-semibold">Complete Meeting & Log Summary</DialogTitle>
-              <span className="rounded-full bg-[var(--setu-accent-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--setu-accent)]">Deal #{displayCode(deal)}</span>
-            </div>
-            <DialogDescription className="setu-text-2 mt-0.5 text-xs">
-              Meeting #{number} — {meeting.title} · <span className="font-semibold text-[var(--setu-text)]">{deal.company}</span>
-            </DialogDescription>
-          </div>
-
+      <SetuDrawer
+        open={open}
+        onClose={onClose}
+        title="Complete Meeting & Log Summary"
+        badge={<span className="rounded bg-muted px-2 py-0.5 font-mono text-xs font-semibold text-muted-foreground">Deal #{displayCode(deal)}</span>}
+        description={`Meeting #${number} — ${meeting.title} · ${deal.company}`}
+        width="max-w-2xl"
+      >
           <form onSubmit={submit} noValidate className="space-y-5 px-6 py-5">
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)]/40 px-4 py-3 text-xs">
               <span className="setu-text-2 flex items-center gap-2">
@@ -373,17 +361,16 @@ export function CompleteMeetingDialog({
 
             {error && <p className="text-xs text-red-500">{error}</p>}
 
-            <div className="flex items-center justify-end gap-3 border-t border-[var(--setu-line)] bg-[var(--setu-card)] pt-4">
-              <SetuButton variant="ghost" onClick={onClose}>
-                Cancel
-              </SetuButton>
-              <SetuButton type="submit" className="px-5 border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-400 dark:hover:bg-emerald-500/25" disabled={saving}>
+            <div className="flex items-center gap-3 border-t border-border pt-4">
+              <SetuButton variant="solid" type="submit" className="px-6" disabled={saving}>
                 {saving ? "Saving…" : "Complete Meeting & Save Notes"}
+              </SetuButton>
+              <SetuButton variant="secondary" className="px-6" onClick={onClose}>
+                Cancel
               </SetuButton>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
+      </SetuDrawer>
       <AddExternalAttendeeDialog
         open={externalOpen}
         onClose={() => setExternalOpen(false)}

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRightLeft, CalendarPlus, Check, IdCard, Link2, Network, Phone, PhoneCall } from "lucide-react";
+import { CalendarPlus, Check, IdCard, Network, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -74,7 +74,6 @@ export function ReferralDialog({ open, onClose, memberId, direction }: { open: b
     <BniDialog
       open={open}
       onClose={onClose}
-      icon={Link2}
       title="Log Referral"
       description={fixed ? `With ${fixed.contactName}` : undefined}
       footer={
@@ -180,9 +179,6 @@ export function ConvertRefsDialog({ open, onClose, member }: { open: boolean; on
       open={open}
       onClose={onClose}
       width="max-w-[720px]"
-      icon={ArrowRightLeft}
-      headerTone="bg-green-50 dark:bg-green-500/10"
-      iconTone="bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-400"
       title="Convert Referrals → Prospects"
       description={member ? `Pending referrals from ${member.contactName}` : undefined}
       footer={
@@ -277,9 +273,6 @@ export function CallNoteDialog({ open, onClose, deal }: { open: boolean; onClose
       open={open}
       onClose={onClose}
       width="max-w-[440px]"
-      icon={PhoneCall}
-      headerTone="bg-green-50 dark:bg-green-500/10"
-      iconTone="bg-green-100 text-green-700 dark:bg-green-500/15 dark:text-green-400"
       title={`Call Note — ${deal?.contactName ?? ""}`}
       description={formatDateTime(startedAt)}
       footer={

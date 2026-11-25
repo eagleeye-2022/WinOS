@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, CalendarHeart, CalendarPlus, Clock3, Link2, MessageCircle, PencilLine, Phone, PhoneCall, Plus, StickyNote, Trash2, UserRound } from "lucide-react";
+import { ArrowRight, CalendarDays, CalendarPlus, Clock3, Link2, MessageCircle, PencilLine, Phone, PhoneCall, Plus, StickyNote, Trash2, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -57,9 +57,6 @@ export function MemberDialog({ memberId, onClose }: { memberId: string | null; o
         open={Boolean(memberId && m)}
         onClose={onClose}
         width="max-w-[880px]"
-        icon={CalendarHeart}
-        headerTone="bg-[var(--setu-card)]"
-        iconTone="bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]"
         badge={<span className="rounded-md bg-[var(--setu-well)] px-2 py-0.5 text-[11px] font-medium text-[var(--setu-text-2)]">121 Meeting</span>}
         title={m ? m.contactName : "121 Meeting"}
         description={m ? [m.source ? `Co ${m.source}` : "Direct BNI", m.company !== m.contactName ? m.company : "BNI Member"].filter(Boolean).join(" · ") : undefined}

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { CircleCheck, Download, EllipsisVertical, ListFilter, Play, Timer, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/shared/toast";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -28,7 +27,8 @@ import {
   timeLogStats,
   timeLogsCsv,
 } from "../../utils";
-import { SetuAvatar, SetuButton, attempt } from "../setu-ui";
+import { Field, SetuAvatar, SetuButton, attempt } from "../setu-ui";
+import { SetuDrawer } from "../setu-drawer";
 import { useElapsedSeconds } from "./use-elapsed-seconds";
 
 const REASON_SUGGESTIONS = ["Preparing Proposal", "Customer Follow-up", "Requirement Review", "Technical Review", "Pricing Analysis"];
@@ -242,16 +242,11 @@ export function StopTimerDialog({ open, onClose, elapsedSeconds }: { open: boole
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && close()}>
-      <DialogContent className="setu-scope setu-dialog max-w-md p-6">
-        <form onSubmit={save} className="space-y-4">
-          <div>
-            <DialogTitle className="text-base font-semibold">Save Session</DialogTitle>
-            <DialogDescription className="setu-text-2 mt-1 text-xs">
-              <span className="font-mono font-semibold text-[var(--setu-text)]">{formatClock(elapsedSeconds)}</span> logged. What was this time spent on?
-            </DialogDescription>
-          </div>
-          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Preparing Proposal" className="setu-input h-9" autoFocus />
+    <SetuDrawer open={open} onClose={close} title="Save Session" description={`${formatClock(elapsedSeconds)} logged`} width="max-w-lg">
+        <form onSubmit={save} className="space-y-4 px-6 py-5">
+          <Field label="What was this time spent on?" required>
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Preparing Proposal" className="setu-input h-9" autoFocus />
+          </Field>
           <div className="flex flex-wrap gap-1.5">
             {REASON_SUGGESTIONS.map((r) => (
               <button
@@ -269,10 +264,17 @@ export function StopTimerDialog({ open, onClose, elapsedSeconds }: { open: boole
               </button>
             ))}
           </div>
-          <div className="flex items-center justify-between gap-2 border-t border-[var(--setu-line)] pt-3.5">
+          <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+            <div className="flex gap-3">
+              <SetuButton variant="solid" type="submit" className="px-6" disabled={!reason.trim() || saving}>
+                Save Session
+              </SetuButton>
+              <SetuButton variant="secondary" onClick={close}>
+                Keep Running
+              </SetuButton>
+            </div>
             <SetuButton
               variant="ghost"
-              size="sm"
               className="text-red-600 hover:text-red-600"
               onClick={async () => {
                 if (await attempt(discardTimer().then(() => true), "Timer discarded")) close();
@@ -280,15 +282,8 @@ export function StopTimerDialog({ open, onClose, elapsedSeconds }: { open: boole
             >
               Discard
             </SetuButton>
-            <div className="flex gap-2">
-              <SetuButton size="sm" onClick={close}>Keep Running</SetuButton>
-              <SetuButton variant="primary" size="sm" type="submit" disabled={!reason.trim() || saving}>
-                Save Session
-              </SetuButton>
-            </div>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+    </SetuDrawer>
   );
 }
