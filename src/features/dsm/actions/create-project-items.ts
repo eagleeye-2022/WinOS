@@ -7,8 +7,8 @@ import { toTitleText } from "@/lib/utils";
 import { hasModuleAccess } from "@/features/users/actions/module-guard";
 import { DEFAULT_PROJECT_PHASES } from "@/features/projects/data/mock-projects";
 import { DELETED_TASK_LIST_STATUS, isTaskDone } from "@/features/projects/types";
-import { NAT_TASK_LIST_NAME } from "../utils";
-import type { CascadingTaskOption } from "../queries";
+import { NAT_TASK_LIST_NAME, UNASSIGNED_PROJECT_CODE, UNASSIGNED_PROJECT_NAME } from "../utils";
+import type { CascadingProjectOption, CascadingTaskOption } from "../queries";
 
 const MAX_TASK_TITLE = 300;
 const MANAGER_ROLES = new Set(["MANAGER", "ADMIN", "SUPER_ADMIN", "PROJECT_MANAGER"]);
@@ -53,6 +53,8 @@ async function resolveEditableProject(projectId: string): Promise<EditableProjec
         ? {}
         : {
             OR: [
+              // Everyone may add their own work to the Unassigned Work holding project.
+              { code: UNASSIGNED_PROJECT_CODE },
               { ownerId: userId },
               { createdByUserId: userId },
               { members: { some: { userId } } },
@@ -227,6 +229,96 @@ export async function ensureNatTaskForTimerAction(
   const res = await findOrCreateOwnTaskInList(project.id, ownerId, title, natCode, ownerId !== user.id ? ownerId : undefined);
   if (!res.success) return res;
   return { ...res, taskListCode: natCode };
+}
+
+/** Task list code of the NAT list in the Unassigned Work project (it has only that list). */
+const UNASSIGNED_NAT_CODE = "P1";
+
+/**
+ * The Unassigned Work holding project (see UNASSIGNED_PROJECT_CODE), created on first use with a
+ * single NAT list. Safe under concurrent first use: the project code is unique, so a losing
+ * create fails and the winner's row is read back.
+ */
+async function ensureUnassignedProject(createdByUserId: string): Promise<{ id: string; code: string; name: string }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const select = { id: true, code: true, name: true };
+  const existing = await d.project.findUnique({ where: { code: UNASSIGNED_PROJECT_CODE }, select });
+  if (existing) return existing;
+  try {
+    return await d.$transaction(async (tx: typeof d) => {
+      const project = await tx.project.create({
+        data: {
+          code: UNASSIGNED_PROJECT_CODE,
+          name: UNASSIGNED_PROJECT_NAME,
+          description:
+            "DSM work started before a project was picked. Move each task to its real project — its time logs move with it.",
+          createdByUserId,
+          accessType: "PUBLIC",
+          isClientVisible: false,
+          // Not a client project: no demo owner name.
+          ownerName: null,
+        },
+        select,
+      });
+      await tx.projectPhase.create({
+        data: { code: UNASSIGNED_NAT_CODE, name: NAT_TASK_LIST_NAME, order: 0, projectId: project.id },
+      });
+      await tx.projectTaskList.create({
+        data: { name: NAT_TASK_LIST_NAME, flag: "internal", sequence: 1, phaseCode: UNASSIGNED_NAT_CODE, projectId: project.id },
+      });
+      return project;
+    });
+  } catch (err) {
+    const raced = await d.project.findUnique({ where: { code: UNASSIGNED_PROJECT_CODE }, select });
+    if (raced) return raced;
+    throw err;
+  }
+}
+
+/**
+ * Timer started on a DSM row with no project (or a manager adding a task with none): the user's
+ * task named after the row in the Unassigned Work project's NAT list (their open one with the
+ * same name is reused), so time can be logged before a project is picked. The task is later moved
+ * to its real project with "Move to project" — its time logs go with it.
+ *
+ * `ownerUserId` (managers only): create/reuse the task for that member instead of the caller.
+ * Returns the project too, so the DSM picker can show it if it wasn't listed yet.
+ */
+export async function ensureUnassignedTaskForTimerAction(
+  rawTitle: string,
+  ownerUserId?: string
+): Promise<
+  | { success: true; task: CascadingTaskOption; taskListCode: string; created: boolean; project: CascadingProjectOption }
+  | Failure
+> {
+  if (!toTaskTitle(rawTitle)) return { success: false, error: "Write what you're working on first." };
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Unauthorized" };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const me = await (db as any).user.findUnique({ where: { id: session.user.id }, select: { id: true } });
+  if (!me) return { success: false, error: "Your account could not be found. Please sign in again." };
+
+  let project: { id: string; code: string; name: string };
+  try {
+    project = await ensureUnassignedProject(me.id);
+  } catch (err) {
+    console.error("[ensureUnassignedTaskForTimerAction] could not create the holding project:", err);
+    return { success: false, error: `Couldn't set up "${UNASSIGNED_PROJECT_NAME}". Pick a project to start the timer.` };
+  }
+
+  const res = await ensureNatTaskForTimerAction(project.id, rawTitle, ownerUserId);
+  if (!res.success) return res;
+  return {
+    ...res,
+    project: {
+      id: project.id,
+      code: project.code,
+      name: project.name,
+      taskLists: [{ code: res.taskListCode, name: NAT_TASK_LIST_NAME }],
+      tasks: [res.task],
+    },
+  };
 }
 
 /**

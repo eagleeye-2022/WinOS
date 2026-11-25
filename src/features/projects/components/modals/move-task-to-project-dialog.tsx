@@ -46,7 +46,7 @@ export function MoveTaskToProjectDialog({
   useEffect(() => {
     if (!open || targets) return;
     let cancelled = false;
-    getMoveTaskTargetsAction()
+    getMoveTaskTargetsAction(taskId)
       .then((rows) => {
         if (!cancelled) setTargets(rows);
       })
@@ -56,7 +56,7 @@ export function MoveTaskToProjectDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, targets]);
+  }, [open, targets, taskId]);
 
   const projectOptions = useMemo(
     () =>

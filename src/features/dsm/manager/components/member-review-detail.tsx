@@ -51,8 +51,7 @@ import { TaskAuditHistoryPopover } from "@/features/dsm/components/task-audit-hi
 import { deleteCalendarEvent, type DeleteEventState } from "@/features/calendar/actions/delete-event";
 import { linkSupportNeedEvent } from "@/features/support-needed/actions/link-support-event";
 import type { CalendarEventView } from "@/features/calendar/queries";
-import { MemberTaskTimerBadge } from "./member-task-timer-badge";
-import { ProjectTaskStatusPill } from "@/features/dsm/components/project-task-status-pill";
+import { MemberTaskTimerBadge } from "./member-task-timer-badge";import { ProjectTaskStatusPill } from "@/features/dsm/components/project-task-status-pill";
 import { ProjectTaskSelectors, projectSelectOptions } from "@/features/dsm/components/project-task-selectors";
 import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
 import { useWhyfiTasks, WhyfiDueDate } from "@/features/whyfi/components/whyfi-due-date";
@@ -1781,8 +1780,7 @@ function TaskRow({
         </span>
       </td>
       <td className="py-2 pr-3 align-top">
-        {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} whyfi={isWhyfiTask(task)} /> : <span className="text-xs text-muted-foreground/60">—</span>}
-      </td>
+        {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} whyfi={isWhyfiTask(task)} /> : <span className="text-xs text-muted-foreground/60">—</span>}      </td>
       <td className="py-2 pr-3 align-top">
         {task.projectTask ? (
           <div className="flex items-start gap-0.5">

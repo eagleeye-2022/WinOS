@@ -50,7 +50,7 @@ import { sopCopyCreateData } from "@/features/sop-checklists/sync";
 import { recordSopEvents, type SopEventInput } from "@/features/sop-checklists/events";
 import { DEFAULT_PROJECT_PHASES } from "../data/mock-projects";
 import { joinIndustries, parseIndustries } from "../data/industries";
-import { NAT_TASK_LIST_NAME } from "@/features/dsm/utils";
+import { NAT_TASK_LIST_NAME, UNASSIGNED_PROJECT_CODE } from "@/features/dsm/utils";
 import { syncDueDateFromProjectTask } from "@/features/dsm/due-date-sync";
 import {
   LEARNING_PROJECT_CATEGORY,
@@ -3277,12 +3277,50 @@ export async function addTemplateTaskToProjectAction(
 
 export type MoveTaskTarget ={ id: string; code: string | null; name: string; lists: { code: string; name: string }[] };
 
-/** Projects (and their task lists) a task can be moved to — managers only (see moveTaskToProjectAction). */
-export async function getMoveTaskTargetsAction(): Promise<MoveTaskTarget[]> {
+/**
+ * Whether a non-manager may move this task: only their own task (owner or co-owner) sitting in the
+ * Unassigned Work holding project — i.e. DSM work they timed before picking a project.
+ */
+async function canMoveOwnUnassignedTask(userId: string, taskId: string): Promise<boolean> {
+  const task = await db.projectTask.findFirst({
+    where: {
+      OR: [{ id: taskId }, { code: taskId }],
+      project: { is: { code: UNASSIGNED_PROJECT_CODE } },
+      AND: [{ OR: [{ ownerId: userId }, { owners: { some: { userId } } }] }],
+    },
+    select: { id: true },
+  });
+  return !!task;
+}
+
+/**
+ * Projects (and their task lists) a task can be moved to (see moveTaskToProjectAction). Managers:
+ * every active project. A member moving their own Unassigned Work task (`taskId`): the projects
+ * they belong to — the same ones their DSM project picker shows.
+ */
+export async function getMoveTaskTargetsAction(taskId?: string): Promise<MoveTaskTarget[]> {
   const session = await requireAuth();
-  if (!(await isPrivilegedViewer(session.user.id))) return [];
+  const userId = session.user.id;
+  const privileged = await isPrivilegedViewer(userId);
+  if (!privileged && !(taskId && (await canMoveOwnUnassignedTask(userId, taskId)))) return [];
+  const memberScope = privileged
+    ? []
+    : [
+        {
+          OR: [
+            { ownerId: userId },
+            { createdByUserId: userId },
+            { members: { some: { userId } } },
+            { roleAssignments: { some: { userId } } },
+            { tasks: { some: { OR: [{ ownerId: userId }, { owners: { some: { userId } } }] } } },
+          ],
+        },
+      ];
   const projects = await db.project.findMany({
-    where: { status: "ACTIVE", AND: [{ OR: [{ projectCategory: null }, { projectCategory: { not: LEARNING_PROJECT_CATEGORY } }] }] },
+    where: {
+      status: "ACTIVE",
+      AND: [{ OR: [{ projectCategory: null }, { projectCategory: { not: LEARNING_PROJECT_CATEGORY } }] }, ...memberScope],
+    },
     select: {
       id: true,
       code: true,
@@ -3307,7 +3345,8 @@ export type MoveTaskResult = { success: true; projectId: string; code: string } 
 
 /**
  * Moves a task — with all its subtasks, at any depth — into a task list of another project.
- * Managers only. The task gets the target project's next code (its subtasks follow it:
+ * Managers, or a member moving their own task out of Unassigned Work into a project they belong
+ * to (see getMoveTaskTargetsAction). The task gets the target project's next code (its subtasks follow it:
  * TTG-T14.1, TTG-T14.1.1…); its time logs and any running timer move with it, so both projects'
  * effort totals stay right; DSM rows linked to it stay linked and show the new project.
  * A subtask that's moved becomes a top-level task there. One transaction: all or nothing.
@@ -3318,8 +3357,16 @@ export async function moveTaskToProjectAction(
   targetListCode: string
 ): Promise<MoveTaskResult> {
   const session = await requireAuth();
-  if (!(await isPrivilegedViewer(session.user.id))) {
+  const privileged = await isPrivilegedViewer(session.user.id);
+  if (!privileged && !(await canMoveOwnUnassignedTask(session.user.id, taskId))) {
     return { success: false, error: "Only a manager can move a task to another project." };
+  }
+  // A member may only move it into a project they belong to.
+  if (!privileged) {
+    const allowed = await getMoveTaskTargetsAction(taskId);
+    if (!allowed.some((p) => p.id === targetProjectId || p.code === targetProjectId)) {
+      return { success: false, error: "You can only move it into a project you're part of." };
+    }
   }
 
   const task = await db.projectTask.findFirst({
@@ -3430,6 +3477,8 @@ export async function moveTaskToProjectAction(
   if (task.projectId) revalidatePath(`/projects/${task.projectId}`);
   revalidatePath(`/projects/${target.id}`);
   revalidatePath("/projects/effort-log-report");
+  // DSM rows linked to it now show the new project (e.g. moved out of Unassigned Work).
+  revalidatePath("/dsm", "layout");
   return { success: true, projectId: target.id, code: newCode };
 }
 

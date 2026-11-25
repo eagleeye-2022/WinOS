@@ -3,7 +3,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
-import { linkProjectOnlyRowsToNat } from "../nat-rows";
+import { linkNoProjectRowsToUnassigned, linkProjectOnlyRowsToNat } from "../nat-rows";
 import { syncDueDateFromDsm } from "../../due-date-sync";
 import { parseRule, serializeRule } from "../../recurring-utils";
 
@@ -100,6 +100,12 @@ export async function addTask(
   // create its NAT task, so do it now (see reviewStandup).
   if (addedAfterReview && resolvedKind === "TODAY" && projectId && !projectTaskId) {
     await linkProjectOnlyRowsToNat([{ id: created.id, text, projectId }], entry.userId);
+  }
+
+  // Added with no project at all: put it in the member's Unassigned Work so they can run the
+  // timer on it now; they or a manager move it to the real project later.
+  if (resolvedKind === "TODAY" && !projectId && !projectTaskId) {
+    await linkNoProjectRowsToUnassigned([{ id: created.id, text }], entry.userId);
   }
 
   const managerName = session.user.name ?? "Manager";

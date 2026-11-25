@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useEffect, useRef, useTransition, type Dispatch, type SetStateAction } from "react";
-import { Plus, X, ChevronRight, ChevronDown, CheckCircle2, AlertCircle, ClipboardList, GraduationCap, Calendar as CalendarIcon, Clock, Loader2, Pencil, Trash2, Archive, ArrowUpRight, Repeat } from "lucide-react";
+import { Plus, X, ChevronRight, ChevronDown, CheckCircle2, AlertCircle, ClipboardList, GraduationCap, Calendar as CalendarIcon, Clock, Loader2, Pencil, Trash2, Archive, ArrowUpRight, ArrowRightLeft, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { saveDsm, type SaveDsmState } from "../actions/save-dsm";
 import {
@@ -10,10 +10,13 @@ import {
   countTasksWithoutProject,
   PROJECT_REQUIRED_MESSAGE,
   NAT_TASK_LIST_NAME,
+  UNASSIGNED_PROJECT_NAME,
+  isUnassignedProject,
   isNotAlignedTaskLink,
   previousDsmHeading,
 } from "../utils";
-import { ensureNatTaskForTimerAction } from "../actions/create-project-items";
+import { ensureNatTaskForTimerAction, ensureUnassignedTaskForTimerAction } from "../actions/create-project-items";
+import { MoveTaskToProjectDialog } from "@/features/projects/components/modals/move-task-to-project-dialog";
 import { toast } from "@/components/shared/toast";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "../actions/parking-lot";
 import type { EntryWithDetails, TeamMember, ParkedTask, RecurringTaskItem } from "../queries";
@@ -272,6 +275,43 @@ function TaskRows({
     return { taskId: res.task.id, taskCode: res.task.code ?? undefined, projectId: pid };
   };
 
+  /**
+   * Timer started on a row with no project: get (or create) the user's task named after the row
+   * in the Unassigned Work holding project, link the row to it and hand it to the timer. The row
+   * is moved to its real project later with "Move to project".
+   */
+  const startOnUnassignedTask = async (row: Task) => {
+    const title = row.text.trim();
+    if (!title) {
+      toast.error("Write what you're working on first — it becomes the task's name.");
+      return null;
+    }
+    const res = await ensureUnassignedTaskForTimerAction(title);
+    if (!res.success) {
+      toast.error(res.error);
+      return null;
+    }
+    onProjectsChange((prev) => {
+      const existing = prev.find((p) => p.id === res.project.id);
+      if (!existing) return [res.project, ...prev];
+      if (existing.tasks.some((t) => t.id === res.task.id)) return prev;
+      return prev.map((p) => (p.id === res.project.id ? { ...p, tasks: [res.task, ...p.tasks] } : p));
+    });
+    patchRow(row.id, () => ({ projectId: res.project.id, projectTaskId: res.task.id, taskListCode: res.taskListCode }));
+    if (res.created) toast.success(`Added "${title}" to ${UNASSIGNED_PROJECT_NAME}.`);
+    return { taskId: res.task.id, taskCode: res.task.code ?? undefined, projectId: res.project.id };
+  };
+
+  /** After "Move to project": reload the picker and point the row at the task's new project. */
+  const afterMoved = async (rowId: string, moved: { projectId: string }) => {
+    const fresh = await fetchUserProjectsWithTasksAction().catch(() => null);
+    if (!fresh) return;
+    onProjectsChange(() => fresh);
+    const target = fresh.find((p) => p.id === moved.projectId || p.code === moved.projectId);
+    if (target) patchRow(rowId, () => ({ projectId: target.id, taskListCode: "" }));
+  };
+  const [moveRow, setMoveRow] = useState<{ rowId: string; taskId: string; code: string; title: string; projectId: string } | null>(null);
+
   const levels = Array.from({ length: tasks.length }, (_, k) => `P${k + 1}`);
   const allAligned = onlyNotAligned && !tasks.some((t) => isNotAlignedTask(t, cascadingProjects));
 
@@ -294,7 +334,9 @@ function TaskRows({
         const projectTaskId = task.projectTaskId || "";
         // const loggedMins = projectTaskId ? linkedTimeLogs[projectTaskId] : undefined;
         const selectedMeta = findSelectedTaskMeta(cascadingProjects, projectTaskId);
-        const showProjectFeatures = cascadingProjects.length > 0 || projectsLoading;
+        // Always shown: with no project picked, the timer runs on an Unassigned Work task.
+        const showProjectFeatures = true;
+        const inUnassigned = isUnassignedProject(tree.currentProject) && !!tree.activeTargetTask;
 
         return (
           <TaskRowCard
@@ -595,29 +637,55 @@ function TaskRows({
 
                 {showProjectFeatures && (
                   <div className="flex items-center gap-2">
+                    {inUnassigned && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMoveRow({
+                            rowId: task.id,
+                            taskId: tree.activeTargetTask!.id,
+                            code: tree.activeTargetTask!.code ?? "",
+                            title: tree.activeTargetTask!.title,
+                            projectId: tree.currentProject!.id,
+                          })
+                        }
+                        title={`Move this task and its logged time out of ${UNASSIGNED_PROJECT_NAME} into its real project`}
+                        className="flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-semibold text-primary hover:bg-primary/10"
+                      >
+                        <ArrowRightLeft size={12} /> Move to project
+                      </button>
+                    )}
                     <TimerWidget
                       instanceId={`dsm-task-row-${task.id}`}
                       taskId={tree.activeTargetTask?.id}
                       taskCode={tree.activeTargetTask?.code ?? undefined}
                       taskTitle={task.text || tree.activeTargetTask?.title}
                       projectId={tree.currentProject?.id}
-                      // A project is enough: with no task picked, the timer runs on a NAT task.
-                      canStart={Boolean(tree.activeTargetTask || tree.currentProject)}
-                      disabledReason="Select a project to start timer"
-                      disabledTitle="No project selected"
+                      // No task picked: the timer runs on a NAT task — in the row's project, or in
+                      // Unassigned Work when no project is picked either.
+                      canStart={Boolean(tree.activeTargetTask || task.text.trim())}
+                      disabledReason="Write what you're working on first — it becomes the task's name."
+                      disabledTitle="No task details yet"
                       defaultExpanded={true}
                       onCreateTaskForTimer={
-                        tree.currentProject && !tree.activeTargetTask
-                          ? () => startOnNatTask(task, tree.currentProject!.id)
-                          : undefined
+                        tree.activeTargetTask
+                          ? undefined
+                          : tree.currentProject
+                            ? () => startOnNatTask(task, tree.currentProject!.id)
+                            : () => startOnUnassignedTask(task)
                       }
                       createTaskConfirm={
-                        tree.currentProject && !tree.activeTargetTask
-                          ? {
-                              title: "Start timer without a task?",
-                              description: `No task is picked, so the time will go to "${task.text.trim() || "this task"}" in ${tree.currentProject.name} → ${NAT_TASK_LIST_NAME}. Your manager can move it to the right task list later.`,
-                            }
-                          : undefined
+                        tree.activeTargetTask
+                          ? undefined
+                          : tree.currentProject
+                            ? {
+                                title: "Start timer without a task?",
+                                description: `No task is picked, so the time will go to "${task.text.trim() || "this task"}" in ${tree.currentProject.name} → ${NAT_TASK_LIST_NAME}. Your manager can move it to the right task list later.`,
+                              }
+                            : {
+                                title: "Start timer without a project?",
+                                description: `No project is picked, so the time will go to "${task.text.trim() || "this task"}" in ${UNASSIGNED_PROJECT_NAME}. Use "Move to project" later — the logged time moves with it.`,
+                              }
                       }
                     />
                     {/* Hidden by request: per-task "Xh Ym logged" badge.
@@ -640,6 +708,22 @@ function TaskRows({
       >
         <Plus size={13} /> Add task
       </button>
+
+      {moveRow && (
+        <MoveTaskToProjectDialog
+          open
+          onClose={() => setMoveRow(null)}
+          taskId={moveRow.taskId}
+          taskCode={moveRow.code}
+          taskTitle={moveRow.title}
+          currentProjectId={moveRow.projectId}
+          onMoved={(moved) => {
+            const rowId = moveRow.rowId;
+            setMoveRow(null);
+            void afterMoved(rowId, moved);
+          }}
+        />
+      )}
     </div>
   );
 }

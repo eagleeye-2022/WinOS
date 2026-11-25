@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { syncDueDateFromDsm } from "../due-date-sync";
+import { linkNoProjectRowsToUnassigned, linkProjectOnlyRowsToNat } from "../manager/nat-rows";
 
 export type AddTaskAfterReviewState = { message?: string };
 
@@ -51,7 +52,8 @@ export async function addTaskAfterReview(
   const isParking = priority === "PARKING";
   const resolvedKind = isParking ? "PARKED" : (kind as "TODAY" | "YESTERDAY");
 
-  await d.standupTask.create({
+  const created = await d.standupTask.create({
+    select: { id: true },
     data: {
       entryId,
       kind: resolvedKind,
@@ -69,6 +71,13 @@ export async function addTaskAfterReview(
   });
   // A due date on a linked row becomes the Srijan task's due date too.
   await syncDueDateFromDsm(projectTaskId, dueDate);
+
+  // No task picked: give the row one the member can run the timer on — in the project's NAT
+  // list, or in Unassigned Work when no project is picked either (moved to a project later).
+  if (resolvedKind === "TODAY" && !projectTaskId) {
+    if (projectId) await linkProjectOnlyRowsToNat([{ id: created.id, text, projectId }], entry.userId);
+    else await linkNoProjectRowsToUnassigned([{ id: created.id, text }], entry.userId);
+  }
 
   const userName = session.user.name ?? (isManager ? "Manager" : "Member");
   await d.standupTimelineEvent.create({

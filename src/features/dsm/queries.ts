@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { toUtcDate, getWeekRange, buildTaskListOptions, type TaskListOption } from "./utils";
+import { toUtcDate, getWeekRange, buildTaskListOptions, UNASSIGNED_PROJECT_CODE, type TaskListOption } from "./utils";
 import { entriesWithLinkedDueDates, withLinkedDueDates } from "./due-date-sync";
 import { effectiveDsmDueDate, projectDueDateToDate } from "@/lib/task-due-date";
 import { DEFAULT_PROJECT_PHASES } from "@/features/projects/data/mock-projects";
@@ -1559,6 +1559,8 @@ export async function getUserProjectsWithTasksAndSubtasks(
         ? {}
         : {
             OR: [
+              // The Unassigned Work holding project is open to everyone (see UNASSIGNED_PROJECT_CODE).
+              { code: UNASSIGNED_PROJECT_CODE },
               { ownerId: userId },
               { createdByUserId: userId },
               { members: { some: { userId } } },

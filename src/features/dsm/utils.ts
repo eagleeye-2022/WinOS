@@ -49,6 +49,21 @@ export function subtaskOptionLabel(st: { code: string | null; title: string; dep
 export const NAT_TASK_LIST_NAME = "Not Aligned Task (NAT)";
 
 /**
+ * Holding project for DSM work with no project yet. Starting a timer on a DSM row with no project
+ * (or a manager adding a task with none) puts the task in this project's NAT list, owned by the
+ * member, so time can be logged on it. The member or a manager then moves it to the real project
+ * ("Move to project") and its time logs go with it. Created by the app on first use; found by its
+ * unique code. See ensureUnassignedTaskForTimerAction.
+ */
+export const UNASSIGNED_PROJECT_CODE = "UNASSIGNED";
+export const UNASSIGNED_PROJECT_NAME = "Unassigned Work";
+
+/** Whether a project (by its code) is the Unassigned Work holding project. */
+export function isUnassignedProject(project: { code?: string | null } | null | undefined): boolean {
+  return project?.code === UNASSIGNED_PROJECT_CODE;
+}
+
+/**
  * A DSM task is "not aligned" (the NAT filter) when it has no linked project task, or its linked
  * task (or a subtask's parent) sits in the project's NAT task list — i.e. a manager still has to
  * move it to the right list.
