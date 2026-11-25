@@ -2,33 +2,12 @@
 
 import { db } from "@/lib/db";
 import type { Deal, DealFile, DealInput, DealLostDetails, DealStage, DealWonDetails } from "../types";
-import { isDealStage, isoDate } from "../utils";
+import { decodeRole, encodeRole } from "../bni";
 import { checkDealInput, checkLost, checkWon, isStage } from "../validation";
 import { dayToDate, dealInclude, loadDeal, toDeal } from "../server/data";
-import { failure, isUniqueViolation, nextDealCode, revalidateSetu, success, withSetuUser, type ActionResult } from "../server/guard";
+import { failure, nextDealCode, revalidateSetu, success, withSetuUser, type ActionResult } from "../server/guard";
 import { checkUploadedFiles } from "../server/files";
-
-/** Stage change side effects: a DEAL code the first time it reaches Proposal; closedAt for closed stages. */
-async function stageFields(current: { stage: DealStage; dealCode: string | null } | null, stage: DealStage) {
-  const fields: { stage: DealStage; dealCode?: string; closedAt?: Date | null } = { stage };
-  if (isDealStage(stage) && !current?.dealCode) fields.dealCode = await nextDealCode("DEAL");
-  if (!current || current.stage !== stage) {
-    fields.closedAt = stage === "CLOSED_WON" || stage === "CLOSED_LOST" ? dayToDate(isoDate(new Date())) : null;
-  }
-  return fields;
-}
-
-/** Runs a write that may assign a new code, retrying if another request took the same number. */
-async function withCodeRetry<T>(write: () => Promise<T>): Promise<T> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await write();
-    } catch (err) {
-      if (attempt < 4 && isUniqueViolation(err)) continue;
-      throw err;
-    }
-  }
-}
+import { stageFields, withCodeRetry } from "../server/stage";
 
 export async function createDealAction(input: DealInput): Promise<ActionResult<Deal>> {
   return withSetuUser("createDeal", async (me) => {
@@ -57,11 +36,19 @@ export async function updateDealAction(dealId: string, input: DealInput): Promis
   return withSetuUser("updateDeal", async () => {
     const checked = checkDealInput(input);
     if (!checked.ok) return failure(checked.error);
-    const current = await db.crmDeal.findUnique({ where: { id: dealId }, select: { stage: true, dealCode: true } });
+    const current = await db.crmDeal.findUnique({ where: { id: dealId }, select: { stage: true, dealCode: true, contactRole: true } });
     if (!current) return failure("This deal no longer exists.");
-    const { stage, value, ...rest } = checked.value;
+    const { stage, value, contactRole, ...rest } = checked.value;
+    // Keep the record's BNI tags (member / opportunity / origin); a stage change from this form
+    // drops the pipeline sub-stage and On Hold flag, like a move.
+    const { tags } = decodeRole(current.contactRole);
+    const keep = stage === current.stage ? tags : { kind: tags.kind, origin: tags.origin, hold: false };
     const row = await withCodeRetry(async () =>
-      db.crmDeal.update({ where: { id: dealId }, data: { ...rest, value: value ?? null, ...(await stageFields(current, stage)) }, include: dealInclude })
+      db.crmDeal.update({
+        where: { id: dealId },
+        data: { ...rest, contactRole: encodeRole(contactRole, keep), value: value ?? null, ...(await stageFields(current, stage)) },
+        include: dealInclude,
+      })
     );
     revalidateSetu();
     return success(toDeal(row));
@@ -71,13 +58,18 @@ export async function updateDealAction(dealId: string, input: DealInput): Promis
 export async function moveDealAction(dealId: string, stage: DealStage): Promise<ActionResult<Deal>> {
   return withSetuUser("moveDeal", async () => {
     if (!isStage(stage)) return failure("Unknown stage.");
-    const current = await db.crmDeal.findUnique({ where: { id: dealId }, select: { stage: true, dealCode: true } });
+    const current = await db.crmDeal.findUnique({ where: { id: dealId }, select: { stage: true, dealCode: true, contactRole: true } });
     if (!current) return failure("This deal no longer exists.");
     if (current.stage === stage) {
       const deal = await loadDeal(dealId);
       return deal ? success(deal) : failure("This deal no longer exists.");
     }
-    const row = await withCodeRetry(async () => db.crmDeal.update({ where: { id: dealId }, data: await stageFields(current, stage), include: dealInclude }));
+    // A plain stage move lands in that stage's main column (no sub-stage, not on hold).
+    const { role, tags } = decodeRole(current.contactRole);
+    const contactRole = encodeRole(role, { kind: tags.kind, origin: tags.origin, hold: false });
+    const row = await withCodeRetry(async () =>
+      db.crmDeal.update({ where: { id: dealId }, data: { ...(await stageFields(current, stage)), contactRole }, include: dealInclude })
+    );
     revalidateSetu();
     return success(toDeal(row));
   });

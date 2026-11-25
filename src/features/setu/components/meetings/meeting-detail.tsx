@@ -33,6 +33,7 @@ import { formatDate, formatTime, formatTimeRange, initials, avatarColor, meeting
 import { AddExternalAttendeeDialog } from "../deal/meeting-attendees";
 import { CompleteMeetingDialog } from "../deal/meeting-dialogs";
 import { Breadcrumbs, ComingSoon, SetuButton, SetuPage, attempt } from "../setu-ui";
+import { recordCrumbs, recordHref } from "../bni/setu-shell";
 import { useNow } from "./use-now";
 
 const withoutProtocol = (url: string) => url.replace(/^https?:\/\//, "");
@@ -42,11 +43,11 @@ export function MeetingDetail({ meetingId }: { meetingId: string }) {
   if (!meeting) {
     return (
       <SetuPage>
-        <Breadcrumbs items={[{ label: "Sales" }, { label: "Activities" }, { label: "Meetings", href: ROUTES.setuMeetings }, { label: "Not found" }]} />
+        <Breadcrumbs items={[{ label: "Networking" }, { label: "121 Meetings", href: ROUTES.setu121 }, { label: "Not found" }]} />
         <ComingSoon title="Meeting not found" text="This meeting doesn't exist (design-phase data resets when the page is refreshed)." />
         <div className="flex justify-center">
           <SetuButton variant="primary" asChild>
-            <Link href={ROUTES.setuMeetings}>Back to Meetings</Link>
+            <Link href={ROUTES.setu121}>Back to 121 Meetings</Link>
           </SetuButton>
         </div>
       </SetuPage>
@@ -85,7 +86,7 @@ function MeetingDetailBody({ meeting: m }: { meeting: DealMeeting }) {
 
   return (
     <SetuPage>
-      <Breadcrumbs items={[{ label: "Sales" }, { label: "Activities" }, { label: "Meetings", href: ROUTES.setuMeetings }, { label: m.title }]} />
+      <Breadcrumbs items={[...recordCrumbs(deal), { label: m.title }]} />
 
       {/* Title row */}
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -131,7 +132,7 @@ function MeetingDetailBody({ meeting: m }: { meeting: DealMeeting }) {
               )}
               {deal && (
                 <DropdownMenuItem asChild>
-                  <Link href={`${ROUTES.setuDeal(deal.id)}?tab=meetings`}>
+                  <Link href={recordHref(deal, "meetings")}>
                     <CircleDollarSign size={14} /> Open {deal.company}
                   </Link>
                 </DropdownMenuItem>
@@ -243,7 +244,7 @@ function MeetingDetailBody({ meeting: m }: { meeting: DealMeeting }) {
             <span className="setu-text-2 text-xs font-medium">Associated Deal</span>
             <p className="mt-1 truncate text-sm font-semibold">
               {deal ? (
-                <Link href={ROUTES.setuDeal(deal.id)} className="hover:text-[var(--setu-accent)] hover:underline">
+                <Link href={recordHref(deal)} className="hover:text-[var(--setu-accent)] hover:underline">
                   {deal.company}
                 </Link>
               ) : (

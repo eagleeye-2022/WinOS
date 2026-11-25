@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Mail,
   MapPin,
@@ -18,9 +20,10 @@ import { toast } from "@/components/shared/toast";
 import { useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
 import { useSetuStore } from "../../provider";
 import type { Deal } from "../../types";
-import { dealTitle, displayCode, formatClock, formatHoursMinutes, logSeconds, phoneDigits } from "../../utils";
-import { EditDealDialog } from "../deal-form-dialog";
-import { Breadcrumbs, ComingSoon, SetuButton, SetuPage, StageBadge } from "../setu-ui";
+import { BNI_STAGE_BY_ID, bniStageOf, isMember, prospectSources } from "../../bni";
+import { displayCode, formatClock, formatHoursMinutes, logSeconds, phoneDigits } from "../../utils";
+import { ProspectDialog } from "../bni/bni-forms";
+import { Breadcrumbs, ComingSoon, SetuButton, SetuPage } from "../setu-ui";
 import { DealCallsTab } from "./deal-calls-tab";
 import { DealMeetingsTab } from "./deal-meetings-tab";
 import { DealNegotiationsTab } from "./deal-negotiations-tab";
@@ -47,15 +50,26 @@ const TAB_IDS: readonly TabId[] = TABS.map((t) => t.id);
 
 export function DealDetail({ dealId }: { dealId: string }) {
   const deal = useSetuStore((s) => s.deals.find((d) => d.id === dealId));
+  const router = useRouter();
+  const member = deal ? isMember(deal) : false;
 
-  if (!deal) {
+  // BNI members live on 121 Meetings, not in the prospect workspace.
+  useEffect(() => {
+    if (member) router.replace(ROUTES.setuMember(dealId));
+  }, [member, dealId, router]);
+
+  if (!deal || member) {
     return (
       <SetuPage>
-        <Breadcrumbs items={[{ label: "Sales" }, { label: "Deals" }, { label: "Not found" }]} />
-        <ComingSoon title="Deal not found" text="This deal doesn't exist (design-phase data resets when the page is refreshed)." />
+        <Breadcrumbs items={[{ label: "Sales Pipeline", href: ROUTES.setuPipeline }, { label: member ? "Opening…" : "Not found" }]} />
+        {member ? (
+          <ComingSoon title="Opening the member's 121 record…" text="BNI members are managed from 121 Meetings." />
+        ) : (
+          <ComingSoon title="Prospect not found" text="This record doesn't exist any more — it may have been removed." />
+        )}
         <div className="flex justify-center">
           <SetuButton variant="primary" asChild>
-            <Link href={ROUTES.setuTasks}>Back to Tasks</Link>
+            <Link href={member ? ROUTES.setuMember(dealId) : ROUTES.setuPipeline}>{member ? "Open 121 record" : "Back to Sales Pipeline"}</Link>
           </SetuButton>
         </div>
       </SetuPage>
@@ -74,6 +88,8 @@ function DealDetailBody({ deal }: { deal: Deal }) {
   const callCount = useSetuStore((s) => s.calls.filter((c) => c.dealId === deal.id).length);
   const meetingCount = useSetuStore((s) => s.meetings.filter((m) => m.dealId === deal.id).length);
   const loggedSeconds = useSetuStore((s) => s.timeLogs.filter((l) => l.dealId === deal.id).reduce((n, l) => n + logSeconds(l), 0));
+  const fromMember = useSetuStore((s) => prospectSources(s.deals, s.notes).get(deal.id));
+  const stage = BNI_STAGE_BY_ID[bniStageOf(deal)];
   const [tab, setTab] = useUrlState<TabId>("tab", "notes", { allowed: TAB_IDS });
   const [editOpen, setEditOpen] = usePageViewState("DealDetail:edit", false);
   const [stopOpen, setStopOpen] = usePageViewState("DealDetail:stopTimer", false);
@@ -87,7 +103,7 @@ function DealDetailBody({ deal }: { deal: Deal }) {
       return;
     }
     if (activeTimer) {
-      toast.warning("Another deal's timer is running. Stop it first (Tasks → Active Task).");
+      toast.warning("Another prospect's timer is running. Stop it there first.");
       return;
     }
     startTimer(deal.id)
@@ -117,7 +133,7 @@ function DealDetailBody({ deal }: { deal: Deal }) {
     <SetuPage>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <Breadcrumbs items={[{ label: "Sales" }, { label: "Deals", href: ROUTES.setuDeals }, { label: deal.company }]} />
+          <Breadcrumbs items={[{ label: "Sales Pipeline", href: ROUTES.setuPipeline }, { label: deal.contactName }]} />
           <span className="setu-text-2 rounded-md border border-[var(--setu-line)] bg-[var(--setu-well)] px-2 py-0.5 font-mono text-[11px] font-semibold tracking-wide">
             {displayCode(deal)}
           </span>
@@ -139,17 +155,25 @@ function DealDetailBody({ deal }: { deal: Deal }) {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-xl font-bold leading-tight tracking-tight">{deal.company}</h1>
-              <StageBadge stage={deal.stage} />
+              <h1 className="text-xl font-bold leading-tight tracking-tight">{deal.contactName}</h1>
+              <span className={cn("inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold", stage.pill)}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", stage.dot)} />
+                {stage.label}
+              </span>
+              {fromMember && (
+                <Link href={ROUTES.setuMember(fromMember.id)} className="setu-accent-text text-[11px] font-semibold hover:underline">
+                  ↑ From 121 {fromMember.contactName}
+                </Link>
+              )}
+              {!fromMember && deal.bni?.origin === "BOT" && <span className="setu-accent-text text-[11px] font-semibold">↑ Via WhatsApp Bot</span>}
             </div>
             <p className="setu-text-2 mt-1.5 text-xs">
-              {deal.contactName} • {deal.contactRole}
-              {deal.stage !== "LEAD" && deal.title && <span className="setu-text-3"> · {dealTitle(deal)}</span>}
+              {[deal.company !== deal.contactName ? deal.company : "", deal.contactRole, deal.title].filter(Boolean).join(" · ") || "Prospect"}
             </p>
           </div>
           <div className="flex items-center gap-2.5">
             <SetuButton onClick={() => setEditOpen(true)}>
-              <PencilLine /> Edit Deal
+              <PencilLine /> Edit
             </SetuButton>
             <SetuButton variant="primary" onClick={onTimerClick} className="min-w-[124px] font-mono" title={runningHere ? "Stop & save session" : "Start timer"}>
               {runningHere ? <Square className="fill-current" /> : <Play className="fill-current" />}
@@ -172,7 +196,7 @@ function DealDetailBody({ deal }: { deal: Deal }) {
             {deal.location && <InfoItem icon={MapPin}>{deal.location}</InfoItem>}
             {deal.source && (
               <InfoItem icon={Network}>
-                Source: <span className="font-medium text-[var(--setu-text)]">{deal.source}</span>
+                Connected via: <span className="font-medium text-[var(--setu-text)]">Co {deal.source}</span>
               </InfoItem>
             )}
           </div>
@@ -247,7 +271,7 @@ function DealDetailBody({ deal }: { deal: Deal }) {
       {tab === "closed-won" && <DealClosedWonTab key={`won-${deal.won ? deal.updatedAt : "new"}`} deal={deal} />}
       {tab === "closed-lost" && <DealClosedLostTab key={`lost-${deal.lost ? deal.updatedAt : "new"}`} deal={deal} />}
 
-      <EditDealDialog deal={deal} open={editOpen} onClose={() => setEditOpen(false)} />
+      <ProspectDialog deal={deal} open={editOpen} onClose={() => setEditOpen(false)} />
       <StopTimerDialog open={stopOpen && runningHere} onClose={() => setStopOpen(false)} elapsedSeconds={elapsed} />
     </SetuPage>
   );

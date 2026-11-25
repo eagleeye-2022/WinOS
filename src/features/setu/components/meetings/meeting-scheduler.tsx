@@ -34,6 +34,7 @@ import { RichDescriptionEditor } from "@/components/shared/rich-description";
 import { useClearPageDraft, usePageDraft } from "@/lib/navigation/use-url-state";
 import { MEETING_MODES, MEETING_REMINDER_LABEL, STAGE_BY_ID, channelFromLink, modeOfChannel, type MeetingMode } from "../../constants";
 import { useSetuStore } from "../../provider";
+import { isMember } from "../../bni";
 import type { DealMeeting, MeetingAttendee, MeetingChannel, MeetingReminder } from "../../types";
 import { avatarColor, dealTitle, findConflicts, formatDate, formatSpan, formatTimeRange, initials, isoDate, istDateTime, istHhmm } from "../../utils";
 import { AddExternalAttendeeDialog, AttendeePicker, ReminderSelect, attendeeId } from "../deal/meeting-attendees";
@@ -84,7 +85,7 @@ export function MeetingScheduler({ meetingId }: { meetingId?: string }) {
   if (meetingId && !meeting) {
     return (
       <SetuPage>
-        <Breadcrumbs items={[{ label: "Sales" }, { label: "Activities" }, { label: "Meetings", href: ROUTES.setuMeetings }, { label: "Not found" }]} />
+        <Breadcrumbs items={[{ label: "Networking" }, { label: "121 Meetings", href: ROUTES.setu121 }, { label: "Not found" }]} />
         <ComingSoon title="Meeting not found" text="This meeting doesn't exist (design-phase data resets when the page is refreshed)." />
       </SetuPage>
     );
@@ -92,7 +93,7 @@ export function MeetingScheduler({ meetingId }: { meetingId?: string }) {
   if (meeting && (meeting.status === "COMPLETED" || meeting.status === "CANCELLED")) {
     return (
       <SetuPage>
-        <Breadcrumbs items={[{ label: "Sales" }, { label: "Activities" }, { label: "Meetings", href: ROUTES.setuMeetings }, { label: meeting.title }]} />
+        <Breadcrumbs items={[{ label: "Networking" }, { label: "121 Meetings", href: ROUTES.setu121 }, { label: meeting.title }]} />
         <ComingSoon
           title={`This meeting is ${meeting.status === "COMPLETED" ? "completed" : "cancelled"}`}
           text="Completed meetings are edited from the deal's Meetings tab (Edit details & summary). Cancelled meetings can't be rescheduled — schedule a new one."
@@ -136,7 +137,14 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
   const endAt = validSlot ? istDateTime(form.date, form.end) : "";
   const conflicts = validSlot ? findConflicts(meetings, { id: meeting?.id, startAt, endAt, hostName, attendees: form.attendees }) : [];
   const channel: MeetingChannel = form.mode === "ONLINE" ? channelFromLink(form.link) : form.mode;
-  const back = meeting ? ROUTES.setuMeeting(meeting.id) : presetDeal ? `${ROUTES.setuDeal(presetDeal)}?tab=meetings` : ROUTES.setuMeetings;
+  const presetIsMember = presetDeal ? deals.some((d) => d.id === presetDeal && isMember(d)) : false;
+  const back = meeting
+    ? ROUTES.setuMeeting(meeting.id)
+    : presetDeal
+      ? presetIsMember
+        ? ROUTES.setuMember(presetDeal)
+        : `${ROUTES.setuDeal(presetDeal)}?tab=meetings`
+      : ROUTES.setu121;
 
   const addAttendee = (a: Omit<MeetingAttendee, "id">) => setForm((f) => ({ ...f, attendees: [...f.attendees, { ...a, id: attendeeId() }] }));
   const removeAttendee = (id: string) => setForm((f) => ({ ...f, attendees: f.attendees.filter((a) => a.id !== id) }));
@@ -219,7 +227,7 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
 
   return (
     <SetuPage className="pb-0">
-      <Breadcrumbs items={[{ label: "Sales" }, { label: "Activities" }, { label: "Meetings", href: ROUTES.setuMeetings }, { label: title }]} />
+      <Breadcrumbs items={[{ label: "Networking" }, { label: "121 Meetings", href: ROUTES.setu121 }, { label: title }]} />
 
       <section className="setu-card flex flex-wrap items-center justify-between gap-4 px-6 py-5">
         <div className="min-w-0">

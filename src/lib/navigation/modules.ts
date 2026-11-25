@@ -45,11 +45,11 @@ export const NAV_MODULES: readonly NavModule[] = [
     moduleParams: ["projects"],
   },
   {
-    // Sales CRM (replaces the old "Sales" placeholder; /sales redirects here).
+    // BNI networking: 121 Meetings → Referrals → Sales Pipeline (replaces the old "Sales" placeholder; /sales redirects here).
     id: "setu",
     label: "Setu",
-    // The Tasks board — /setu itself just redirects here.
-    homeHref: "/setu/tasks",
+    // 121 Meetings — /setu itself just redirects here.
+    homeHref: "/setu/121-meetings",
     // No module-access gate yet — the key has no PermissionModule row, so the switcher shows it.
     moduleKey: "SETU",
     prefixes: ["/setu"],

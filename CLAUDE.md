@@ -120,14 +120,26 @@ custom templates and saved edits of built-in ones (same id as the built-in, whic
 `src/features/projects/template-utils.ts`) with phase codes `P1`, `P2`… so the task board shows only
 their own columns.
 
-**Setu (sales CRM)**: `src/features/setu/` ↔ `/setu/*` (`/setu` → `/setu/tasks`). Built from the Setu Figma:
-the Tasks board (7 stage columns, one card per lead/deal, drag to change stage), the deal page
-`/setu/deals/[dealId]` (Calls, Meetings, Notes, Time Logs, Discussions, Proposals & Docs, Negotiations, Closed Won,
-Closed Lost + a per-user deal timer), Create Lead / Edit Deal, and Activities → Meetings (list `/setu/meetings`, detail
-`/setu/meetings/[id]`, full-page scheduler `/setu/meetings/new?deal=…` / `/setu/meetings/[id]/edit`). Dashboard,
-Leads (stages before Proposal), Deals (Proposal onward), Contacts (derived: decision makers + external attendees) and
-Activities → Calls are list pages in `components/lists/` over the same snapshot (calculations in `insights.ts`);
-only Forecast is "Coming soon". Data lives in the `Crm*` Prisma models (migration `20261124000000_setu_crm`). Flow:
+**Setu (BNI networking)**: `src/features/setu/` ↔ `/setu/*` (`/setu` → `/setu/121-meetings`). Concept from the
+original Setu artefact, visuals from the Setu Figma. Five feature tabs under one header (`components/bni/setu-shell.tsx`:
+title, chapter chip, live stats) and in the sidebar (`nav.ts`): **121 Meetings** (one card per BNI member; member dialog
+with referral summary, meeting-notes timeline, to-dos, Call Now → call note, Schedule Meeting, Convert Refs;
+`?member=<id>` opens it — `ROUTES.setuMember`), **Sales Pipeline** (12-column board: Prospect, Discovery Mtg,
+Est./Proposal, Estimate Sent, Client Meet 1/2, Negotiation, Agreement, Deal Won, On Hold, Lost, Mixed/Opport.),
+**WhatsApp Bot** (flows + an in-app bot console and visiting-card capture; the real WhatsApp webhook is NOT built —
+needs Meta Cloud API + OCR keys and a session table), **Contacts** (members + prospects, vCard import) and
+**Referrals**. A pipeline card opens the prospect workspace `/setu/deals/[dealId]` (Calls, Meetings, Notes, Time Logs,
+Discussions, Proposals & Docs, Negotiations, Closed Won, Closed Lost + timer; members redirect to their 121 record);
+meetings use detail `/setu/meetings/[id]` and the scheduler `/setu/meetings/new?deal=…`. Old CRM URLs (tasks, leads,
+deals, dashboard, calls, meetings list, forecast) redirect in `next.config.ts`. **No schema change**: the BNI model is
+encoded on the existing `Crm*` columns — read the header of `bni.ts` before touching it. Members / opportunity cards /
+origin / sub-stage / On Hold are a `[bni:…]` prefix in `CrmDeal.contactRole` (stripped into `Deal.bni` by
+`server/data.ts`; `updateDealAction`/`moveDealAction` preserve it). 121s are `CrmMeeting` rows typed "121 Meeting" etc.
+Referrals and to-dos are `CrmNote` rows titled `bni:ref-in[>prospectId]` / `bni:ref-out` / `bni:todo[-done]` (hidden
+from the Notes tab). BNI writes are `actions/bni-actions.ts` (interactive transactions with `TX_OPTIONS`, lead codes
+via `leadCodes(tx, n)`), called through `useBni()` (`bni-client.ts`), which merges the returned `BniPatch` into the
+store. Pure logic + checks in `bni.ts` (tests: `setu-bni.test.ts`). A proposal to move the encodings into real
+columns is in `docs/setu-bni-db-proposal.md` (not applied). Data lives in the `Crm*` Prisma models (migration `20261124000000_setu_crm`). Flow:
 the Setu layout calls `requireSetuUser()` (every active non-CLIENT user sees and edits everything) and
 `getSetuSnapshot()` (`server/data.ts`: Prisma rows → the view types in `types.ts`) and hands it to
 `SetuStoreProvider` (`provider.tsx`) — a per-request Zustand store (`store.ts`, created with `createSetuStore`,
@@ -138,7 +150,7 @@ server-side with retry on unique clashes. Meetings keep an audit trail (`CrmMeet
 invite/reminder emails are not sent yet (logged as "queued"). Files: `POST /api/setu/upload` (PDF/DOC/DOCX ≤25MB,
 stored via lib/upload-storage), then the proposal / closure action records them in `CrmFile`. Notes, discussions and
 negotiation updates are one table split by `category`. Meeting agenda/summary are TipTap HTML. `data/mock-setu.ts`
-is test fixtures only. Dates render in IST (`utils.ts`). Sidebar items: `src/features/setu/nav.ts`.
+is test fixtures only; `insights.ts` keeps generic helpers (`matchesText`, CSV export). Dates render in IST (`utils.ts`).
 
 **Remembered screen state**: pages come back exactly as they were left (Back/Forward, sidebar, refresh)
 via the navigation store (`src/stores/navigation-store.ts`, saved to the tab's sessionStorage, hydrated

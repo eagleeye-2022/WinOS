@@ -27,6 +27,13 @@ export function useSetuStore<T>(selector: (s: SetuState) => T): T {
   return useStore(store, selector);
 }
 
+/** The store itself (for hooks that merge server results in, e.g. useBni). */
+export function useSetuStoreApi(): SetuStore {
+  const store = useContext(SetuStoreContext);
+  if (!store) throw new Error("useSetuStoreApi must be used inside <SetuStoreProvider> (the Setu layout).");
+  return store;
+}
+
 /** The signed-in user. */
 export function useSetuMe(): TeamMember {
   return useSetuStore((s) => s.me);

@@ -2,6 +2,9 @@ import type { ElementType } from "react";
 import { BadgeCheck, CalendarDays, CircleX, FileText, Handshake, MessagesSquare, UserRoundSearch } from "lucide-react";
 import type { CallDirection, CallOutcome, DealStage, MeetingChannel, MeetingReminder, MeetingStatus } from "./types";
 
+/** The team's BNI chapter (shown on the Setu header). */
+export const BNI_CHAPTER = { name: "Indore Pinnacle", status: "Active Member" } as const;
+
 export interface StageConfig {
   id: DealStage;
   /** Column header ("LEAD"). */

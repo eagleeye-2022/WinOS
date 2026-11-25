@@ -1,5 +1,6 @@
-// Setu (sales CRM) domain types. The design phase runs on mock data (`data/mock-setu.ts`) held in
-// the client store (`store.ts`); these shapes are what the Prisma models will later back.
+// Setu domain types — the view shapes server/data.ts maps the Crm* Prisma rows into. The BNI
+// networking layer (members, 121s, referrals, the 12-stage pipeline) sits on top: see bni.ts.
+import type { BniTags } from "./bni";
 
 /** The seven columns of the Tasks board, in order. */
 export type DealStage =
@@ -55,6 +56,11 @@ export interface Deal {
   lost?: DealLostDetails;
   /** ISO datetime of the last change. */
   updatedAt: string;
+  /**
+   * BNI tags (member / opportunity, origin, sub-stage, on hold) — decoded from the stored
+   * contactRole prefix by server/data.ts, which leaves `contactRole` clean. Absent = plain prospect.
+   */
+  bni?: BniTags;
 }
 
 /** Notes, Discussions and Negotiation updates share one shape; each tab shows its own feed. */

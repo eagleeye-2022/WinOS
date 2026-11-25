@@ -133,6 +133,34 @@
     color: color-mix(in oklch, var(--setu-accent) 65%, white);
   }
 
+  /* Solid blue call-to-action (page-level "Schedule Meeting", "Create Task", dialog confirm). */
+  .setu-btn-solid {
+    background: #1d4ed8;
+    color: #fff;
+    border: 1px solid #1d4ed8;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(29, 78, 216, 0.25);
+  }
+  .setu-btn-solid:hover {
+    background: #1e40af;
+    border-color: #1e40af;
+  }
+  .dark .setu-btn-solid {
+    background: #2563eb;
+    border-color: #2563eb;
+  }
+
+  /* Soft grey ("Cancel", "Save as Draft"). */
+  .setu-btn-muted {
+    background: var(--setu-well);
+    color: var(--setu-text);
+    border: 1px solid transparent;
+  }
+  .setu-btn-muted:hover {
+    background: var(--setu-soft);
+    border-color: var(--setu-line);
+  }
+
   .setu-btn-secondary {
     background: var(--setu-card);
     color: var(--setu-text);

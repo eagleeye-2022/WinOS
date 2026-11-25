@@ -11,6 +11,7 @@ import { useClearPageDraft, usePageDraft, usePageViewState } from "@/lib/navigat
 import { useSetuStore } from "../../provider";
 import type { DealNote, NoteCategory } from "../../types";
 import { formatDate, formatTime, sortNotes } from "../../utils";
+import { isBniNote } from "../../bni";
 import { SETU_RICH_VIEW, SetuButton, attempt } from "../setu-ui";
 
 /** Notes tab: header row with "Add Note" (opens the composer) + the notes feed. */
@@ -112,7 +113,7 @@ export function NotesFeed({
   pinnedBadge?: boolean;
 }) {
   const allNotes = useSetuStore((s) => s.notes);
-  const notes = sortNotes(allNotes.filter((n) => n.dealId === dealId && n.category === category));
+  const notes = sortNotes(allNotes.filter((n) => n.dealId === dealId && n.category === category && !isBniNote(n)));
 
   return (
     <div className="space-y-4">
