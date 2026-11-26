@@ -214,7 +214,6 @@ export function RegularizationRequestsList({
                         <div className="text-muted-foreground line-through decoration-muted-foreground/40">
                           {req.existingAttendance.checkIn || "--:--"} → {req.existingAttendance.checkOut || "--:--"}
                         </div>
-                        <div className="text-[11px] text-muted-foreground">{req.existingAttendance.workedDuration || "--"}</div>
                       </td>
 
                       {/* Requested */}
@@ -222,7 +221,6 @@ export function RegularizationRequestsList({
                         <div className="font-semibold text-blue-600 dark:text-blue-400">
                           {req.requestedAttendance.checkIn} → {req.requestedAttendance.checkOut}
                         </div>
-                        <div className="text-[11px] text-muted-foreground">{req.requestedAttendance.workedDuration}</div>
                       </td>
 
                       {/* Reason */}

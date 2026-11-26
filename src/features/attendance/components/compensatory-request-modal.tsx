@@ -102,9 +102,7 @@ export function CompensatoryRequestModal({
           )}
 
           <div className="p-3.5 rounded-xl bg-blue-50/60 dark:bg-accent border border-blue-100 dark:border-zinc-700/40 text-xs text-blue-800 dark:text-blue-300">
-            You worked on <span className="font-bold">{record.formattedDate}</span> from{" "}
-            <span className="font-bold">{record.checkInTime || "—"}</span> to{" "}
-            <span className="font-bold">{record.checkOutTime || "not checked out"}</span>. Submitting this request will credit 1 Compensatory Leave upon manager approval.
+            You worked on <span className="font-bold">{record.formattedDate}</span>. Submitting this request will credit 1 Compensatory Leave upon manager approval.
           </div>
 
           <div>

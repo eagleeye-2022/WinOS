@@ -104,7 +104,6 @@ export function RegularizeAttendanceFormPage({
   }, [attendanceDate, onBehalfOf?.id]);
 
   const { checkIn: checkInTime, checkOut: checkOutTime } = form.values;
-  const workedDuration = form.worked ?? "--";
   const dateLabel = dateFromKey(attendanceDate)
     ? `${formatLongDate(attendanceDate)} (${fullDayName(attendanceDate)})`
     : "—";
@@ -269,10 +268,6 @@ export function RegularizeAttendanceFormPage({
               <div className="flex items-center justify-between">
                 <dt className="text-muted-foreground">Check-out</dt>
                 <dd className="font-semibold text-blue-600 dark:text-blue-400">{checkOutTime || "--"}</dd>
-              </div>
-              <div className="flex items-center justify-between border-t border-border/70 pt-3">
-                <dt className="font-semibold text-foreground">Worked Duration</dt>
-                <dd className="text-sm font-bold text-foreground">{workedDuration}</dd>
               </div>
             </dl>
           </section>

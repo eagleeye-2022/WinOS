@@ -8,6 +8,7 @@ import { getStr } from "@/lib/action-utils";
 import { countTasksWithoutProject, PROJECT_REQUIRED_MESSAGE } from "../utils";
 import { ensureNatTaskForTimerAction, linkOrCreateDsmTaskAction } from "./create-project-items";
 import { syncDueDatesFromDsm } from "../due-date-sync";
+import { adoptProjectRecurrence } from "../recurrence-sync";
 
 export type SaveDsmState = {
   errors?: { tasks?: string[]; learningText?: string[] };
@@ -174,6 +175,8 @@ export async function saveDsm(
     // Sync TODAY tasks (replace)
     await d.standupTask.deleteMany({ where: { entryId: entry.id, kind: "TODAY" } });
     if (tasksToCreate.length > 0) {
+      // A row for a Srijan task that repeats joins (or starts) this user's recurring template.
+      await adoptProjectRecurrence(userId, tasksToCreate, date);
       await d.standupTask.createMany({
         data: tasksToCreate.map((item, i: number) => ({
           text: item.text,

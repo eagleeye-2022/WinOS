@@ -111,6 +111,8 @@ import { toast } from "@/components/shared/toast";
 import { InlineTextCell, STICKY_HEADER_ROW } from "./time-tracker-view";
 import { RemarksPopupCell } from "../remarks-popup-cell";
 import { usePageViewState, usePageViewSet } from "@/lib/navigation/use-url-state";
+import { DsmRecurrencePicker } from "@/features/dsm/components/dsm-recurrence-picker";
+import { describeRule, parseRule, serializeRule } from "@/features/calendar/recurrence";
 
 interface SingleTaskWorkspaceViewProps {
   projectId: string;
@@ -2098,6 +2100,26 @@ export function SingleTaskWorkspaceView({
                 <div>
                   <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Total Logged Hours</span>
                   <span className="font-bold text-foreground font-mono text-sm dark:text-zinc-100">{formattedTotalTaskHours} h</span>
+                </div>
+                <div>
+                  {/* Kept in sync with the DSM recurring templates linked to this task (recurrence-sync). */}
+                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Recurring</span>
+                  {canEditFields ? (
+                    <DsmRecurrencePicker
+                      value={parseRule(activeTask.recurrence)}
+                      onChange={(rule) => {
+                        const next = serializeRule(rule);
+                        handleUpdateTaskField({ recurrence: next ?? "None", hasRecurrence: Boolean(next) });
+                      }}
+                      start={new Date()}
+                    />
+                  ) : (
+                    <span className="font-semibold text-foreground text-sm dark:text-zinc-100">
+                      {parseRule(activeTask.recurrence)
+                        ? describeRule(parseRule(activeTask.recurrence), new Date())
+                        : "None"}
+                    </span>
+                  )}
                 </div>
               </div>
             )}

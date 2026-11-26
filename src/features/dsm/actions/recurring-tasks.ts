@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { isoToUtcDate, toUtcDate } from "../utils";
 import { parseRule, serializeRule, type RecurrenceRule } from "../recurring-utils";
+import { syncRecurrenceFromDsm } from "../recurrence-sync";
 
 export type RecurringTaskActionResult = {
   success: boolean;
@@ -73,6 +74,9 @@ export async function createRecurringTaskAction(input: {
     select: { id: true },
   });
 
+  // Linked to a Srijan task → that task (and other people's templates for it) repeat the same way.
+  await syncRecurrenceFromDsm(input.projectTaskId, serialized);
+
   revalidateDsmPaths(ctx.effectiveUserId);
   return { success: true, id: created.id };
 }
@@ -95,7 +99,7 @@ export async function updateRecurringTaskAction(
   const d = db as any;
   const existing = await d.recurringStandupTask.findUnique({
     where: { id },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, projectTaskId: true, recurrenceRule: true, isActive: true },
   });
   if (!existing) return { success: false, message: "Recurring task not found" };
   if (existing.userId !== session.user.id && session.user.role !== "MANAGER") {
@@ -121,6 +125,14 @@ export async function updateRecurringTaskAction(
     },
   });
 
+  // A schedule change, pause or resume on a template linked to a Srijan task applies to that task
+  // and to everyone else's template for it (paused here = off everywhere).
+  if (serializedRule !== undefined || input.isActive !== undefined) {
+    const linkedTaskId = input.projectTaskId !== undefined ? input.projectTaskId || null : existing.projectTaskId;
+    const nowActive = input.isActive ?? existing.isActive;
+    await syncRecurrenceFromDsm(linkedTaskId, nowActive ? serializedRule ?? existing.recurrenceRule : null);
+  }
+
   revalidateDsmPaths(existing.userId);
   return { success: true, id };
 }
@@ -140,7 +152,7 @@ export async function deleteRecurringTaskAction(id: string): Promise<RecurringTa
   const d = db as any;
   const existing = await d.recurringStandupTask.findUnique({
     where: { id },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, projectTaskId: true },
   });
   if (!existing) return { success: false, message: "Recurring task not found" };
   if (existing.userId !== session.user.id && session.user.role !== "MANAGER") {
@@ -148,6 +160,8 @@ export async function deleteRecurringTaskAction(id: string): Promise<RecurringTa
   }
 
   await d.recurringStandupTask.delete({ where: { id } });
+  // Deleting a linked template turns the Srijan task's recurrence off (others' templates pause).
+  await syncRecurrenceFromDsm(existing.projectTaskId, null);
   revalidateDsmPaths(existing.userId);
   return { success: true, id };
 }
@@ -208,9 +222,15 @@ export async function setStandupTaskRecurrenceAction(
   }
 
   if (!rule) {
+    // Turning recurrence off pauses the template instead of deleting it, so past days keep their
+    // link and it can be resumed (or deleted on purpose) from the recurring-tasks manager.
     if (task.recurringTaskId) {
-      await d.recurringStandupTask.delete({ where: { id: task.recurringTaskId } }).catch(() => {});
+      await d.recurringStandupTask.update({
+        where: { id: task.recurringTaskId },
+        data: { isActive: false },
+      });
       await d.standupTask.update({ where: { id: standupTaskId }, data: { recurringTaskId: null } });
+      await syncRecurrenceFromDsm(task.projectTaskId, null);
     }
     revalidateDsmPaths(task.entry.userId);
     return { success: true };
@@ -222,8 +242,9 @@ export async function setStandupTaskRecurrenceAction(
   if (task.recurringTaskId) {
     await d.recurringStandupTask.update({
       where: { id: task.recurringTaskId },
-      data: { recurrenceRule: serialized },
+      data: { recurrenceRule: serialized, isActive: true },
     });
+    await syncRecurrenceFromDsm(task.projectTaskId, serialized);
     revalidateDsmPaths(task.entry.userId);
     return { success: true, id: task.recurringTaskId };
   }
@@ -248,6 +269,7 @@ export async function setStandupTaskRecurrenceAction(
     where: { id: standupTaskId },
     data: { recurringTaskId: created.id },
   });
+  await syncRecurrenceFromDsm(task.projectTaskId, serialized);
 
   revalidateDsmPaths(task.entry.userId);
   return { success: true, id: created.id };

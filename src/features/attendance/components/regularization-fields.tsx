@@ -114,7 +114,7 @@ const fieldClass =
   "w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring";
 
 export function RegularizationFields({ form, idPrefix = "reg" }: { form: RegularizationForm; idPrefix?: string }) {
-  const { values, set, errors, worked } = form;
+  const { values, set, errors } = form;
   const timeBorder = errors.times ? "border-rose-500" : "border-input";
   return (
     <div className="space-y-4">
@@ -154,13 +154,7 @@ export function RegularizationFields({ form, idPrefix = "reg" }: { form: Regular
           </div>
         </div>
       </div>
-      <p className={`text-xs ${errors.times ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"}`}>
-        {errors.times ?? (
-          <>
-            Worked duration: <span className="font-semibold text-foreground">{worked ?? "--"}</span>
-          </>
-        )}
-      </p>
+      {errors.times && <p className="text-xs text-rose-600 dark:text-rose-400">{errors.times}</p>}
 
       <div>
         <label htmlFor={`${idPrefix}-reason`} className="block text-xs font-semibold text-foreground mb-1.5">

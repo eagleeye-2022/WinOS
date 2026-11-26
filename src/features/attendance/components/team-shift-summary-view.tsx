@@ -11,14 +11,11 @@ import {
   Search,
   Building2,
   Home,
-  ArrowUp,
-  ArrowDown,
   Minus,
   Loader2,
 } from "lucide-react";
 import { ShiftSummaryItem } from "../types";
 import { getTeamShiftSummaryData } from "../queries/attendance-queries";
-import { cn } from "@/lib/utils";
 import { formatShortDate, istDateKey } from "../utils";
 import { PersonAvatar } from "./person-avatar";
 import { UserName } from "@/components/shared/user-card";
@@ -125,25 +122,20 @@ export function TeamShiftSummaryView() {
               <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <th className="py-3.5 px-5">Team Member</th>
                 <th className="py-3.5 px-5">Status</th>
-                <th className="py-3.5 px-5">Attendance Time</th>
-                <th className="py-3.5 px-5">Total Hours</th>
-                <th className="py-3.5 px-5">Check-in Diff</th>
-                <th className="py-3.5 px-5">Check-out Diff</th>
-                <th className="py-3.5 px-5">Net Hours</th>
                 <th className="py-3.5 px-5">Work Mode</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border/70 text-xs">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={3} className="py-12 text-center text-muted-foreground">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500" />
                     Loading shift summary...
                   </td>
                 </tr>
               ) : filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={3} className="py-12 text-center text-muted-foreground">
                     No records found for this filter.
                   </td>
                 </tr>
@@ -187,74 +179,6 @@ export function TeamShiftSummaryView() {
                           <XCircle className="w-3 h-3 text-rose-600" />
                           Absent
                         </span>
-                      )}
-                    </td>
-
-                    {/* Attendance Time */}
-                    <td className="py-3.5 px-5 font-semibold text-foreground">
-                      {item.attendanceTime || "-"}
-                    </td>
-
-                    {/* Total Hours */}
-                    <td className="py-3.5 px-5 font-bold text-foreground">
-                      {item.totalHours || "-"}
-                    </td>
-
-                    {/* Check-in Diff */}
-                    <td className="py-3.5 px-5">
-                      {item.checkInDiff ? (
-                        <div
-                          className={cn(
-                            "inline-flex items-center gap-1 font-semibold text-xs",
-                            item.checkInDiff.type === "early" && "text-emerald-600 dark:text-emerald-400",
-                            item.checkInDiff.type === "late" && "text-rose-600 dark:text-rose-400",
-                            item.checkInDiff.type === "on-time" && "text-muted-foreground"
-                          )}
-                        >
-                          {item.checkInDiff.type === "early" && <ArrowDown className="w-3 h-3" />}
-                          {item.checkInDiff.type === "late" && <ArrowUp className="w-3 h-3" />}
-                          <span>{item.checkInDiff.label}</span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
-
-                    {/* Check-out Diff */}
-                    <td className="py-3.5 px-5">
-                      {item.checkOutDiff ? (
-                        <div
-                          className={cn(
-                            "inline-flex items-center gap-1 font-semibold text-xs",
-                            item.checkOutDiff.type === "late" && "text-emerald-600 dark:text-emerald-400",
-                            item.checkOutDiff.type === "early" && "text-rose-600 dark:text-rose-400",
-                            item.checkOutDiff.type === "on-time" && "text-muted-foreground"
-                          )}
-                        >
-                          {item.checkOutDiff.type === "late" && <ArrowUp className="w-3 h-3" />}
-                          {item.checkOutDiff.type === "early" && <ArrowDown className="w-3 h-3" />}
-                          <span>{item.checkOutDiff.label}</span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </td>
-
-                    {/* Net Hours */}
-                    <td className="py-3.5 px-5">
-                      {item.netHours ? (
-                        <div
-                          className={cn(
-                            "font-bold text-xs",
-                            item.netHours.type === "positive" && "text-emerald-600 dark:text-emerald-400",
-                            item.netHours.type === "negative" && "text-rose-600 dark:text-rose-400",
-                            item.netHours.type === "neutral" && "text-muted-foreground"
-                          )}
-                        >
-                          {item.netHours.label}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
                       )}
                     </td>
 

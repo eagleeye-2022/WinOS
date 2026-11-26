@@ -23,7 +23,7 @@ import type { EntryWithDetails, TeamMember, ParkedTask, RecurringTaskItem } from
 import { RecurringTasksManager } from "./recurring-tasks-manager";
 import { DsmRecurrencePicker } from "./dsm-recurrence-picker";
 import { formatRecurrenceBadge, parseRule, type RecurrenceRule } from "../recurring-utils";
-import { createRecurringTaskAction, skipRecurringTaskForDateAction, updateRecurringTaskAction, deleteRecurringTaskAction } from "../actions/recurring-tasks";
+import { createRecurringTaskAction, skipRecurringTaskForDateAction, updateRecurringTaskAction, toggleRecurringTaskAction } from "../actions/recurring-tasks";
 import { MentionInput } from "@/components/shared/mention-input";
 import { YesterdayAdditionalWork, type AdditionalWorkItem } from "./yesterday-additional-work";
 import { YesterdayTaskList } from "./yesterday-task-list";
@@ -337,6 +337,16 @@ function TaskRows({
         // Always shown: with no project picked, the timer runs on an Unassigned Work task.
         const showProjectFeatures = true;
         const inUnassigned = isUnassignedProject(tree.currentProject) && !!tree.activeTargetTask;
+        // Recurrence comes from the live template, not the label saved with the row — a browser
+        // draft keeps its old label after the schedule changes in Srijan or the recurring-tasks
+        // manager. A paused template (turned off elsewhere) means the row no longer repeats.
+        const liveRec = task.recurringTaskId
+          ? userRecurringTasks.find((r) => r.id === task.recurringTaskId)
+          : undefined;
+        const liveRule = liveRec ? parseRule(liveRec.recurrenceRule) : null;
+        const isRecurring = !!task.recurringTaskId && (liveRec ? liveRec.isActive : true);
+        const recurrenceLabel =
+          liveRec && liveRule ? formatRecurrenceBadge(liveRule, new Date(liveRec.startDate)) : task.recurrenceLabel;
 
         return (
           <TaskRowCard
@@ -363,7 +373,7 @@ function TaskRows({
             {/* Task list picked without a task: on submit, a task is created there from the text. */}
             <input type="hidden" name="taskListCode" value={tree.taskListCode} />
             <input type="hidden" name="taskDueDate" value={task.dueDate || ""} />
-            <input type="hidden" name="taskRecurringTaskId" value={task.recurringTaskId || ""} />
+            <input type="hidden" name="taskRecurringTaskId" value={isRecurring ? task.recurringTaskId : ""} />
 
               {/* Line 1: Task ID (Code Chip) + Text Input */}
               <div className="flex items-center gap-2 w-full">
@@ -395,13 +405,13 @@ function TaskRows({
                     CO
                   </span>
                 )}
-                {task.recurringTaskId && (
+                {isRecurring && (
                   <span
                     className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary shrink-0"
                     title="Recurring standup task"
                   >
                     <Repeat size={10} />
-                    {task.recurrenceLabel || "Recurring"}
+                    {recurrenceLabel || "Recurring"}
                   </span>
                 )}
 
@@ -497,7 +507,7 @@ function TaskRows({
                     const existingRec = task.recurringTaskId
                       ? userRecurringTasks.find((r) => r.id === task.recurringTaskId)
                       : undefined;
-                    const currentRule = existingRec ? parseRule(existingRec.recurrenceRule) : null;
+                    const currentRule = isRecurring && existingRec ? parseRule(existingRec.recurrenceRule) : null;
                     const anchor = new Date(todayDateStr + "T00:00:00.000Z");
                     const isRepeatOpen = openRepeatRowId === task.id;
 
@@ -506,11 +516,14 @@ function TaskRows({
                       if (!newRule) {
                         if (task.recurringTaskId) {
                           const rid = task.recurringTaskId;
-                          const res = await deleteRecurringTaskAction(rid);
+                          // Pause (not delete) the template — it stays in Recurring tasks to resume or delete.
+                          const res = await toggleRecurringTaskAction(rid, false);
                           if (res.success) {
                             patchRow(task.id, () => ({ recurringTaskId: undefined, recurrenceLabel: undefined }));
-                            onRecurringChange?.((prev) => prev.filter((r) => r.id !== rid));
-                            toast.success("Recurrence removed");
+                            onRecurringChange?.((prev) =>
+                              prev.map((r) => (r.id === rid ? { ...r, isActive: false } : r))
+                            );
+                            toast.success("Recurrence paused");
                           } else {
                             toast.error(res.message ?? "Failed to remove recurrence");
                           }
@@ -530,12 +543,13 @@ function TaskRows({
                           projectId: tree.projectId || null,
                           projectTaskId: projectTaskId || null,
                           rule: newRule,
+                          isActive: true,
                         });
                         if (res.success) {
                           patchRow(task.id, () => ({ recurrenceLabel: badge }));
                           onRecurringChange?.((prev) =>
                             prev.map((r) =>
-                              r.id === rid ? { ...r, recurrenceRule: JSON.stringify(newRule) } : r
+                              r.id === rid ? { ...r, recurrenceRule: JSON.stringify(newRule), isActive: true } : r
                             )
                           );
                           toast.success(`Updated schedule: ${badge}`);
@@ -585,16 +599,16 @@ function TaskRows({
                         <button
                           type="button"
                           onClick={() => setOpenRepeatRowId(isRepeatOpen ? null : task.id)}
-                          title={task.recurringTaskId ? `Recurring (${task.recurrenceLabel || "Active"})` : "Make this task repeat"}
+                          title={isRecurring ? `Recurring (${recurrenceLabel || "Active"})` : "Make this task repeat"}
                           className={cn(
                             "flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-semibold transition-colors cursor-pointer",
-                            task.recurringTaskId
+                            isRecurring
                               ? "border-primary/40 bg-primary/10 text-primary"
                               : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-primary"
                           )}
                         >
                           <Repeat size={12} />
-                          <span>{task.recurringTaskId ? (task.recurrenceLabel || "Recurring") : "Recurring"}</span>
+                          <span>{isRecurring ? (recurrenceLabel || "Recurring") : "Recurring"}</span>
                         </button>
                         {isRepeatOpen && (
                           <div
@@ -1552,6 +1566,14 @@ export function SubmitDsmForm({
   currentUserId,
 }: SubmitDsmFormProps) {
   const [recurringList, setRecurringList] = useState<RecurringTaskItem[]>(userRecurringTasks);
+  // Take fresh server data when it changes (e.g. the schedule was changed in Srijan or another tab
+  // and the page re-rendered) — compared by content, since the default `[]` is a new array each render.
+  const recurringKey = userRecurringTasks.map((r) => `${r.id}:${r.recurrenceRule}:${r.isActive}`).join("|");
+  const [recurringSourceKey, setRecurringSourceKey] = useState(recurringKey);
+  if (recurringSourceKey !== recurringKey) {
+    setRecurringSourceKey(recurringKey);
+    setRecurringList(userRecurringTasks);
+  }
   const [state, action, pending] = useActionState(saveDsm, initialState);
   const isEditMode = entry?.status === "SUBMITTED" || entry?.status === "PENDING_REVIEW";
 

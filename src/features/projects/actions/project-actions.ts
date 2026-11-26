@@ -52,6 +52,8 @@ import { DEFAULT_PROJECT_PHASES } from "../data/mock-projects";
 import { joinIndustries, parseIndustries } from "../data/industries";
 import { NAT_TASK_LIST_NAME, UNASSIGNED_PROJECT_CODE } from "@/features/dsm/utils";
 import { syncDueDateFromProjectTask } from "@/features/dsm/due-date-sync";
+import { normalizeRecurrence, syncRecurrenceFromProjectTask } from "@/features/dsm/recurrence-sync";
+import { describeRule, parseRule } from "@/features/calendar/recurrence";
 import {
   LEARNING_PROJECT_CATEGORY,
   NOT_LEARNING_PROJECT,
@@ -2840,6 +2842,14 @@ export async function updateTaskAction(
       `changed start date from "${task.startDate || "--"}" to "${updates.startDate || "--"}"`
     );
   }
+  // Recurrence: a serialized RecurrenceRule, or null for "does not repeat" (stored as "None").
+  const previousRecurrence = normalizeRecurrence(task.recurrence);
+  const nextRecurrence = updates.recurrence !== undefined ? normalizeRecurrence(updates.recurrence) : undefined;
+  const recurrenceChanged = nextRecurrence !== undefined && nextRecurrence !== previousRecurrence;
+  if (recurrenceChanged) {
+    const label = (r: string | null) => (r ? describeRule(parseRule(r), new Date()) : "None");
+    activityEntries.push(`changed recurrence from "${label(previousRecurrence)}" to "${label(nextRecurrence)}"`);
+  }
   if (updates.description !== undefined && updates.description !== task.description) {
     activityEntries.push("updated the description");
   }
@@ -2888,6 +2898,7 @@ export async function updateTaskAction(
       ...(updates.priority && { priority: updates.priority }),
       ...(updates.startDate !== undefined && { startDate: updates.startDate }),
       ...(updates.dueDate !== undefined && { dueDate: updates.dueDate }),
+      ...(recurrenceChanged && { recurrence: nextRecurrence ?? "None", hasRecurrence: Boolean(nextRecurrence) }),
       ...(updates.owners !== undefined && {
         owner: ownerNames.length > 0 ? ownerNames.join(", ") : "Unassigned",
         ownerId: primaryOwnerId,
@@ -2941,6 +2952,12 @@ export async function updateTaskAction(
   // Srijan → DSM: every DSM row linked to this task shows the new due date.
   if (updates.dueDate !== undefined && updates.dueDate !== task.dueDate) {
     await syncDueDateFromProjectTask(task.id, updates.dueDate);
+    revalidatePath("/dsm", "layout");
+  }
+
+  // Srijan → DSM: linked recurring templates take the new schedule (or pause when it's turned off).
+  if (recurrenceChanged) {
+    await syncRecurrenceFromProjectTask(task.id, nextRecurrence ?? null, session.user.id);
     revalidatePath("/dsm", "layout");
   }
 

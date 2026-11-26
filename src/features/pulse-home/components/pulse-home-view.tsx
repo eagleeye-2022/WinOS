@@ -481,7 +481,6 @@ function WorkScheduleCard({ schedule }: { schedule: PulseHomeData["schedule"] })
                     {day.status.label.replace(/\s+(check)/i, "\n$1")}
                   </p>
                 )}
-                {day.hours && <p className="mt-1 text-xs font-semibold text-foreground">{day.hours}</p>}
               </div>
             );
           })}

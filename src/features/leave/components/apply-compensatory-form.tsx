@@ -267,13 +267,7 @@ export function ApplyCompensatoryForm({
                     </div>
                   </div>
                 </div>
-                {timeError ? (
-                  <p className="text-xs text-red-600 dark:text-red-400">{timeError}</p>
-                ) : workedMinutes ? (
-                  <p className="text-xs text-muted-foreground">
-                    {Math.floor(workedMinutes / 60)}h {String(workedMinutes % 60).padStart(2, "0")}m worked
-                  </p>
-                ) : null}
+                {timeError && <p className="text-xs text-red-600 dark:text-red-400">{timeError}</p>}
               </div>
             </div>
 

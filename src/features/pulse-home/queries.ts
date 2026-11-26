@@ -261,10 +261,11 @@ export async function getPulseHomeData(userId: string): Promise<PulseHomeData | 
   // ── Today in words, from today's DailyAttendance row ──
   let todaySummary = "Not checked in yet today";
   const where = att?.checkInLocationName ? ` · ${att.checkInLocationName}` : "";
+  // Flexible hours: the summary says what happened today, never at what clock time.
   if (isLive && att?.checkInTime) {
-    todaySummary = `${att.workMode === "REMOTE" ? "Working remotely" : "In office"} · checked in at ${att.checkInTime}${where}`;
+    todaySummary = `${att.workMode === "REMOTE" ? "Working remotely" : "In office"} · checked in${where}`;
   } else if (att?.checkInTime && att.checkOutTime) {
-    todaySummary = `Checked in at ${att.checkInTime} · checked out at ${att.checkOutTime}${where}`;
+    todaySummary = `Checked out for the day${where}`;
   } else if (todayDay.resolved.status === "ON_LEAVE") {
     todaySummary = todayDay.leave
       ? `${todayDay.leave.leaveType.name}${todayDay.leave.status === "PENDING" ? " (pending approval)" : ""}`

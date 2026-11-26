@@ -1744,7 +1744,7 @@ function TaskRow({
                     setRepeatOpen(false);
                     const res = await setStandupTaskRecurrenceAction(task.id, newRule);
                     if (res.success) {
-                      toast.success(newRule ? "Recurring schedule saved" : "Recurrence removed");
+                      toast.success(newRule ? "Recurring schedule saved" : "Recurrence paused");
                     } else {
                       toast.error(res.message ?? "Failed to update recurrence");
                     }
@@ -1962,7 +1962,7 @@ function TaskRow({
                   setRepeatOpen(false);
                   const res = await setStandupTaskRecurrenceAction(task.id, newRule);
                   if (res.success) {
-                    toast.success(newRule ? "Recurring schedule saved" : "Recurrence removed");
+                    toast.success(newRule ? "Recurring schedule saved" : "Recurrence paused");
                   } else {
                     toast.error(res.message ?? "Failed to update recurrence");
                   }
