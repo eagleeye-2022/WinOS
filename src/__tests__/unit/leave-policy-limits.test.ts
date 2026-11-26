@@ -55,6 +55,13 @@ describe("checkEligibility", () => {
     expect(checkEligibility(eligibility({ employmentTypes: ["Intern"] }), emp({ employmentType: "Permanent" }), "2026-10-29")).toMatch(/Intern/);
     expect(checkEligibility(eligibility({ employmentTypes: ["intern"] }), emp({ employmentType: "Intern" }), "2026-10-29")).toBeNull();
   });
+  it("'Permanent WFH' is only for Permanent members whose profile Location is Work From Home", () => {
+    const wfh = eligibility({ employmentTypes: ["Permanent WFH"] });
+    expect(checkEligibility(wfh, emp({ location: "Work From Home" }), "2026-10-29")).toBeNull();
+    expect(checkEligibility(wfh, emp({ location: "EagleEye Digital HQ" }), "2026-10-29")).toMatch(/Permanent WFH/);
+    expect(checkEligibility(wfh, emp({ location: null }), "2026-10-29")).toMatch(/Permanent WFH/);
+    expect(checkEligibility(wfh, emp({ employmentType: "Intern", location: "Work From Home" }), "2026-10-29")).toMatch(/Permanent WFH/);
+  });
   it("a member whose employment type / department isn't set gets every leave type", () => {
     expect(checkEligibility(eligibility({ departments: ["HR"] }), emp({ department: null }), "2026-10-29")).toBeNull();
     expect(checkEligibility(eligibility({ employmentTypes: ["Intern"] }), emp({ employmentType: null }), "2026-10-29")).toBeNull();

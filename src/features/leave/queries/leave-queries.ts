@@ -219,6 +219,7 @@ export async function getMyLeaveTrackerDataAction(year = istYear(), forUserId?: 
     select: {
       department: true,
       employmentType: true,
+      location: true,
       profileRole: true,
       dateOfJoining: true,
       dateOfConfirmation: true,
@@ -497,7 +498,7 @@ export async function getEmployeeLeavePolicyAction(userId: string) {
   const [facts, types] = await Promise.all([
     db.user.findUnique({
       where: { id: userId },
-      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
+      select: { department: true, employmentType: true, location: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
     }),
     db.leaveType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
   ]);
@@ -509,6 +510,7 @@ export async function getEmployeeLeavePolicyAction(userId: string) {
     employee: {
       department: facts.department || "",
       employmentType: facts.employmentType || "",
+      location: facts.location || "",
       dateOfJoining: facts.dateOfJoining ? formatDayDate(facts.dateOfJoining) : "",
       confirmed: facts.dateOfConfirmation ? dateKeyFromUtc(facts.dateOfConfirmation) <= todayKey : false,
     },
@@ -771,7 +773,7 @@ export async function getApplicableLeaveTypesAction(dateKey: string) {
     db.userLeaveBalance.findMany({ where: { userId: session.user.id, year } }),
     db.user.findUnique({
       where: { id: session.user.id },
-      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
+      select: { department: true, employmentType: true, location: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
     }),
   ]);
   const byType = new Map(balances.map((b) => [b.leaveTypeId, b]));

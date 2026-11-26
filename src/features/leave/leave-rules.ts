@@ -2,6 +2,7 @@
 // DB-free (dates are "YYYY-MM-DD" keys) so they can be unit-tested.
 
 import { addDaysToKey, dateFromKey, isWeekendKey } from "@/features/attendance/utils";
+import { PERMANENT_WFH, WFH_LOCATION } from "@/features/users/constants";
 
 export type LeaveDurationType = "FULL_DAY" | "HALF_DAY" | "EARLY_LEAVE" | "QUARTER_DAY" | "HOURLY";
 type Unit = "DAYS" | "WEEKS" | "MONTHS" | "YEARS" | "HOURS";
@@ -282,9 +283,25 @@ export interface EmployeeFacts {
   profileRole: string | null;
   dateOfJoining: Date | null;
   dateOfConfirmation: Date | null;
+  /** Profile Location (User.location): "EagleEye Digital HQ" | "Work From Home". */
+  location?: string | null;
 }
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * Whether the member matches one Member Type of a leave policy. "Permanent WFH" = a Permanent member
+ * whose profile Location is Work From Home — no location set, or HQ, doesn't match (product decision,
+ * Nov 2026: WFH policies are only seen by WFH members). Other types match the employment type.
+ */
+function matchesMemberType(policyType: string, emp: EmployeeFacts): boolean {
+  if (same(policyType, PERMANENT_WFH)) {
+    const isWfh = !!emp.location && same(emp.location, WFH_LOCATION);
+    // As for every member type, an unset employment type doesn't block.
+    return isWfh && (!emp.employmentType || same(emp.employmentType, "Permanent"));
+  }
+  return !emp.employmentType || same(policyType, emp.employmentType);
+}
 
 /**
  * Whether the employee may use this leave type on `onKey`. Returns an error message or null.
@@ -298,7 +315,7 @@ export function checkEligibility(policy: EligibilityPolicy, emp: EmployeeFacts, 
   if (policy.departments.length && emp.department && !policy.departments.some((d) => same(d, emp.department!))) {
     return `${policy.name} is only for ${policy.departments.join(", ")}.`;
   }
-  if (policy.employmentTypes.length && emp.employmentType && !policy.employmentTypes.some((t) => same(t, emp.employmentType!))) {
+  if (policy.employmentTypes.length && !policy.employmentTypes.some((t) => matchesMemberType(t, emp))) {
     return `${policy.name} is only for ${policy.employmentTypes.join(", ")} team members.`;
   }
 

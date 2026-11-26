@@ -200,7 +200,7 @@ export async function previewLeaveDaysAction(data: {
     // The applicant's profile: eligibility facts, and their work week (which Saturdays are off).
     const facts = await db.user.findUnique({
       where: { id: userId },
-      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true, saturdaysOff: true },
+      select: { department: true, employmentType: true, location: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true, saturdaysOff: true },
     });
 
     const count = countLeaveDays({
@@ -317,7 +317,7 @@ export async function applyLeaveAction(formData: {
     // The applicant's profile: eligibility facts, and their work week (which Saturdays are off).
     const facts = await db.user.findUnique({
       where: { id: userId },
-      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true, saturdaysOff: true },
+      select: { department: true, employmentType: true, location: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true, saturdaysOff: true },
     });
 
     const count = countLeaveDays({

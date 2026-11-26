@@ -53,7 +53,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { DEPARTMENTS, EMPLOYMENT_TYPES } from "@/features/users/constants";
+import { DEPARTMENTS, LEAVE_MEMBER_TYPES } from "@/features/users/constants";
 import { createLeaveTypeAction, getLeaveTypeForEditAction, updateLeaveTypeAction } from "../actions/leave-actions";
 import { getLeaveTypesAction } from "../queries/leave-queries";
 import { istDateKey } from "@/features/attendance/utils";
@@ -1233,8 +1233,9 @@ export function CreateLeaveTypeWizard({
                   <SelectContent>
                     {/* The value stays "All Employment Types" — the wizard's "no restriction" marker. */}
                     <SelectItem value="All Employment Types">All Member Types</SelectItem>
-                    {/* Same list as a member's Member Type in User Management. */}
-                    {EMPLOYMENT_TYPES.map((t) => (
+                    {/* A member's Member Type in User Management, plus "Permanent WFH"
+                        (Permanent + profile Location = Work From Home). */}
+                    {LEAVE_MEMBER_TYPES.map((t) => (
                       <SelectItem key={t} value={t}>
                         {t}
                       </SelectItem>
