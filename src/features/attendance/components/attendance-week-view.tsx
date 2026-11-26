@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Building2, Clock, LogIn, LogOut, Wifi } from "lucide-react";
 import { AttendanceRecord } from "../types";
-import { SHIFT_END, SHIFT_START, parseTime12h } from "../utils";
+import { SHIFT_END, SHIFT_START, istDateKey, parseTime12h } from "../utils";
 import { TONE_DOT, TONE_TEXT, type PulseTone } from "@/components/pulse/pulse-ui";
 import { cn } from "@/lib/utils";
 
@@ -51,7 +51,7 @@ interface DayLook {
   line?: "solid" | "dashed";
 }
 
-function lookFor(record: AttendanceRecord, isToday: boolean): DayLook {
+function lookFor(record: AttendanceRecord, isToday: boolean, todayKey: string): DayLook {
   switch (record.status) {
     case "WORKING_NOW":
       return { label: record.workMode === "REMOTE" ? "Working remotely" : "Working now", tone: "blue" };
@@ -82,7 +82,12 @@ function lookFor(record: AttendanceRecord, isToday: boolean): DayLook {
     case "HOLIDAY":
       return { label: record.holidayInfo?.name || "Holiday", tone: "violet", line: "dashed" };
     default:
-      return isToday ? { label: "Yet to check-in", tone: "gray", line: "dashed" } : { label: "Absent", tone: "red", line: "solid" };
+      // resolveDay leaves a working day without a check-in as plain "ABSENT" only for today, days
+      // still to come and days before joining — missed past days are ACTION_REQUIRED (above).
+      // So none of these is a real absence.
+      if (isToday) return { label: "Yet to check-in", tone: "gray", line: "dashed" };
+      if (record.date > todayKey) return { label: "Upcoming", tone: "gray", line: "dashed" };
+      return { label: "Before joining", tone: "gray", line: "dashed" };
   }
 }
 
@@ -171,6 +176,7 @@ export function AttendanceWeekView({
   isPunching = false,
 }: AttendanceWeekViewProps) {
   const nowMins = useIstMinutes();
+  const today = todayKey ?? istDateKey();
   const btn = "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50";
 
   return (
@@ -193,8 +199,8 @@ export function AttendanceWeekView({
 
       <ul className="divide-y divide-border/70">
         {records.map((record) => {
-          const isToday = record.date === todayKey;
-          const look = lookFor(record, isToday);
+          const isToday = record.date === today;
+          const look = lookFor(record, isToday, today);
           const isWorkingNow = record.status === "WORKING_NOW";
           const isPresent = record.status === "PRESENT" || record.status === "EARLY_LEAVE";
           const isWeekend = record.status === "WEEKEND";
