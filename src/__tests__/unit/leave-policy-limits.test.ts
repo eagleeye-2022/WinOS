@@ -7,6 +7,7 @@ import {
   accruedAllocation,
   carryForwardFrom,
   checkEligibility,
+  compareLeaveTypes,
   checkRequestLimits,
   validCompOffDays,
   type EligibilityPolicy,
@@ -41,6 +42,21 @@ function emp(over: Partial<EmployeeFacts> = {}): EmployeeFacts {
     ...over,
   };
 }
+
+describe("compareLeaveTypes", () => {
+  it("orders Paid → Sick → Compensatory → Floating → Unpaid → others (A–Z)", () => {
+    const types = [
+      { code: "ML", name: "Maternity Leave" },
+      { code: "LOP", name: "Loss of Pay (LOP)" },
+      { code: "FH", name: "Floating Holiday" },
+      { code: "CL", name: "Casual Leave" },
+      { code: "COMP", name: "Comp Off" },
+      { code: "SL", name: "Sick Leave" },
+      { code: "PL", name: "Paid Leave" },
+    ];
+    expect([...types].sort(compareLeaveTypes).map((t) => t.code)).toEqual(["PL", "SL", "COMP", "FH", "LOP", "CL", "ML"]);
+  });
+});
 
 describe("checkEligibility", () => {
   it("allows everyone by default", () => {

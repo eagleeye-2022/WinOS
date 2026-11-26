@@ -266,6 +266,28 @@ export function availableToApply(b: {
   return round(b.allocatedDays + b.carriedForward + b.adjustedDays - b.bookedDays - b.pendingDays);
 }
 
+// ── Display order ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Where a leave type sits in every list: Paid → Sick → Compensatory (comp off) → Floating →
+ * Unpaid (LOP) → everything else (A–Z). Matched by code first, then by name.
+ */
+export function leaveTypeRank(t: { code: string; name: string }): number {
+  const code = t.code.trim().toUpperCase();
+  const name = t.name.trim().toLowerCase();
+  if (code === "LOP" || code === "UL" || /unpaid|loss of pay|\blop\b/.test(name)) return 4;
+  if (code === "PL" || /\bpaid\b/.test(name)) return 0;
+  if (code === "SL" || /sick/.test(name)) return 1;
+  if (code === "COMP" || /comp[\s-]*off|compensat/.test(name)) return 2;
+  if (code === "FH" || /float/.test(name)) return 3;
+  return 5;
+}
+
+/** Sort comparator for leave types / balances (see leaveTypeRank); ties go A–Z by name. */
+export function compareLeaveTypes(a: { code: string; name: string }, b: { code: string; name: string }): number {
+  return leaveTypeRank(a) - leaveTypeRank(b) || a.name.localeCompare(b.name);
+}
+
 // ── Eligibility (applicable to / departments / employment types / service period) ─────────────
 
 export interface EligibilityPolicy {

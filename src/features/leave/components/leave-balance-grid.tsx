@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
 import { LeaveTypeConfig } from "../types";
 import { LeaveBalanceCard } from "./leave-balance-card";
 import { Button } from "@/components/ui/button";
+import { compareLeaveTypes } from "../leave-rules";
 
 interface LeaveBalanceGridProps {
   leaveTypes: LeaveTypeConfig[];
@@ -18,11 +19,8 @@ export function LeaveBalanceGrid({
   onSelectType,
 }: LeaveBalanceGridProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  // Highest available balance first; ties keep their original order (sort is stable).
-  const sortedTypes = useMemo(
-    () => [...leaveTypes].sort((a, b) => b.remainingDays - a.remainingDays),
-    [leaveTypes]
-  );
+  // Fixed order: Paid → Sick → Compensatory → Floating → Unpaid → others.
+  const sortedTypes = useMemo(() => [...leaveTypes].sort(compareLeaveTypes), [leaveTypes]);
   // Scroll arrows only when the cards don't all fit.
   const [overflows, setOverflows] = useState(false);
   useEffect(() => {
