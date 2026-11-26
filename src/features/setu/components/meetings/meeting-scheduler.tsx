@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageTitle } from "@/components/shared/page-header";
 import { ROUTES } from "@/constants/routes";
 import { toast } from "@/components/shared/toast";
 import { Input } from "@/components/ui/input";
@@ -230,8 +231,8 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
       <Breadcrumbs items={[{ label: "Networking" }, { label: "121 Meetings", href: ROUTES.setu121 }, { label: title }]} />
 
       <section className="setu-card flex flex-wrap items-center justify-between gap-4 px-6 py-5">
-        <h1 className="min-w-0 text-xl font-bold leading-tight tracking-tight">{title}</h1>
-        <div className="flex flex-wrap items-center gap-2">
+        <PageTitle className="min-w-0">{title}</PageTitle>
+        <div className="setu-actions flex flex-wrap items-center gap-2">
           <SetuButton variant="ghost" onClick={cancel}>
             Cancel
           </SetuButton>
@@ -290,7 +291,7 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
                       onClick={() => set({ mode: mo.id })}
                       aria-pressed={active}
                       className={cn(
-                        "relative cursor-pointer rounded-xl border p-4 text-left transition-all",
+                        "relative cursor-pointer rounded-lg border p-4 text-left transition-all",
                         active
                           ? "border-[var(--setu-accent)] bg-[var(--setu-accent-soft)]"
                           : "border-[var(--setu-line)] bg-[var(--setu-card)] hover:border-[var(--setu-line-strong)] hover:bg-[var(--setu-well)]/40"
@@ -313,7 +314,7 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
             </div>
 
             {form.mode === "ONLINE" ? (
-              <div className="rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)] p-4">
+              <div className="rounded-lg border border-[var(--setu-line)] bg-[var(--setu-well)] p-4">
                 <p className="flex items-center gap-3">
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-card)] text-[var(--setu-accent)]">
                     <Link2 size={15} />
@@ -431,7 +432,7 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
             <h2 className="text-base font-semibold">Meeting Summary</h2>
             <span className="rounded-md bg-[var(--setu-accent-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--setu-accent)]">Live Preview</span>
           </div>
-          <div className="rounded-xl border border-[var(--setu-line)] border-l-4 border-l-[var(--setu-accent)] bg-[var(--setu-well)]/40 p-4">
+          <div className="rounded-lg border border-[var(--setu-line)] border-l-4 border-l-[var(--setu-accent)] bg-[var(--setu-well)]/40 p-4">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--setu-accent)]">Scheduled Slot</p>
             {validSlot ? (
               <>
@@ -456,7 +457,7 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
                 {external.length} External • {internal.length + 1} Internal
               </span>
             </div>
-            <div className="mt-2 flex items-center gap-3 rounded-xl bg-[var(--setu-well)] px-3 py-3">
+            <div className="mt-2 flex items-center gap-3 rounded-lg bg-[var(--setu-well)] px-3 py-3">
               <div className="flex -space-x-2">
                 {[hostName, ...form.attendees.map((a) => a.name)].slice(0, 4).map((n) => (
                   <span key={n} className={cn("flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-semibold text-white ring-2 ring-[var(--setu-card)]", avatarColor(n))}>
@@ -469,7 +470,7 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
           </div>
 
           {conflicts.length === 0 ? (
-            <div className="flex gap-3 rounded-xl bg-[var(--setu-well)] px-3 py-3">
+            <div className="flex gap-3 rounded-lg bg-[var(--setu-well)] px-3 py-3">
               <BadgeCheck size={18} className="mt-0.5 shrink-0 text-green-600" />
               <div className="text-xs">
                 <p className="text-xs font-semibold">Availability Confirmed</p>
@@ -477,7 +478,7 @@ function SchedulerBody({ meeting }: { meeting?: DealMeeting }) {
               </div>
             </div>
           ) : (
-            <div className="flex gap-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+            <div className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
               <TriangleAlert size={18} className="mt-0.5 shrink-0 text-amber-600" />
               <div className="text-xs">
                 <p className="text-xs font-semibold text-amber-800 dark:text-amber-300">Scheduling conflict</p>
@@ -555,7 +556,7 @@ function PersonRow({
   large?: boolean;
 }) {
   return (
-    <div className={cn("flex items-center gap-3 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-card)] px-3.5 transition-colors hover:bg-[var(--setu-well)]/30", large ? "py-3" : "py-2.5")}>
+    <div className={cn("flex items-center gap-3 rounded-lg border border-[var(--setu-line)] bg-[var(--setu-card)] px-3.5 transition-colors hover:bg-[var(--setu-well)]/30", large ? "py-3" : "py-2.5")}>
       <span className={cn("flex shrink-0 items-center justify-center rounded-full font-semibold text-white", avatarColor(name), large ? "h-9 w-9 text-xs" : "h-8 w-8 text-[11px]")}>
         {initials(name)}
       </span>

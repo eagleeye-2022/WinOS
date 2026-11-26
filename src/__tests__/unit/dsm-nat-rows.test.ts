@@ -2,15 +2,64 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   ensureNat: vi.fn(),
+  ensureUnassigned: vi.fn(),
   update: vi.fn(),
 }));
 
 vi.mock("@/features/dsm/actions/create-project-items", () => ({
   ensureNatTaskForTimerAction: mocks.ensureNat,
+  ensureUnassignedTaskForTimerAction: mocks.ensureUnassigned,
 }));
 vi.mock("@/lib/db", () => ({ db: { standupTask: { update: mocks.update } } }));
 
-import { linkProjectOnlyRowsToNat } from "@/features/dsm/manager/nat-rows";
+import { linkNoProjectRowsToUnassigned, linkProjectOnlyRowsToNat } from "@/features/dsm/manager/nat-rows";
+import { isUnassignedProject, UNASSIGNED_PROJECT_CODE } from "@/features/dsm/utils";
+
+describe("isUnassignedProject", () => {
+  it("matches only the holding project's code", () => {
+    expect(isUnassignedProject({ code: UNASSIGNED_PROJECT_CODE })).toBe(true);
+    expect(isUnassignedProject({ code: "TTG" })).toBe(false);
+    expect(isUnassignedProject({ code: null })).toBe(false);
+    expect(isUnassignedProject(null)).toBe(false);
+    expect(isUnassignedProject(undefined)).toBe(false);
+  });
+});
+
+describe("linkNoProjectRowsToUnassigned", () => {
+  beforeEach(() => {
+    mocks.ensureUnassigned.mockReset();
+    mocks.update.mockReset();
+  });
+
+  it("creates the member's Unassigned Work task and links the row to its project and task", async () => {
+    mocks.ensureUnassigned.mockResolvedValue({
+      success: true,
+      task: { id: "pt-9" },
+      taskListCode: "P1",
+      created: true,
+      project: { id: "unassigned-1" },
+    });
+
+    const res = await linkNoProjectRowsToUnassigned([{ id: "row-1", text: "Call vendor" }], "member-1");
+
+    expect(mocks.ensureUnassigned).toHaveBeenCalledWith("Call vendor", "member-1");
+    expect(mocks.update).toHaveBeenCalledWith({
+      where: { id: "row-1" },
+      data: { projectId: "unassigned-1", projectTaskId: "pt-9" },
+    });
+    expect(res).toEqual({ linked: 1, failed: 0 });
+  });
+
+  it("leaves a row unlinked when the task can't be created", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    mocks.ensureUnassigned.mockResolvedValue({ success: false, error: "nope" });
+
+    const res = await linkNoProjectRowsToUnassigned([{ id: "row-1", text: "A" }], "member-1");
+
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(res).toEqual({ linked: 0, failed: 1 });
+  });
+});
 
 describe("linkProjectOnlyRowsToNat", () => {
   beforeEach(() => {

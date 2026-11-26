@@ -14,6 +14,7 @@ import { TimerWidget } from "@/features/projects/components/timer-widget";
 import { TaskIdChip, TaskInfoLink, ProjectPill, DueDateCell, TaskTableHead, PriorityBadge, WrappedTaskText } from "@/components/shared/task-table-parts";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
+import { MoveUnassignedTaskButton } from "./move-unassigned-task-button";
 import { StandupLearningSection } from "./standup-learning-section";
 import { usePageViewState } from "@/lib/navigation/use-url-state";
 
@@ -167,6 +168,7 @@ export function StandupDayCard({ entry, defaultOpen }: StandupDayCardProps) {
                             </td>
                             <td className="py-2.5 pr-3 align-top">
                               {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} /> : <span className="text-xs text-muted-foreground/60">—</span>}
+                              {isToday && <MoveUnassignedTaskButton task={task.projectTask} />}
                             </td>
                             <td className="py-2.5 pr-3 align-top">
                               {task.projectTask ? <TaskIdChip code={task.projectTask.code} title={task.projectTask.title || task.text} href={projectTaskHref(task.projectTask.project?.id, task.projectTask.code)} /> :<span className="text-xs text-muted-foreground/60">—</span>}

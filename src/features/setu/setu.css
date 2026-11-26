@@ -1,9 +1,18 @@
 /*
- * Setu CRM design layer (from the Setu Figma), built on the app theme tokens in globals.css
- * (--background, --card, --muted, --border, --foreground, --muted-foreground, --primary …) so Setu
- * follows WinOS light and dark mode exactly like every other module. Scoped to `.setu-scope`
- * (the Setu layout and Setu dialogs, which portal out).
+ * Setu design layer. Every value maps onto the app theme in globals.css (--background, --card,
+ * --muted, --border, --input, --primary, --radius …) so Setu pages look like every other WinOS
+ * page — same cards, buttons, inputs, radii and light/dark palette. Scoped to `.setu-scope`
+ * (the Setu layout and the Setu dialogs/drawers, which portal out).
  */
+
+/*
+ * Declare Tailwind's layer order first. This file is loaded on its own (Setu layout), and if the
+ * browser reads it before globals.css, `components` would otherwise become the *first* (weakest)
+ * layer — Tailwind's preflight (`button { background: transparent; padding: 0; font: inherit }`)
+ * would then beat every .setu-btn style and buttons render as plain text. No-op when Tailwind
+ * already declared the order.
+ */
+@layer theme, base, components, utilities;
 
 /* In Tailwind's `components` layer so utility classes on the same element override these. */
 @layer components {
@@ -12,10 +21,10 @@
     --setu-card: var(--card);
     /* Column wells, table header, stat-strip fills. */
     --setu-well: var(--muted);
-    /* Inputs and inner card panels ("Note: …", phone chip). */
-    --setu-soft: color-mix(in oklch, var(--muted) 70%, var(--card));
+    /* Inner card panels ("Note: …", phone chip). */
+    --setu-soft: color-mix(in oklch, var(--muted) 60%, var(--card));
     --setu-line: var(--border);
-    --setu-line-strong: color-mix(in oklch, var(--border) 80%, var(--foreground) 20%);
+    --setu-line-strong: color-mix(in oklch, var(--border) 75%, var(--foreground) 25%);
     --setu-text: var(--foreground);
     --setu-text-2: var(--muted-foreground);
     --setu-text-3: color-mix(in oklch, var(--muted-foreground) 75%, var(--background));
@@ -23,11 +32,12 @@
     --setu-accent-ink: var(--primary-foreground);
     --setu-accent-soft: color-mix(in oklch, var(--primary) 10%, transparent);
     --setu-accent-ring: color-mix(in oklch, var(--primary) 28%, transparent);
-    /* Solid call-to-action blue (Figma), and its hover. One token instead of hex in components. */
-    --setu-solid: #1d4ed8;
-    --setu-solid-hover: #1e40af;
-    --setu-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
-    --setu-shadow-lg: 0 12px 28px -12px rgba(16, 24, 40, 0.22);
+    /* Main call-to-action = the app primary (same as every other module's main button). */
+    --setu-solid: var(--primary);
+    --setu-solid-ink: var(--primary-foreground);
+    --setu-solid-hover: color-mix(in oklch, var(--primary) 90%, black);
+    --setu-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --setu-shadow-lg: 0 12px 28px -12px rgba(15, 23, 42, 0.22);
 
     color: var(--setu-text);
   }
@@ -42,8 +52,7 @@
     --setu-line-strong: var(--dark-border-hover);
     --setu-text-3: var(--dark-text-meta);
     --setu-accent-soft: color-mix(in oklch, var(--primary) 18%, transparent);
-    --setu-solid: #2563eb;
-    --setu-solid-hover: #1d4ed8;
+    --setu-solid-hover: color-mix(in oklch, var(--primary) 88%, white);
     --setu-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
     --setu-shadow-lg: 0 16px 36px -14px rgba(0, 0, 0, 0.8);
   }
@@ -54,8 +63,9 @@
 
   /* ── Surfaces ─────────────────────────────────────────────────────────── */
 
+  /* Same as the app Card (components/ui/card: rounded-lg border bg-card shadow-sm). */
   .setu-card {
-    border-radius: 1rem;
+    border-radius: var(--radius);
     background: var(--setu-card);
     border: 1px solid var(--setu-line);
     box-shadow: var(--setu-shadow);
@@ -63,7 +73,7 @@
 
   /* Kanban column. */
   .setu-well {
-    border-radius: 0.875rem;
+    border-radius: var(--radius);
     background: var(--setu-well);
     border: 1px solid var(--setu-line);
   }
@@ -77,7 +87,7 @@
 
   /* Inner panel on a card (phone chip, "Note:" box, value boxes). */
   .setu-soft {
-    border-radius: 0.5rem;
+    border-radius: calc(var(--radius) - 2px);
     background: var(--setu-soft);
   }
 
@@ -93,14 +103,13 @@
     color: var(--setu-accent);
   }
 
-  /* ── Buttons ──────────────────────────────────────────────────────────── */
+  /* ── Buttons (match components/ui/button) ─────────────────────────────── */
 
   .setu-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
-    /* Same size as the app Button (components/ui/button: h-9 px-4 text-sm font-medium). */
     height: 2.25rem;
     padding: 0 1rem;
     border-radius: calc(var(--radius) - 2px);
@@ -109,6 +118,10 @@
     white-space: nowrap;
     cursor: pointer;
     transition: filter 0.15s, background-color 0.15s, border-color 0.15s, color 0.15s;
+  }
+  .setu-btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
   }
   .setu-btn:disabled {
     opacity: 0.5;
@@ -125,60 +138,54 @@
     font-size: 0.75rem;
   }
 
-  /* Primary = light blue tint with blue text (no solid dark-blue fill anywhere in Setu). */
-  .setu-btn-primary {
+  /* Tinted primary (secondary emphasis: "Add Member", inline "Add"). */
+  .setu-btn-primary,
+  .setu-btn-soft {
     background: var(--setu-accent-soft);
     color: var(--setu-accent);
     border: 1px solid var(--setu-accent-ring);
   }
-  .setu-btn-primary:hover {
-    background: color-mix(in oklch, var(--setu-accent) 20%, transparent);
+  .setu-btn-primary:hover,
+  .setu-btn-soft:hover {
+    background: color-mix(in oklch, var(--setu-accent) 18%, transparent);
   }
-  .dark .setu-btn-primary {
-    color: color-mix(in oklch, var(--setu-accent) 65%, white);
+  .dark .setu-btn-primary,
+  .dark .setu-btn-soft {
+    color: color-mix(in oklch, var(--setu-accent) 70%, white);
   }
 
-  /* Solid blue call-to-action (page-level "Schedule Meeting", "Create Task", dialog confirm). */
+  /* The page's main action — app primary button. */
   .setu-btn-solid {
     background: var(--setu-solid);
-    color: #fff;
+    color: var(--setu-solid-ink);
     border: 1px solid var(--setu-solid);
-    font-weight: 500;
-    box-shadow: var(--setu-shadow);
+    font-weight: 600;
   }
   .setu-btn-solid:hover {
     background: var(--setu-solid-hover);
     border-color: var(--setu-solid-hover);
   }
 
-  /* Soft grey ("Cancel", "Save as Draft"). */
-  .setu-btn-muted {
-    background: var(--setu-well);
-    color: var(--setu-text);
-    border: 1px solid transparent;
-  }
-  .setu-btn-muted:hover {
-    background: var(--setu-soft);
-    border-color: var(--setu-line);
-  }
-
+  /* "Cancel", "Export", "Save as Draft" — the app outline button. */
+  .setu-btn-muted,
   .setu-btn-secondary {
-    background: var(--setu-card);
-    color: var(--setu-text);
-    border: 1px solid var(--setu-line-strong);
+    background: var(--background);
+    color: var(--foreground);
+    border: 1px solid var(--input);
   }
+  .setu-btn-muted:hover,
   .setu-btn-secondary:hover {
-    background: var(--setu-soft);
+    background: var(--accent);
+    color: var(--accent-foreground);
   }
-
-  /* Tinted accent button ("Send Email", "Filter", "Active Task"). */
-  .setu-btn-soft {
-    background: var(--setu-accent-soft);
-    color: var(--setu-accent);
-    border: 1px solid var(--setu-accent-ring);
+  .dark .setu-btn-muted,
+  .dark .setu-btn-secondary {
+    background: var(--setu-card);
+    border-color: var(--setu-line-strong);
   }
-  .setu-btn-soft:hover {
-    filter: brightness(0.97);
+  .dark .setu-btn-muted:hover,
+  .dark .setu-btn-secondary:hover {
+    background: var(--setu-well);
   }
 
   .setu-btn-whatsapp {
@@ -202,34 +209,90 @@
   }
   .setu-btn-ghost:hover {
     color: var(--setu-text);
-    background: var(--setu-soft);
+    background: var(--accent);
   }
 
-  /* ── Form controls ────────────────────────────────────────────────────── */
+  /* ── Form controls (match components/ui/input) ────────────────────────── */
 
   .setu-input {
-    background: var(--setu-soft) !important;
-    border-color: var(--setu-line) !important;
-    border-radius: 0.5rem !important;
+    background: var(--background) !important;
+    border-color: var(--input) !important;
+    border-radius: calc(var(--radius) - 2px) !important;
     color: var(--setu-text);
     box-shadow: none !important;
   }
+  .dark .setu-input {
+    background: var(--setu-card) !important;
+    border-color: var(--setu-line-strong) !important;
+  }
   .setu-input::placeholder {
-    color: var(--setu-text-3);
+    color: var(--muted-foreground);
   }
   .setu-input:focus-visible,
   .setu-input[data-state="open"] {
     outline: none;
-    border-color: var(--setu-accent) !important;
-    box-shadow: 0 0 0 3px var(--setu-accent-ring) !important;
+    border-color: var(--primary) !important;
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--primary) 20%, transparent) !important;
   }
 
   /* Dialogs portal out of the layout, so they carry `.setu-scope` + this surface themselves. */
   .setu-dialog {
     background: var(--setu-card) !important;
     border: 1px solid var(--setu-line) !important;
-    border-radius: 1rem !important;
-    box-shadow: 0 30px 70px -20px rgba(16, 24, 40, 0.35) !important;
+    border-radius: var(--radius) !important;
+    box-shadow: var(--setu-shadow-lg) !important;
+  }
+
+  /*
+   * Drawers (components/setu-drawer.tsx) sit on the app background like the app's other drawers.
+   */
+  .setu-drawer {
+    --setu-canvas: var(--background);
+  }
+  .setu-drawer .setu-input {
+    background: var(--background) !important;
+  }
+  /* App drawers put the main action first, left-aligned: Setu footers list Cancel … Save, so reverse. */
+  .setu-drawer-footer {
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+  }
+
+  /*
+   * Page-header action buttons (Export, Add Member, Log 121 Meeting …): monochrome, no colour,
+   * following the theme — white button with black text in light mode, black button with white
+   * text in dark mode, each with a thin border so it reads as a button. Slightly smaller.
+   */
+  .setu-actions .setu-btn {
+    height: 2rem;
+    padding: 0 0.875rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    background: #ffffff;
+    color: #0a0a0a;
+    border: 1px solid #d4d4d4;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  .setu-actions .setu-btn:hover {
+    background: #f5f5f5;
+    border-color: #a3a3a3;
+    color: #0a0a0a;
+    filter: none;
+  }
+  .setu-actions .setu-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+  .dark .setu-actions .setu-btn {
+    background: #0a0a0a;
+    color: #fafafa;
+    border-color: #404040;
+    box-shadow: none;
+  }
+  .dark .setu-actions .setu-btn:hover {
+    background: #1a1a1a;
+    border-color: #737373;
+    color: #fafafa;
   }
 
   /* Thin horizontal scrollbar for the board. */

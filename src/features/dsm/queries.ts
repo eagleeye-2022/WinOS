@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { toUtcDate, getWeekRange, buildTaskListOptions, type TaskListOption } from "./utils";
+import { toUtcDate, getWeekRange, buildTaskListOptions, UNASSIGNED_PROJECT_CODE, type TaskListOption } from "./utils";
 import { entriesWithLinkedDueDates, withLinkedDueDates } from "./due-date-sync";
 import { effectiveDsmDueDate, projectDueDateToDate } from "@/lib/task-due-date";
 import { DEFAULT_PROJECT_PHASES } from "@/features/projects/data/mock-projects";
@@ -12,6 +12,7 @@ import {
   CORE_DAILY_TASKS_PROJECT_CODE,
   sortCoreDailyTasks,
 } from "./core-daily-tasks";
+import { matchesDsmRecurrence, parseRule } from "./recurring-utils";
 import {
   LEARNING_PROJECT_CATEGORY,
   NOT_LEARNING_PROJECT,
@@ -47,6 +48,8 @@ export type EntryTask = {
   /** Project picked for the row — set even when no project task is linked. */
   projectId?: string | null;
   project?: { id: string; name: string } | null;
+  recurringTaskId?: string | null;
+  recurringTask?: { id: string; recurrenceRule: string; startDate: Date } | null;
   createdAt?: Date;
   updatedAt?: Date;
   addedBy?: { id: string; name: string | null; email: string; image?: string | null; role?: "TEAM_MEMBER" | "MANAGER" } | null;
@@ -175,6 +178,7 @@ const entryInclude = {
         },
       },
       project: { select: { id: true, name: true } },
+      recurringTask: { select: { id: true, recurrenceRule: true, startDate: true } },
     },
   },
   blockers: {
@@ -405,6 +409,7 @@ export type YesterdayTaskItem = {
   priority: string | null;
   projectTaskId: string | null;
   projectId: string | null;
+  recurringTaskId?: string | null;
   code: string | null;
   /** Project of the linked project task (for its task page link); null when not linked. */
   taskProjectId: string | null;
@@ -515,6 +520,7 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
           priority: true,
           projectTaskId: true,
           projectId: true,
+          recurringTaskId: true,
           dueDate: true,
           projectTask: { select: { code: true, projectId: true, dueDate: true } },
         },
@@ -552,6 +558,7 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
         priority: string | null;
         projectTaskId: string | null;
         projectId: string | null;
+        recurringTaskId: string | null;
         dueDate: Date | null;
         projectTask: { code: string; projectId: string | null; dueDate?: string | null } | null;
       }) => ({
@@ -561,6 +568,7 @@ export async function getYesterdaySummary(): Promise<YesterdaySummary> {
         priority: t.priority || null,
         projectTaskId: t.projectTaskId,
         projectId: t.projectId,
+        recurringTaskId: t.recurringTaskId,
         code: t.projectTask?.code ?? null,
         taskProjectId: t.projectTask?.projectId ?? null,
         loggedMinutes: t.projectTaskId ? effort[t.projectTaskId]?.totalMinutes ?? 0 : null,
@@ -1551,6 +1559,8 @@ export async function getUserProjectsWithTasksAndSubtasks(
         ? {}
         : {
             OR: [
+              // The Unassigned Work holding project is open to everyone (see UNASSIGNED_PROJECT_CODE).
+              { code: UNASSIGNED_PROJECT_CODE },
               { ownerId: userId },
               { createdByUserId: userId },
               { members: { some: { userId } } },
@@ -1680,5 +1690,73 @@ export async function getUserProjectsWithTasksAndSubtasks(
       subtasks: descendantsOf(t),
     })),
   }));
+}
+
+export type RecurringTaskItem = {
+  id: string;
+  userId: string;
+  text: string;
+  priority: string | null;
+  projectId: string | null;
+  projectTaskId: string | null;
+  recurrenceRule: string;
+  startDate: Date;
+  endDate: Date | null;
+  isActive: boolean;
+  order: number;
+  project?: { id: string; name: string } | null;
+  projectTask?: { id: string; code: string; title: string } | null;
+};
+
+/** All recurring standup task templates for a user (active and paused). */
+export async function getUserRecurringTasks(targetUserId?: string): Promise<RecurringTaskItem[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  const userId = session.user.role === "MANAGER" && targetUserId ? targetUserId : session.user.id;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = await (db as any).recurringStandupTask.findMany({
+    where: { userId },
+    orderBy: [{ isActive: "desc" }, { order: "asc" }, { createdAt: "asc" }],
+    include: {
+      project: { select: { id: true, name: true } },
+      projectTask: { select: { id: true, code: true, title: true } },
+    },
+  });
+  return rows as RecurringTaskItem[];
+}
+
+/**
+ * Active recurring standup tasks that match `date` (default: today UTC) and have not been
+ * explicitly skipped for that date.
+ */
+export async function getDueRecurringTasksForDate(
+  date: Date = toUtcDate(),
+  targetUserId?: string
+): Promise<RecurringTaskItem[]> {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  const userId = session.user.role === "MANAGER" && targetUserId ? targetUserId : session.user.id;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows = await (db as any).recurringStandupTask.findMany({
+    where: {
+      userId,
+      isActive: true,
+      startDate: { lte: date },
+      OR: [{ endDate: null }, { endDate: { gte: date } }],
+      skips: { none: { date } },
+    },
+    orderBy: [{ order: "asc" }, { createdAt: "asc" }],
+    include: {
+      project: { select: { id: true, name: true } },
+      projectTask: { select: { id: true, code: true, title: true } },
+    },
+  });
+
+  return (rows as RecurringTaskItem[]).filter((item) => {
+    const rule = parseRule(item.recurrenceRule);
+    return rule ? matchesDsmRecurrence(item.startDate, rule, date, item.endDate) : false;
+  });
 }
 

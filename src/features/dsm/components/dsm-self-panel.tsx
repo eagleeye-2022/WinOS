@@ -9,7 +9,8 @@ import { KpiCards } from "./kpi-cards";
 import { AddTaskAfterReviewRow } from "./add-task-after-review-row";
 import { SelfReviewButton } from "./self-review-button";
 import { isSelfReviewed } from "../utils";
-import type { EntryWithDetails, KpiStats, TeamMember, ParkedTask, YesterdaySummary } from "../queries";
+import type { EntryWithDetails, KpiStats, TeamMember, ParkedTask, YesterdaySummary, RecurringTaskItem } from "../queries";
+import { RecurringTasksManager } from "./recurring-tasks-manager";
 import type { CalendarEventView } from "@/features/calendar/queries";
 import type { AdditionalWorkItem } from "./yesterday-additional-work";
 
@@ -29,6 +30,8 @@ type DsmSelfPanelProps = {
   basePath?: string;
   todayCalendarEvents?: CalendarEventView[];
   parkedTasks?: ParkedTask[];
+  userRecurringTasks?: RecurringTaskItem[];
+  dueRecurringTasks?: RecurringTaskItem[];
   currentUserId: string;
 };
 
@@ -48,6 +51,8 @@ export function DsmSelfPanel({
   basePath = "/dsm",
   todayCalendarEvents,
   parkedTasks,
+  userRecurringTasks = [],
+  dueRecurringTasks = [],
   currentUserId,
 }: DsmSelfPanelProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -80,6 +85,8 @@ export function DsmSelfPanel({
           todayDateStr={todayDateStr}
           todayCalendarEvents={todayCalendarEvents}
           parkedTasks={parkedTasks ?? []}
+          userRecurringTasks={userRecurringTasks}
+          dueRecurringTasks={dueRecurringTasks}
           currentUserId={currentUserId}
           onCancel={isEditing ? () => setIsEditing(false) : undefined}
         />
@@ -95,6 +102,7 @@ export function DsmSelfPanel({
         basePath={basePath}
         headerAction={
           <div className="flex items-center gap-2">
+            <RecurringTasksManager items={userRecurringTasks} todayDateStr={todayDateStr} />
             {/* {entry?.status === "REVIEWED" && (
               <AddTaskAfterReviewRow entryId={entry.id} />
             )} */}

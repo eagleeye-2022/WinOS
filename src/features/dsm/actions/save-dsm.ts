@@ -68,7 +68,8 @@ export async function saveDsm(
   const rawTaskProjectRowIds = formData.getAll("taskProjectId") as string[];
   const rawTaskDueDates = formData.getAll("taskDueDate") as string[];
   const rawTaskListCodes = formData.getAll("taskListCode") as string[];
-  const tasksToCreate: { text: string; priority: string | null; projectTaskId: string | null; projectId: string | null; taskListCode: string | null; dueDate: Date | null }[] = [];
+  const rawRecurringTaskIds = formData.getAll("taskRecurringTaskId") as string[];
+  const tasksToCreate: { text: string; priority: string | null; projectTaskId: string | null; projectId: string | null; taskListCode: string | null; dueDate: Date | null; recurringTaskId: string | null }[] = [];
   for (let i = 0; i < rawTaskTexts.length; i++) {
     const t = rawTaskTexts[i]?.trim();
     if (t) {
@@ -80,6 +81,7 @@ export async function saveDsm(
         projectId: rawTaskProjectRowIds[i]?.trim() || null,
         taskListCode: rawTaskListCodes[i]?.trim() || null,
         dueDate: dueDateStr ? new Date(dueDateStr + "T00:00:00.000Z") : null,
+        recurringTaskId: rawRecurringTaskIds[i]?.trim() || null,
       });
     }
   }
@@ -181,6 +183,7 @@ export async function saveDsm(
           projectTaskId: item.projectTaskId,
           projectId: item.projectId,
           dueDate: item.dueDate,
+          recurringTaskId: item.recurringTaskId,
           entryId: entry.id,
           addedById: userId,
         })),

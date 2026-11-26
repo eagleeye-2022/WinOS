@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { PageTitle } from "@/components/shared/page-header";
 import { ROUTES } from "@/constants/routes";
 import { toast } from "@/components/shared/toast";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -92,7 +93,7 @@ function MeetingDetailBody({ meeting: m }: { meeting: DealMeeting }) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className={cn("text-2xl font-bold leading-tight tracking-tight", m.status === "CANCELLED" && "line-through decoration-2")}>{m.title}</h1>
+            <PageTitle className={cn(m.status === "CANCELLED" && "line-through decoration-2")}>{m.title}</PageTitle>
             <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold", status.tone)}>
               <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} /> {status.label}
             </span>
@@ -105,7 +106,7 @@ function MeetingDetailBody({ meeting: m }: { meeting: DealMeeting }) {
             )}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="setu-actions flex flex-wrap items-center gap-2">
           {m.link && online && (
             <SetuButton onClick={copyLink}>
               <Copy size={14} /> Copy Link
@@ -167,7 +168,7 @@ function MeetingDetailBody({ meeting: m }: { meeting: DealMeeting }) {
         (online ? (
           <section className="setu-card flex flex-wrap items-center justify-between gap-4 border-l-4 border-l-[var(--setu-accent)] px-6 py-4">
             <div className="flex items-center gap-3.5">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
                 <Video size={20} />
               </div>
               <div className="min-w-0">
@@ -208,7 +209,7 @@ function MeetingDetailBody({ meeting: m }: { meeting: DealMeeting }) {
           </section>
         ) : (
           <section className="setu-card flex items-center gap-3.5 border-l-4 border-l-[var(--setu-accent)] px-6 py-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
               <MapPin size={20} />
             </div>
             <div>
@@ -224,7 +225,7 @@ function MeetingDetailBody({ meeting: m }: { meeting: DealMeeting }) {
           <h2 className="text-base font-semibold">Meeting Overview</h2>
           <span className="setu-text-2 rounded-md bg-[var(--setu-well)] px-2 py-1 text-[11px] font-semibold">{m.type}</span>
         </div>
-        <div className="mt-4 grid grid-cols-2 gap-4 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)]/40 p-4 sm:grid-cols-4">
+        <div className="mt-4 grid grid-cols-2 gap-4 rounded-lg border border-[var(--setu-line)] bg-[var(--setu-well)]/40 p-4 sm:grid-cols-4">
           <div>
             <span className="setu-text-2 text-xs font-medium">Date & Time</span>
             <p className="mt-1 text-sm font-semibold">{formatDate(m.startAt)}</p>
@@ -254,7 +255,7 @@ function MeetingDetailBody({ meeting: m }: { meeting: DealMeeting }) {
           </div>
         </div>
         {!isEmptyDescription(m.agenda) && (
-          <div className="mt-4 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)]/40 px-4 py-3.5">
+          <div className="mt-4 rounded-lg border border-[var(--setu-line)] bg-[var(--setu-well)]/40 px-4 py-3.5">
             <h3 className="text-xs font-semibold text-[var(--setu-text)]">Agenda & Objectives</h3>
             <div className="mt-1 text-sm leading-relaxed [&_p]:my-0">
               <RichDescriptionView value={m.agenda} />
@@ -267,7 +268,7 @@ function MeetingDetailBody({ meeting: m }: { meeting: DealMeeting }) {
       {m.status === "COMPLETED" && m.summary && !isEmptyDescription(m.summary) && (
         <section className="setu-card px-6 py-5">
           <h2 className="text-base font-semibold">Meeting Notes & Summary</h2>
-          <div className="mt-3 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)] px-4 py-3 text-sm leading-relaxed [&_p]:my-0">
+          <div className="mt-3 rounded-lg border border-[var(--setu-line)] bg-[var(--setu-well)] px-4 py-3 text-sm leading-relaxed [&_p]:my-0">
             <RichDescriptionView value={m.summary} />
           </div>
           {m.recordingUrl && (
@@ -380,7 +381,7 @@ function ParticipantRow({
   right: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-3.5 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-card)] px-4 py-3 transition-colors hover:bg-[var(--setu-well)]/30">
+    <div className="flex flex-wrap items-center gap-3.5 rounded-lg border border-[var(--setu-line)] bg-[var(--setu-card)] px-4 py-3 transition-colors hover:bg-[var(--setu-well)]/30">
       <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white", avatarColor(name))}>
         {initials(name)}
       </span>

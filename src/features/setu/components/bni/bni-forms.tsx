@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "@/components/shared/toast";
-import { Building2, CalendarDays, CalendarPlus, IdCard, Lightbulb, Mail, MapPin, Network, Phone, UserPlus, UserRoundPlus } from "lucide-react";
+import { Building2, CalendarDays, IdCard, Mail, MapPin, Network, Phone } from "lucide-react";
 import { useClearPageDraft, usePageDraft } from "@/lib/navigation/use-url-state";
 import {
   BNI_STAGES,
@@ -134,7 +134,6 @@ export function Log121Dialog({ open, onClose, memberId, prefill }: { open: boole
     <BniDialog
       open={open}
       onClose={close}
-      icon={CalendarPlus}
       title={fixedMember ? `Log 121 — ${fixedMember.contactName}` : "Log 121 Meeting"}
       footer={
         <>
@@ -279,7 +278,6 @@ export function ProspectDialog({
     <BniDialog
       open={open}
       onClose={close}
-      icon={opp ? Lightbulb : UserRoundPlus}
       title={deal ? `Edit ${opp ? "Opportunity" : "Prospect"}` : opp ? "Add Opportunity" : "Add Prospect"}
       footer={
         <>
@@ -370,7 +368,6 @@ export function MemberFormDialog({
     <BniDialog
       open={open}
       onClose={onClose}
-      icon={UserPlus}
       title={member ? "Edit Member" : "Add BNI Member"}
       footer={
         <>

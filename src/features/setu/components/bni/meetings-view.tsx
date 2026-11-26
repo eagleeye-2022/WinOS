@@ -109,9 +109,9 @@ export function MeetingsView() {
         <button
           type="button"
           onClick={() => setLogOpen(true)}
-          className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-[var(--setu-line-strong)] bg-[var(--setu-card)] text-[var(--setu-text-3)] transition-colors hover:border-[var(--setu-accent)] hover:text-[var(--setu-accent)]"
+          className="flex min-h-[220px] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-[var(--setu-line-strong)] bg-[var(--setu-card)] text-[var(--setu-text-3)] transition-colors hover:border-[var(--setu-accent)] hover:text-[var(--setu-accent)]"
         >
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
+          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
             <Plus size={20} />
           </span>
           <span className="text-sm font-medium">Log 121 Meeting</span>
@@ -194,7 +194,7 @@ function MemberCard({ s, onOpen, onConvert }: { s: MemberSummary; onOpen: () => 
               e.stopPropagation();
               onConvert();
             }}
-            className="ml-auto inline-flex items-center gap-1 rounded-md bg-[var(--setu-solid)] px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-[var(--setu-solid-hover)]"
+            className="ml-auto inline-flex items-center gap-1 rounded-md bg-[var(--setu-solid)] px-2.5 py-1 text-[11px] font-medium text-[var(--setu-solid-ink)] transition-colors hover:bg-[var(--setu-solid-hover)]"
           >
             <ArrowRight size={12} /> Convert {s.pendingRefs.length} ref{s.pendingRefs.length === 1 ? "" : "s"}
           </button>

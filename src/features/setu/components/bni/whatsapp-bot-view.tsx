@@ -46,7 +46,7 @@ function CardHeading({ icon: Icon, title, badge }: { icon: React.ElementType; ti
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
           <Icon size={17} />
         </span>
         <h3 className="min-w-0 text-base font-semibold leading-tight">{title}</h3>
@@ -94,7 +94,7 @@ function CardCapture() {
             type="button"
             disabled={!ready}
             onClick={() => setRoute(o.id)}
-            className="group flex flex-col items-start gap-2 rounded-xl border border-[var(--setu-line)] bg-[var(--setu-well)] p-3.5 text-left transition-colors hover:border-[var(--setu-accent)] hover:bg-[var(--setu-accent-soft)] disabled:cursor-not-allowed disabled:opacity-50"
+            className="group flex flex-col items-start gap-2 rounded-lg border border-[var(--setu-line)] bg-[var(--setu-well)] p-3.5 text-left transition-colors hover:border-[var(--setu-accent)] hover:bg-[var(--setu-accent-soft)] disabled:cursor-not-allowed disabled:opacity-50"
           >
             <span className="flex w-full items-center justify-between">
               <o.icon size={18} className="text-[var(--setu-accent)]" />
@@ -184,12 +184,12 @@ function BotConsole() {
     <section className="setu-card flex flex-col p-5">
       <CardHeading icon={Terminal} title="Bot Console" />
       <div className="mb-4" />
-      <div ref={scroller} className="flex h-[300px] flex-col gap-1.5 overflow-y-auto rounded-xl bg-[#ece5dd] p-3 dark:bg-[var(--setu-well)]" aria-live="polite">
+      <div ref={scroller} className="flex h-[300px] flex-col gap-1.5 overflow-y-auto rounded-lg bg-[#ece5dd] p-3 dark:bg-[var(--setu-well)]" aria-live="polite">
         {lines.map((l, i) => (
           <p
             key={i}
             className={cn(
-              "max-w-[85%] whitespace-pre-line rounded-xl px-2.5 py-1.5 text-[11px] shadow-sm",
+              "max-w-[85%] whitespace-pre-line rounded-lg px-2.5 py-1.5 text-[11px] shadow-sm",
               l.from === "me" ? "self-end rounded-br-sm bg-[#dcf8c6] text-slate-800" : "self-start rounded-bl-sm bg-white text-slate-800"
             )}
           >

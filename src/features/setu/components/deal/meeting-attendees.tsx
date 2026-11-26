@@ -4,7 +4,6 @@ import { useMemo, useRef, useState } from "react";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
 import { Check, CircleDollarSign, Contact, Filter, Mail, PlusCircle, UserPlus, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { MEETING_REMINDER_LABEL, MEETING_REMINDERS } from "../../constants";
@@ -12,6 +11,7 @@ import { useSetuStore } from "../../provider";
 import type { MeetingAttendee, MeetingReminder } from "../../types";
 import { initials, isDealStage } from "../../utils";
 import { Field, SetuButton } from "../setu-ui";
+import { SetuDrawer } from "../setu-drawer";
 
 export const attendeeId = () => `a-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
@@ -128,7 +128,7 @@ export function AttendeePicker({
           // Typing / clicking in the search box keeps the list open.
           if (anchorRef.current?.contains(e.target as Node)) e.preventDefault();
         }}
-        className="setu-scope w-[var(--radix-popover-trigger-width)] min-w-[320px] rounded-xl border-[var(--setu-line)] bg-[var(--setu-card)] p-2"
+        className="setu-scope w-[var(--radix-popover-trigger-width)] min-w-[320px] rounded-lg border-[var(--setu-line)] bg-[var(--setu-card)] p-2"
       >
         <div className={cn("grid gap-1 rounded-lg bg-[var(--setu-soft)] p-1", tabs.length === 3 ? "grid-cols-3" : tabs.length === 2 ? "grid-cols-2" : "grid-cols-1")}>
           {tabs.map((t) => (
@@ -231,12 +231,7 @@ export function AddExternalAttendeeDialog({ open, onClose, onAdd }: { open: bool
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && close()}>
-      <DialogContent className="setu-scope setu-dialog max-w-[500px] gap-0 p-0 [&>button:last-child]:right-6 [&>button:last-child]:top-6">
-        <div className="border-b border-[var(--setu-line)] px-6 py-4">
-          <DialogTitle className="text-base font-semibold">Add External Attendee</DialogTitle>
-          <DialogDescription className="sr-only">Add an external attendee</DialogDescription>
-        </div>
+    <SetuDrawer open={open} onClose={close} title="Add External Attendee" width="max-w-lg">
         <form onSubmit={submit} noValidate>
           <div className="space-y-4 px-6 py-5">
             <Field label="Full Name" required>
@@ -250,17 +245,16 @@ export function AddExternalAttendeeDialog({ open, onClose, onAdd }: { open: bool
             </Field>
             {error && <p className="text-xs text-red-500">{error}</p>}
           </div>
-          <div className="flex items-center justify-end gap-2.5 border-t border-[var(--setu-line)] bg-[var(--setu-card)] px-6 py-3.5">
-            <SetuButton variant="ghost" onClick={close}>
-              Cancel
-            </SetuButton>
-            <SetuButton variant="primary" type="submit">
+          <div className="flex items-center gap-3 border-t border-border px-6 py-4">
+            <SetuButton variant="solid" type="submit" className="px-6">
               Add Attendee
+            </SetuButton>
+            <SetuButton variant="secondary" className="px-6" onClick={close}>
+              Cancel
             </SetuButton>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+    </SetuDrawer>
   );
 }
 
@@ -274,7 +268,7 @@ export function ReminderSelect({ value, onChange }: { value: MeetingReminder; on
           <Mail size={15} className="setu-accent-text" /> {MEETING_REMINDER_LABEL[value]}
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="setu-scope w-[var(--radix-popover-trigger-width)] min-w-[240px] rounded-xl border-[var(--setu-line)] bg-[var(--setu-card)] p-1.5">
+      <PopoverContent align="start" className="setu-scope w-[var(--radix-popover-trigger-width)] min-w-[240px] rounded-lg border-[var(--setu-line)] bg-[var(--setu-card)] p-1.5">
         {MEETING_REMINDERS.map((r) => {
           const active = r === value;
           return (

@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { ensureNatTaskForTimerAction } from "../actions/create-project-items";
+import { ensureNatTaskForTimerAction, ensureUnassignedTaskForTimerAction } from "../actions/create-project-items";
 
 type ProjectOnlyRow = { id: string; text: string; projectId: string };
 
@@ -26,6 +26,33 @@ export async function linkProjectOnlyRowsToNat(
       continue;
     }
     await d.standupTask.update({ where: { id: row.id }, data: { projectTaskId: res.task.id } });
+    linked++;
+  }
+  return { linked, failed };
+}
+
+/**
+ * DSM rows with no project at all (e.g. a manager added a task without picking one): each gets
+ * the member's task named after the row in the Unassigned Work holding project, and the row is
+ * linked to it (project + task) — so the member can start a timer on it, and it can be moved to
+ * the real project later. Best-effort: a row that can't be linked stays as it was.
+ */
+export async function linkNoProjectRowsToUnassigned(
+  rows: { id: string; text: string }[],
+  memberId: string
+): Promise<{ linked: number; failed: number }> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  let linked = 0;
+  let failed = 0;
+  for (const row of rows) {
+    const res = await ensureUnassignedTaskForTimerAction(row.text, memberId);
+    if (!res.success) {
+      failed++;
+      console.warn("[linkNoProjectRowsToUnassigned] could not create an Unassigned Work task:", { text: row.text, error: res.error });
+      continue;
+    }
+    await d.standupTask.update({ where: { id: row.id }, data: { projectId: res.project.id, projectTaskId: res.task.id } });
     linked++;
   }
   return { linked, failed };

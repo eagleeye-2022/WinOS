@@ -87,7 +87,7 @@ export function FileDropzone({
         void take(e.dataTransfer.files);
       }}
       className={cn(
-        "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed text-center transition-colors",
+        "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed text-center transition-colors",
         compact ? "px-4 py-5" : "px-6 py-8",
         over ? "border-[var(--setu-accent)] bg-[var(--setu-accent-soft)]" : "border-[var(--setu-line-strong)] hover:border-[var(--setu-accent)]"
       )}

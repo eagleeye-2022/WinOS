@@ -30,6 +30,7 @@ import type { Deal, DealMeeting, MeetingStatus } from "../../types";
 import { formatDate, formatSpan, formatTime, formatTimeRange, isoDate, meetingNumbers, meetingStats, relativeDay, searchMeetings } from "../../utils";
 import { SetuButton, attempt } from "../setu-ui";
 import { SortMenu } from "./deal-calls-tab";
+import { DealFilterChip, DealTabHeader } from "./deal-tab-header";
 import { CompleteMeetingDialog, MeetingFormDialog, type MeetingDialogMode } from "./meeting-dialogs";
 
 type MeetingFilter = "all" | "upcoming" | "completed";
@@ -73,38 +74,34 @@ export function DealMeetingsTab({ deal }: { deal: Deal }) {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-        <div>
-          <h2 className="text-base font-semibold">Meetings</h2>
-          <p className="setu-text-2 text-xs">
-            {stats.total} scheduled & past meeting{stats.total === 1 ? "" : "s"} · {stats.external} external · {stats.virtual} virtual
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <SetuButton size="sm" onClick={() => setDialog({ kind: "log" })}>
-            Log Meeting
-          </SetuButton>
-          <SetuButton variant="primary" size="sm" asChild>
-            <Link href={scheduleHref(deal.id)}>
-              Schedule Meeting
-            </Link>
-          </SetuButton>
-        </div>
-      </div>
+      <DealTabHeader
+        icon={CalendarDays}
+        title="Meetings"
+        subtitle={`${stats.total} scheduled & past meeting${stats.total === 1 ? "" : "s"} · ${stats.external} external · ${stats.virtual} virtual`}
+        actions={
+          <>
+            <SetuButton size="sm" onClick={() => setDialog({ kind: "log" })}>
+              Log Meeting
+            </SetuButton>
+            <SetuButton variant="primary" size="sm" asChild>
+              <Link href={scheduleHref(deal.id)}>Schedule Meeting</Link>
+            </SetuButton>
+          </>
+        }
+      />
 
       {/* Next meeting banner */}
       {next && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--setu-accent-ring)] bg-[var(--setu-accent-soft)] px-4 py-2.5 text-sm">
+        <div className="setu-card flex flex-wrap items-center justify-between gap-3 bg-[var(--setu-well)]/50 px-4 py-2.5 text-sm">
           <span className="flex flex-wrap items-center gap-3">
-            <span className="rounded bg-[var(--setu-card)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[var(--setu-accent)]">Upcoming</span>
+            <span className="rounded border border-[var(--setu-line)] bg-[var(--setu-card)] px-2 py-0.5 text-[11px] font-semibold text-foreground">Upcoming</span>
             <span className="font-semibold">{next.title}</span>
             <span className="setu-text-2">
               ({relativeDay(next.startAt, today) ?? formatDate(next.startAt)}, {formatTime(next.startAt)} IST)
             </span>
           </span>
           {next.link && (
-            <a href={next.link} target="_blank" rel="noreferrer" className="setu-accent-text flex items-center gap-0.5 text-xs font-semibold hover:underline">
+            <a href={next.link} target="_blank" rel="noreferrer" className="flex items-center gap-0.5 text-xs font-semibold text-foreground hover:underline">
               Quick Join <ArrowUpRight size={14} />
             </a>
           )}
@@ -113,29 +110,21 @@ export function DealMeetingsTab({ deal }: { deal: Deal }) {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex rounded-lg border border-[var(--setu-line)] bg-[var(--setu-well)] p-1">
-          {FILTERS.map((f) => {
-            const count = f === "all" ? stats.total : f === "upcoming" ? stats.upcoming : stats.completed;
-            return (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setFilter(f)}
-                aria-pressed={filter === f}
-                className={cn(
-                  "cursor-pointer rounded-md px-3.5 py-1.5 text-sm font-medium capitalize transition-colors",
-                  filter === f ? "bg-[var(--setu-accent-soft)] text-[var(--setu-accent)] font-semibold" : "setu-text-2 hover:text-[var(--setu-text)]"
-                )}
-              >
-                {f} ({count})
-              </button>
-            );
-          })}
+        <div className="flex flex-wrap gap-2">
+          {FILTERS.map((f) => (
+            <DealFilterChip
+              key={f}
+              active={filter === f}
+              onClick={() => setFilter(f)}
+              label={f.charAt(0).toUpperCase() + f.slice(1)}
+              count={f === "all" ? stats.total : f === "upcoming" ? stats.upcoming : stats.completed}
+            />
+          ))}
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative w-64">
             <Search size={15} className="setu-text-3 absolute left-3 top-1/2 -translate-y-1/2" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search meetings, agendas…" className="setu-input h-10 pl-9" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search meetings, agendas…" className="setu-input h-9 pl-9 text-sm" />
           </div>
           <SortMenu value={sort} onChange={setSort} options={SORTS} labels={SORT_LABEL} />
         </div>
@@ -220,11 +209,11 @@ function UpcomingMeetingCard({
   };
 
   return (
-    <article className="setu-card border-[var(--setu-accent-ring)] px-6 py-5">
+    <article className="setu-card px-6 py-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-1.5 text-[11px] font-medium">
-          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--setu-accent-soft)] px-2.5 py-0.5 text-[var(--setu-accent)]">
-            <span className="h-1.5 w-1.5 rounded-full bg-[var(--setu-accent)]" /> Upcoming
+          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--setu-well)] px-2.5 py-0.5 text-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-foreground/60" /> Upcoming
           </span>
           {hasExternal && <span className="setu-text-2 rounded-full bg-[var(--setu-well)] px-2.5 py-0.5">External</span>}
           <span className="setu-text-2 rounded-full bg-[var(--setu-well)] px-2.5 py-0.5">{MEETING_CHANNEL_LABEL[m.channel]}</span>
@@ -233,7 +222,7 @@ function UpcomingMeetingCard({
           <SetuButton size="sm" asChild>
             <Link href={ROUTES.setuMeetingEdit(m.id)}>Edit / Reschedule</Link>
           </SetuButton>
-          <SetuButton size="sm" variant="soft" asChild>
+          <SetuButton size="sm" variant="secondary" asChild>
             <Link href={ROUTES.setuMeeting(m.id)}>View Details</Link>
           </SetuButton>
           <MeetingMenu>
@@ -258,7 +247,7 @@ function UpcomingMeetingCard({
         </Link>
       </h3>
       <p className="setu-text-2 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-        <span className="setu-accent-text flex items-center gap-1.5 font-medium">
+        <span className="flex items-center gap-1.5 font-medium text-foreground">
           <CalendarDays size={15} />
           {day ? `${day}, ` : ""}
           {formatDate(m.startAt)}
@@ -302,13 +291,13 @@ function UpcomingMeetingCard({
         {online && m.link ? (
           <>
             <span className="flex min-w-0 items-center gap-2 text-sm">
-              <Link2 size={15} className="setu-accent-text shrink-0" />
+              <Link2 size={15} className="setu-text-3 shrink-0" />
               <span className="truncate font-mono">{withoutProtocol(m.link)}</span>
-              <button type="button" onClick={copyLink} className="setu-accent-text cursor-pointer text-xs font-semibold underline">
+              <button type="button" onClick={copyLink} className="setu-text-2 cursor-pointer text-xs font-semibold underline hover:text-foreground">
                 Copy Link
               </button>
             </span>
-            <SetuButton variant="primary" asChild>
+            <SetuButton variant="secondary" size="sm" asChild>
               <a href={m.link} target="_blank" rel="noreferrer">
                 Join Meeting <ExternalLink />
               </a>

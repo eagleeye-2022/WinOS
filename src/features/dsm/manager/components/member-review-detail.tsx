@@ -7,7 +7,7 @@ import {
   ArrowLeft, ChevronLeft, ChevronRight, ChevronDown,
   CheckCircle2, CheckCheck, AlertCircle, Calendar, Handshake,
   Pencil, Trash2, X, Check, Plus,
-  PenIcon, GraduationCap, Loader2, Info, Archive, ArrowUpRight,
+  PenIcon, GraduationCap, Loader2, Info, Archive, ArrowUpRight, Repeat,
 } from "lucide-react";
 // (MoreHorizontal + DropdownMenu* were for the ⋯ task menus, now inline buttons — re-import them
 // if the commented-out "What Did You Do Yesterday?" menu is restored.)
@@ -39,7 +39,11 @@ import { addSupport, type AddSupportState } from "@/features/support-needed/acti
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "@/features/dsm/actions/parking-lot";
 import { reviewStatus, relativeDayLabel, previousDsmDayLabel, previousDsmHeading, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink, formatEffortMinutes, formatEffortSpan, subtaskOptionLabel, effortStartMinutes } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
-import type { TeamMember, ParkedTask } from "@/features/dsm/queries";
+import type { TeamMember, ParkedTask, RecurringTaskItem } from "@/features/dsm/queries";
+import { RecurringTasksManager } from "@/features/dsm/components/recurring-tasks-manager";
+import { DsmRecurrencePicker } from "@/features/dsm/components/dsm-recurrence-picker";
+import { formatRecurrenceBadge, parseRule, type RecurrenceRule } from "@/features/dsm/recurring-utils";
+import { setStandupTaskRecurrenceAction } from "@/features/dsm/actions/recurring-tasks";
 import { MentionInput } from "@/components/shared/mention-input";
 import { renderTextWithMentions } from "@/components/shared/mention-text";
 import { EventDialog } from "@/features/calendar/components/event-dialog";
@@ -47,8 +51,7 @@ import { TaskAuditHistoryPopover } from "@/features/dsm/components/task-audit-hi
 import { deleteCalendarEvent, type DeleteEventState } from "@/features/calendar/actions/delete-event";
 import { linkSupportNeedEvent } from "@/features/support-needed/actions/link-support-event";
 import type { CalendarEventView } from "@/features/calendar/queries";
-import { MemberTaskTimerBadge } from "./member-task-timer-badge";
-import { ProjectTaskStatusPill } from "@/features/dsm/components/project-task-status-pill";
+import { MemberTaskTimerBadge } from "./member-task-timer-badge";import { ProjectTaskStatusPill } from "@/features/dsm/components/project-task-status-pill";
 import { ProjectTaskSelectors, projectSelectOptions } from "@/features/dsm/components/project-task-selectors";
 import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
 import { useWhyfiTasks, WhyfiDueDate } from "@/features/whyfi/components/whyfi-due-date";
@@ -311,6 +314,8 @@ function AddTaskRow({
   const [selectedSubtaskId, setSelectedSubtaskId] = useState("");
   const [text, setText] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [recurrenceRule, setRecurrenceRule] = useState<RecurrenceRule | null>(null);
+  const [repeatModalOpen, setRepeatModalOpen] = useState(false);
 
   // Unsent input survives a reload / reopening the app until it's added or cancelled.
   useFormDraft(
@@ -335,6 +340,8 @@ function AddTaskRow({
     setSelectedSubtaskId("");
     setText("");
     setDueDate("");
+    setRecurrenceRule(null);
+    setRepeatModalOpen(false);
     setAdding(false);
   };
 
@@ -395,6 +402,7 @@ function AddTaskRow({
       // Moving into the project/task pickers or a dialog opened from them doesn't count — those
       // open outside the form (portals).
       onBlur={(e) => {
+        if (repeatModalOpen) return;
         const next = e.relatedTarget as HTMLElement | null;
         if (e.currentTarget.contains(next)) return;
         if (next?.closest("[data-radix-popper-content-wrapper], [role='dialog'], [role='listbox']")) return;
@@ -407,6 +415,7 @@ function AddTaskRow({
       <input type="hidden" name="projectTaskId" value={selectedProjectTaskId} />
       <input type="hidden" name="projectId" value={selectedProjectId} />
       <input type="hidden" name="priority" value="" />
+      <input type="hidden" name="recurrenceRule" value={recurrenceRule ? JSON.stringify(recurrenceRule) : ""} />
 
       {/* Project → Task list → Task → Subtask; task lists and tasks can be created in place. */}
       <div className="flex items-center gap-2.5 flex-wrap text-xs">
@@ -465,7 +474,62 @@ function AddTaskRow({
             <DueDateInput name="dueDate" value={dueDate} onChange={setDueDate} />
           </div>
           <TodayDueButton value={dueDate} onChange={setDueDate} />
+          {kind === "TODAY" && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setRepeatModalOpen(true)}
+              title="Make this task repeat"
+              className={cn(
+                "flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer",
+                recurrenceRule
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-primary"
+              )}
+            >
+              <Repeat size={12} />
+              <span>{recurrenceRule ? formatRecurrenceBadge(recurrenceRule, toUtcDate()) : "Recurring"}</span>
+            </button>
+          )}
         </div>
+
+        {repeatModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={() => setRepeatModalOpen(false)}
+          >
+            <div
+              className="w-full max-w-sm rounded-xl border bg-card p-4 text-card-foreground shadow-xl space-y-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Repeat size={15} className="shrink-0 text-primary" />
+                  <span className="text-sm font-semibold truncate">
+                    {text.trim() || "Recurring Task"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRepeatModalOpen(false)}
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="Close"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+              <DsmRecurrencePicker
+                value={recurrenceRule}
+                onChange={(r) => {
+                  setRecurrenceRule(r);
+                  setRepeatModalOpen(false);
+                }}
+                start={toUtcDate()}
+                variant="inline"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Saving… / Cancel (no Add Task button — the task saves itself, see the form's onBlur). */}
         <div className="flex items-center gap-1.5">
@@ -1427,6 +1491,7 @@ function TaskRow({
   onPriorityChange?: (taskId: string, newPriority: string | null) => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [repeatOpen, setRepeatOpen] = useState(false);
   // ▸ panel under the row: the linked task's time, recent logs and remarks.
   const [detailOpen, setDetailOpen] = usePageViewState(`TaskRow:${task.id}:detailOpen`, false);
   const [state, action, pending] = useActionState<EditTaskState, FormData>(editTask, {});
@@ -1506,6 +1571,7 @@ function TaskRow({
             // Auto-save (no Save button): saved when focus leaves the form. Moving into the pickers
             // or a dialog opened from them doesn't count — those open outside the form (portals).
             onBlur={(e) => {
+              if (repeatOpen) return;
               const next = e.relatedTarget as HTMLElement | null;
               if (e.currentTarget.contains(next)) return;
               if (next?.closest("[data-radix-popper-content-wrapper], [role='dialog'], [role='listbox']")) return;
@@ -1600,6 +1666,30 @@ function TaskRow({
                   <DueDateInput name="dueDate" value={dueDate} onChange={setDueDate} />
                 </div>
                 <TodayDueButton value={dueDate} onChange={setDueDate} />
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setRepeatOpen(true)}
+                  title={task.recurringTaskId ? "Edit recurring schedule" : "Make task repeat"}
+                  className={cn(
+                    "flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer",
+                    task.recurringTaskId
+                      ? "border-primary/40 bg-primary/10 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-primary"
+                  )}
+                >
+                  <Repeat size={12} />
+                  <span>
+                    {task.recurringTask
+                      ? formatRecurrenceBadge(
+                          parseRule(task.recurringTask.recurrenceRule) ?? { freq: "DAILY", interval: 1 },
+                          new Date(task.recurringTask.startDate)
+                        )
+                      : task.recurringTaskId
+                        ? "Recurring"
+                        : "Recurring"}
+                  </span>
+                </button>
               </div>
 
               {/* Saving… / Cancel (no Save button — the task saves itself, see the form's onBlur). */}
@@ -1625,6 +1715,46 @@ function TaskRow({
               <p className="text-xs text-destructive">{state.message}</p>
             )}
           </form>
+          {repeatOpen && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+              onClick={() => setRepeatOpen(false)}
+            >
+              <div
+                className="w-full max-w-sm rounded-xl border bg-card p-4 text-card-foreground shadow-xl space-y-3"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Repeat size={15} className="shrink-0 text-primary" />
+                    <span className="text-sm font-semibold truncate">{task.text}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRepeatOpen(false)}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    aria-label="Close"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+                <DsmRecurrencePicker
+                  value={task.recurringTask ? parseRule(task.recurringTask.recurrenceRule) : null}
+                  onChange={async (newRule) => {
+                    setRepeatOpen(false);
+                    const res = await setStandupTaskRecurrenceAction(task.id, newRule);
+                    if (res.success) {
+                      toast.success(newRule ? "Recurring schedule saved" : "Recurrence removed");
+                    } else {
+                      toast.error(res.message ?? "Failed to update recurrence");
+                    }
+                  }}
+                  start={entryDate ? new Date(entryDate) : toUtcDate()}
+                  variant="inline"
+                />
+              </div>
+            </div>
+          )}
         </td>
       </tr>
     );
@@ -1650,8 +1780,7 @@ function TaskRow({
         </span>
       </td>
       <td className="py-2 pr-3 align-top">
-        {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} whyfi={isWhyfiTask(task)} /> : <span className="text-xs text-muted-foreground/60">—</span>}
-      </td>
+        {(task.projectTask?.project ?? task.project) ? <ProjectPill name={(task.projectTask?.project ?? task.project)!.name} whyfi={isWhyfiTask(task)} /> : <span className="text-xs text-muted-foreground/60">—</span>}      </td>
       <td className="py-2 pr-3 align-top">
         {task.projectTask ? (
           <div className="flex items-start gap-0.5">
@@ -1684,6 +1813,21 @@ function TaskRow({
               NT
             </span>
           )}
+          {task.recurringTaskId && (() => {
+            const parsed = task.recurringTask ? parseRule(task.recurringTask.recurrenceRule) : null;
+            const label = parsed && task.recurringTask
+              ? formatRecurrenceBadge(parsed, new Date(task.recurringTask.startDate))
+              : "Recurring";
+            return (
+              <span
+                className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary shrink-0"
+                title="Recurring standup task"
+              >
+                <Repeat size={10} />
+                {label}
+              </span>
+            );
+          })()}
         </div>
         {/* <TaskCreatedAtLabel date={task.createdAt} /> */}
       </td>
@@ -1731,6 +1875,20 @@ function TaskRow({
             <TaskInfoAction task={task} compact />
             <button
               type="button"
+              onClick={() => setRepeatOpen(true)}
+              title={task.recurringTaskId ? "Edit recurring schedule" : "Make task repeat"}
+              aria-label="Recurring task"
+              className={cn(
+                "flex h-7 w-5 cursor-pointer items-center justify-center rounded-lg transition-colors",
+                task.recurringTaskId
+                  ? "text-primary hover:bg-primary/10"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <Repeat size={13} />
+            </button>
+            <button
+              type="button"
               onClick={handleStartEdit}
               title="Edit task"
               aria-label="Edit task"
@@ -1773,6 +1931,50 @@ function TaskRow({
         )}
       </td>
     </tr>
+    {repeatOpen && (
+      <tr className="border-0">
+        <td colSpan={8} className="p-0">
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={() => setRepeatOpen(false)}
+          >
+            <div
+              className="w-full max-w-sm rounded-xl border bg-card p-4 text-card-foreground shadow-xl space-y-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Repeat size={15} className="shrink-0 text-primary" />
+                  <span className="text-sm font-semibold truncate">{task.text}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRepeatOpen(false)}
+                  className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="Close"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+              <DsmRecurrencePicker
+                value={task.recurringTask ? parseRule(task.recurringTask.recurrenceRule) : null}
+                onChange={async (newRule) => {
+                  setRepeatOpen(false);
+                  const res = await setStandupTaskRecurrenceAction(task.id, newRule);
+                  if (res.success) {
+                    toast.success(newRule ? "Recurring schedule saved" : "Recurrence removed");
+                  } else {
+                    toast.error(res.message ?? "Failed to update recurrence");
+                  }
+                }}
+                start={entryDate ? new Date(entryDate) : toUtcDate()}
+                variant="inline"
+              />
+            </div>
+          </div>
+        </td>
+      </tr>
+    )}
     {detailOpen && linkedTaskId && <TaskDetailRow taskId={linkedTaskId} colSpan={8} />}
     </>
   );
@@ -3757,9 +3959,10 @@ type Props = {
   selectedDateStr?: string;
   currentUserId: string;
   parkedTasks?: ParkedTask[];
+  userRecurringTasks?: RecurringTaskItem[];
 };
 
-export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selectedDateStr, currentUserId, parkedTasks = [] }: Props) {
+export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selectedDateStr, currentUserId, parkedTasks = [], userRecurringTasks = [] }: Props) {
   const router = useRouter();
   const { user, entries } = review;
   // Hidden date input behind the week label — its calendar jumps to a date.
@@ -3827,6 +4030,16 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selec
             </div>
           </div>
 
+          {/* Recurring tasks + Week navigation */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {/* <RecurringTasksManager
+              items={userRecurringTasks}
+              todayDateStr={selectedDateStr ?? toIsoDateStr(toUtcDate())}
+              cascadingProjects={cascadingProjects}
+              onProjectsChange={setCascadingProjects}
+              targetUserId={user.id}
+            /> */}
+
           {/* Week navigation + date picker in one chip: ‹ week › ; clicking the week opens a calendar
               to jump to a date (its week, with that day's DSM open). */}
           <div className="flex items-center gap-1 rounded-full border bg-background px-2 py-1">
@@ -3881,6 +4094,7 @@ export function MemberReviewDetail({ review, weekOffset, teamMembers = [], selec
             >
               <ChevronRight size={16} />
             </Link>
+          </div>
           </div>
         </div>
       </div>

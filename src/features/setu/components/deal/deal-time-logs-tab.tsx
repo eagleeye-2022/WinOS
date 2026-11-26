@@ -4,7 +4,6 @@ import { useState } from "react";
 import { CircleCheck, Download, EllipsisVertical, ListFilter, Play, Timer, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/shared/toast";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -28,7 +27,9 @@ import {
   timeLogStats,
   timeLogsCsv,
 } from "../../utils";
-import { SetuAvatar, SetuButton, attempt } from "../setu-ui";
+import { Field, SetuAvatar, SetuButton, attempt } from "../setu-ui";
+import { SetuDrawer } from "../setu-drawer";
+import { DealTabHeader } from "./deal-tab-header";
 import { useElapsedSeconds } from "./use-elapsed-seconds";
 
 const REASON_SUGGESTIONS = ["Preparing Proposal", "Customer Follow-up", "Requirement Review", "Technical Review", "Pricing Analysis"];
@@ -64,40 +65,38 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
 
   return (
     <div className="space-y-4">
-      {/* Timer banner */}
-      <section className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[var(--setu-line)] bg-[var(--setu-well)] px-6 py-6">
-        <div className="flex items-center gap-4">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--setu-accent)] text-[var(--setu-accent-ink)]">
-            <Timer size={24} />
+      <DealTabHeader
+        icon={Timer}
+        title={
+          <span className="flex flex-wrap items-center gap-2.5">
+            <span>Time Logs</span>
+            <span className="font-mono text-base font-bold tabular-nums">{formatClock(elapsed)}</span>
           </span>
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="font-mono text-3xl font-bold leading-none tracking-tight tabular-nums">{formatClock(elapsed)}</span>
-              {running ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-500/15 dark:text-green-400">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" /> Timer Running
-                </span>
-              ) : (
-                <span className="setu-text-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--setu-card)] px-2.5 py-0.5 text-xs font-semibold">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--setu-text-3)]" /> Timer Stopped
-                </span>
-              )}
-            </div>
-            <p className="setu-text-2 mt-1.5 text-xs">
-              {running ? `Started at ${formatTime(running.startedAt)} by ${running.employeeName}` : "Start a session to log time spent on this deal."}
-            </p>
-          </div>
-        </div>
-        {running ? (
-          <SetuButton variant="primary" onClick={onStop} className="h-9 px-5">
-            <CircleCheck /> Stop & Save Session
-          </SetuButton>
-        ) : (
-          <SetuButton variant="primary" onClick={onStart} className="h-9 px-5">
-            <Play className="fill-current" /> Start Session
-          </SetuButton>
-        )}
-      </section>
+        }
+        badge={
+          running ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-500/15 dark:text-green-400">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-500" /> Timer Running
+            </span>
+          ) : (
+            <span className="setu-text-2 inline-flex items-center gap-1.5 rounded-full bg-[var(--setu-well)] px-2.5 py-0.5 text-xs font-medium">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--setu-text-3)]" /> Timer Stopped
+            </span>
+          )
+        }
+        subtitle={running ? `Started at ${formatTime(running.startedAt)} by ${running.employeeName}` : "Start a session to log time spent on this deal."}
+        actions={
+          running ? (
+            <SetuButton variant="primary" size="sm" onClick={onStop}>
+              <CircleCheck /> Stop & Save Session
+            </SetuButton>
+          ) : (
+            <SetuButton variant="primary" size="sm" onClick={onStart}>
+              <Play className="fill-current" /> Start Session
+            </SetuButton>
+          )
+        }
+      />
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -110,11 +109,11 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
       {/* History */}
       <section className="setu-card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-          <h2 className="text-lg font-semibold">Time Log History</h2>
+          <h2 className="text-base font-semibold">Time Log History</h2>
           <div className="flex gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SetuButton variant="soft" size="sm" className={cn(employee && "ring-2 ring-[var(--setu-accent-ring)]")}>
+                <SetuButton variant="secondary" size="sm" className={cn(employee && "border-foreground")}>
                   <ListFilter /> {employee || "Filter"}
                 </SetuButton>
               </DropdownMenuTrigger>
@@ -129,7 +128,7 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            <SetuButton variant="soft" size="sm" onClick={exportCsv} disabled={logs.length === 0}>
+            <SetuButton variant="secondary" size="sm" onClick={exportCsv} disabled={logs.length === 0}>
               <Download /> Export CSV
             </SetuButton>
           </div>
@@ -138,11 +137,11 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
         <div className="setu-scroll-x overflow-x-auto">
           <table className="w-full min-w-[860px] text-sm">
             <thead>
-              <tr className="setu-text-2 bg-[var(--setu-well)] text-left text-xs font-semibold uppercase tracking-wide">
-                <th className="py-3 pl-6 pr-4 font-semibold">Date</th>
-                <th className="px-4 py-3 font-semibold">Employee</th>
-                <th className="px-4 py-3 font-semibold">Reason</th>
-                <th className="px-4 py-3 font-semibold">Start Time</th>
+              <tr className="border-b border-[var(--setu-line)] bg-muted/50 text-left text-xs text-[var(--setu-text-2)]">
+                <th className="py-3 pl-6 pr-4 font-medium">Date</th>
+                <th className="px-4 py-3 font-medium">Employee</th>
+                <th className="px-4 py-3 font-medium">Reason</th>
+                <th className="px-4 py-3 font-medium">Start Time</th>
                 <th className="px-4 py-3 font-semibold">End Time</th>
                 <th className="px-4 py-3 font-semibold">Duration</th>
                 <th className="px-4 py-3 text-center font-semibold">Actions</th>
@@ -208,11 +207,11 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
   );
 }
 
-function StatCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function StatCard({ label, value }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="setu-card px-4 py-5">
-      <p className="setu-text-2 text-xs font-semibold uppercase tracking-wide">{label}</p>
-      <p className={cn("mt-2 text-2xl font-bold leading-none tracking-tight", accent && "setu-accent-text")}>{value}</p>
+    <div className="setu-card px-4 py-4">
+      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+      <p className="mt-2 text-2xl font-bold leading-none tabular-nums">{value}</p>
     </div>
   );
 }
@@ -242,16 +241,11 @@ export function StopTimerDialog({ open, onClose, elapsedSeconds }: { open: boole
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && close()}>
-      <DialogContent className="setu-scope setu-dialog max-w-md p-6">
-        <form onSubmit={save} className="space-y-4">
-          <div>
-            <DialogTitle className="text-base font-semibold">Save Session</DialogTitle>
-            <DialogDescription className="setu-text-2 mt-1 text-xs">
-              <span className="font-mono font-semibold text-[var(--setu-text)]">{formatClock(elapsedSeconds)}</span> logged. What was this time spent on?
-            </DialogDescription>
-          </div>
-          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Preparing Proposal" className="setu-input h-9" autoFocus />
+    <SetuDrawer open={open} onClose={close} title="Save Session" description={`${formatClock(elapsedSeconds)} logged`} width="max-w-lg">
+        <form onSubmit={save} className="space-y-4 px-6 py-5">
+          <Field label="What was this time spent on?" required>
+            <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Preparing Proposal" className="setu-input h-9" autoFocus />
+          </Field>
           <div className="flex flex-wrap gap-1.5">
             {REASON_SUGGESTIONS.map((r) => (
               <button
@@ -261,7 +255,7 @@ export function StopTimerDialog({ open, onClose, elapsedSeconds }: { open: boole
                 className={cn(
                   "cursor-pointer rounded-full border px-2.5 py-0.5 text-xs transition-colors",
                   reason === r
-                    ? "border-[var(--setu-accent)] bg-[var(--setu-accent-soft)] font-semibold text-[var(--setu-accent)]"
+                    ? "border-foreground bg-[var(--setu-well)] font-semibold text-foreground"
                     : "border-[var(--setu-line)] bg-[var(--setu-card)] setu-text-2 hover:bg-[var(--setu-well)]/60 hover:text-[var(--setu-text)]"
                 )}
               >
@@ -269,10 +263,17 @@ export function StopTimerDialog({ open, onClose, elapsedSeconds }: { open: boole
               </button>
             ))}
           </div>
-          <div className="flex items-center justify-between gap-2 border-t border-[var(--setu-line)] pt-3.5">
+          <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+            <div className="flex gap-3">
+              <SetuButton variant="solid" type="submit" className="px-6" disabled={!reason.trim() || saving}>
+                Save Session
+              </SetuButton>
+              <SetuButton variant="secondary" onClick={close}>
+                Keep Running
+              </SetuButton>
+            </div>
             <SetuButton
               variant="ghost"
-              size="sm"
               className="text-red-600 hover:text-red-600"
               onClick={async () => {
                 if (await attempt(discardTimer().then(() => true), "Timer discarded")) close();
@@ -280,15 +281,8 @@ export function StopTimerDialog({ open, onClose, elapsedSeconds }: { open: boole
             >
               Discard
             </SetuButton>
-            <div className="flex gap-2">
-              <SetuButton size="sm" onClick={close}>Keep Running</SetuButton>
-              <SetuButton variant="primary" size="sm" type="submit" disabled={!reason.trim() || saving}>
-                Save Session
-              </SetuButton>
-            </div>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+    </SetuDrawer>
   );
 }

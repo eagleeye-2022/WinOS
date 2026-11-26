@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, EllipsisVertical, PencilLine, PhoneCall, PhoneForwarded, Plus, Search, Trash2, Volume2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { RichDescriptionEditor, RichDescriptionView, isEmptyDescription } from "@/components/shared/rich-description";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,6 +33,8 @@ import {
   searchCalls,
 } from "../../utils";
 import { Field, SETU_RICH_VIEW, SetuButton, attempt } from "../setu-ui";
+import { SetuDrawer } from "../setu-drawer";
+import { DealFilterChip, DealTabHeader } from "./deal-tab-header";
 
 type CallFilter = "all" | "outbound" | "inbound" | "audio";
 type CallSort = "recent" | "oldest" | "longest";
@@ -74,46 +75,27 @@ export function DealCallsTab({ deal }: { deal: Deal }) {
 
   return (
     <div className="space-y-4">
-      <section className="setu-card flex flex-wrap items-center justify-between gap-4 px-6 py-5">
-        <div className="flex items-center gap-4">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
-            <PhoneForwarded size={20} />
-          </span>
-          <div>
-            <h2 className="text-lg font-semibold">Calls Stream</h2>
-            <p className="setu-text-2 text-sm">
-              {stats.total} Total Call{stats.total === 1 ? "" : "s"} · {formatHoursMinutes(stats.talkSeconds)} Talk Time · {stats.connectRate}% Connect Rate
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          <div className="relative w-64">
-            <Search size={15} className="setu-text-3 absolute left-3 top-1/2 -translate-y-1/2" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search call logs, notes…" className="setu-input h-10 pl-9" />
-          </div>
-          <SetuButton variant="primary" onClick={() => setDialog("new")}>
-            <Plus /> Log Call
-          </SetuButton>
-        </div>
-      </section>
+      <DealTabHeader
+        icon={PhoneForwarded}
+        title="Calls Stream"
+        subtitle={`${stats.total} Total Call${stats.total === 1 ? "" : "s"} · ${formatHoursMinutes(stats.talkSeconds)} Talk Time · ${stats.connectRate}% Connect Rate`}
+        actions={
+          <>
+            <div className="relative w-64">
+              <Search size={15} className="setu-text-3 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search call logs, notes…" className="setu-input h-9 pl-9 text-sm" />
+            </div>
+            <SetuButton variant="primary" size="sm" onClick={() => setDialog("new")}>
+              <Plus /> Log Call
+            </SetuButton>
+          </>
+        }
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           {chips.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setFilter(c.id)}
-              aria-pressed={filter === c.id}
-              className={cn(
-                "cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                filter === c.id
-                  ? "border-[var(--setu-accent-ring)] bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]"
-                  : "setu-text-2 border-[var(--setu-line)] bg-[var(--setu-soft)] hover:text-[var(--setu-text)]"
-              )}
-            >
-              {c.label} ({c.count})
-            </button>
+            <DealFilterChip key={c.id} active={filter === c.id} onClick={() => setFilter(c.id)} label={c.label} count={c.count} />
           ))}
         </div>
         <SortMenu value={sort} onChange={setSort} options={CALL_SORTS} labels={SORT_LABEL} />
@@ -364,12 +346,7 @@ export function LogCallDialog({ deal: fixedDeal, open, call, onClose }: { deal?:
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="setu-scope setu-dialog max-h-[92vh] max-w-[640px] gap-0 overflow-y-auto p-0 [&>button:last-child]:right-6 [&>button:last-child]:top-6">
-        <div className="border-b border-[var(--setu-line)] px-6 py-4">
-          <DialogTitle className="text-base font-semibold">{call ? "Edit Call" : "Log Call"}</DialogTitle>
-          <DialogDescription className="setu-text-2 mt-0.5 text-xs">{deal ? deal.company : "Pick the lead or deal this call was about"}</DialogDescription>
-        </div>
+    <SetuDrawer open={open} onClose={onClose} title={call ? "Edit Call" : "Log Call"} description={deal?.company} width="max-w-2xl">
         <form onSubmit={submit} noValidate>
           <div className="grid gap-4 px-6 py-5 sm:grid-cols-2">
             {!fixedDeal && (
@@ -476,16 +453,15 @@ export function LogCallDialog({ deal: fixedDeal, open, call, onClose }: { deal?:
             </Field>
             {error && <p className="text-xs text-red-500 sm:col-span-2">{error}</p>}
           </div>
-          <div className="flex items-center justify-between gap-3 border-t border-[var(--setu-line)] bg-[var(--setu-card)] px-6 py-3.5">
-            <SetuButton variant="ghost" onClick={onClose}>
-              Cancel
-            </SetuButton>
-            <SetuButton variant="primary" type="submit" className="px-5" disabled={saving}>
+          <div className="flex items-center gap-3 border-t border-border px-6 py-4">
+            <SetuButton variant="solid" type="submit" className="px-6" disabled={saving}>
               {saving ? "Saving…" : call ? "Save Call" : "Log Call"}
+            </SetuButton>
+            <SetuButton variant="secondary" className="px-6" onClick={onClose}>
+              Cancel
             </SetuButton>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+    </SetuDrawer>
   );
 }

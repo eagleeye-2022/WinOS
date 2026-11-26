@@ -73,7 +73,7 @@ export function ReferralsView() {
                 type="button"
                 disabled={!t.id}
                 onClick={() => t.id && setMember(t.id)}
-                className="flex items-center gap-3 rounded-xl bg-[var(--setu-well)] p-3 text-left transition-colors enabled:hover:bg-[var(--setu-accent-soft)] disabled:cursor-default"
+                className="flex items-center gap-3 rounded-lg bg-[var(--setu-well)] p-3 text-left transition-colors enabled:hover:bg-[var(--setu-accent-soft)] disabled:cursor-default"
               >
                 <span className="relative">
                   <SetuAvatar name={t.name} size="md" className="h-10 w-10 text-sm" />
@@ -113,13 +113,13 @@ export function ReferralsView() {
         action={<span className="setu-text-2 text-xs tabular-nums">{all.filter((r) => r.status === "CONVERTED").length} converted</span>}
       >
         {rows.length === 0 ? (
-          <div className="rounded-xl bg-[var(--setu-well)] px-6 py-12 text-center">
+          <div className="rounded-lg bg-[var(--setu-well)] px-6 py-12 text-center">
             <p className="text-sm font-medium">{all.length ? "No referrals match" : "No referrals yet"}</p>
           </div>
         ) : (
           <ul className="space-y-2">
             {rows.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-xl bg-[var(--setu-well)] px-4 py-3">
+              <li key={r.id} className="flex flex-wrap items-center gap-3 rounded-lg bg-[var(--setu-well)] px-4 py-3">
                 <SetuAvatar name={r.direction === "GIVEN" ? r.memberName : r.details.name} size="md" className="h-10 w-10 text-sm" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">

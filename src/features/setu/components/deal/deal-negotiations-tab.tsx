@@ -10,6 +10,7 @@ import type { Deal, NegotiationRequest } from "../../types";
 import { formatInr } from "../../utils";
 import { SetuButton, attempt } from "../setu-ui";
 import { NotesFeed } from "./deal-notes-tab";
+import { DealTabHeader } from "./deal-tab-header";
 
 /** Negotiations tab: proposed value, multi-level client requests and the negotiation-update feed. */
 export function DealNegotiationsTab({ deal }: { deal: Deal }) {
@@ -20,19 +21,23 @@ export function DealNegotiationsTab({ deal }: { deal: Deal }) {
 
   return (
     <div className="space-y-4">
-      <section className="setu-card flex items-center gap-4 px-6 py-5">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
-          <Handshake size={20} />
-        </span>
-        <h2 className="text-lg font-semibold">Negotiation & Commercial Alignment</h2>
-      </section>
+      <DealTabHeader
+        icon={Handshake}
+        title="Negotiation & Commercial Alignment"
+        subtitle={`${requests.length} client request${requests.length === 1 ? "" : "s"}`}
+        actions={
+          <SetuButton variant="primary" size="sm" onClick={() => setEditing("new")} disabled={editing === "new"}>
+            <Plus /> Add Request
+          </SetuButton>
+        }
+      />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2.2fr)]">
         {/* Proposed value */}
         <section className="setu-card px-5 py-5">
           <div className="flex items-center justify-between">
-            <p className="setu-text-2 text-xs font-semibold uppercase tracking-wider">Proposed Value</p>
-            <span className="h-2 w-2 rounded-full bg-[var(--setu-accent)]" />
+            <p className="text-xs font-semibold text-muted-foreground">Proposed Value</p>
+            <span className="h-2 w-2 rounded-full bg-foreground/40" />
           </div>
           <p className="mt-3 text-2xl font-bold tracking-tight tabular-nums">{deal.value !== undefined ? formatInr(deal.value) : "Not set"}</p>
           {deal.value !== undefined && deal.proposalVersion ? <p className="setu-text-2 mt-2 text-xs">Proposal V{deal.proposalVersion}</p> : null}
@@ -42,12 +47,12 @@ export function DealNegotiationsTab({ deal }: { deal: Deal }) {
         <section className="setu-card px-5 py-5">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--setu-line)] pb-4">
             <div className="flex items-center gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-accent-soft)] text-[var(--setu-accent)]">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--setu-well)] text-[var(--setu-text-2)]">
                 <Handshake size={15} />
               </span>
-              <h3 className="text-xs font-bold uppercase tracking-wide">Active Client Requests (Multi-Level)</h3>
+              <h3 className="text-sm font-semibold">Active Client Requests (Multi-Level)</h3>
             </div>
-            <SetuButton variant="soft" size="sm" onClick={() => setEditing("new")} disabled={editing === "new"}>
+            <SetuButton variant="secondary" size="sm" onClick={() => setEditing("new")} disabled={editing === "new"}>
               <Plus /> Add Request
             </SetuButton>
           </div>
@@ -140,10 +145,10 @@ function RequestForm({ dealId, request, defaultBy, onDone }: { dealId: string; r
   };
 
   return (
-    <form onSubmit={save} className="space-y-2.5 rounded-lg border border-[var(--setu-accent-ring)] bg-[var(--setu-card)] p-3.5">
+    <form onSubmit={save} className="space-y-2.5 rounded-lg border border-[var(--setu-line-strong)] bg-[var(--setu-card)] p-3.5">
       <div className="grid gap-2.5 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. 10% discount on 2-yr renewal" className="setu-input h-10" autoFocus />
-        <Input value={by} onChange={(e) => setBy(e.target.value)} placeholder="Requested by" className="setu-input h-10" />
+        <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="e.g. 10% discount on 2-yr renewal" className="setu-input h-9" autoFocus />
+        <Input value={by} onChange={(e) => setBy(e.target.value)} placeholder="Requested by" className="setu-input h-9" />
       </div>
       <div className="flex items-center justify-between gap-2">
         {request ? (
@@ -163,7 +168,7 @@ function RequestForm({ dealId, request, defaultBy, onDone }: { dealId: string; r
           <SetuButton size="sm" onClick={onDone}>
             Cancel
           </SetuButton>
-          <SetuButton variant="primary" size="sm" type="submit" disabled={!text.trim() || !by.trim() || saving}>
+          <SetuButton variant="secondary" size="sm" type="submit" disabled={!text.trim() || !by.trim() || saving}>
             {request ? "Save" : "Add Request"}
           </SetuButton>
         </div>
