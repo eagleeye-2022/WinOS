@@ -261,6 +261,19 @@ export type MemberReviewEntry = {
       attendees: { email: string; status: string }[];
     } | null;
   }[];
+  /**
+   * Support-needed meetings raised in OTHER members' DSMs on this same day whose calendar meeting
+   * includes this member (attendee or organizer). Read-only here — they belong to the other entry.
+   */
+  sharedSupportMeetings?: SharedSupportMeeting[];
+};
+
+export type SharedSupportMeeting = {
+  id: string;
+  text: string;
+  resolved: boolean;
+  raisedBy: { id: string; name: string | null; email: string };
+  event: NonNullable<MemberReviewEntry["supportNeeds"][number]["event"]>;
 };
 
 export type AllUser = {
@@ -768,9 +781,63 @@ export async function getMemberReview(
     }
   }
 
-  const entries = entriesWithLinkedDueDates(await attachMentionedUsers(entriesRaw));
+  const entries = entriesWithLinkedDueDates(await attachMentionedUsers(entriesRaw)) as MemberReviewEntry[];
 
-  return { user, entries: entries as MemberReviewEntry[] };
+  // Meetings scheduled from other members' "Support Needed" items that include this member.
+  const sharedRaw: {
+    id: string;
+    text: string;
+    resolved: boolean;
+    entry: { date: Date; user: { id: string; name: string | null; email: string } };
+    event: SharedSupportMeeting["event"] | null;
+  }[] = await d.standupSupportNeed.findMany({
+    where: {
+      eventId: { not: null },
+      entry: { userId: { not: memberId }, date: { gte: extendedStart, lte: end } },
+      event: {
+        OR: [
+          { organizerId: memberId },
+          { attendees: { some: { OR: [{ userId: memberId }, { email: user.email }] } } },
+        ],
+      },
+    },
+    orderBy: { order: "asc" },
+    select: {
+      id: true,
+      text: true,
+      resolved: true,
+      entry: { select: { date: true, user: { select: { id: true, name: true, email: true } } } },
+      event: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          start: true,
+          end: true,
+          isAllDay: true,
+          updatedAt: true,
+          organizer: { select: { email: true } },
+          attendees: { select: { email: true, status: true } },
+        },
+      },
+    },
+  });
+
+  const sharedByDate = new Map<string, SharedSupportMeeting[]>();
+  for (const s of sharedRaw) {
+    if (!s.event) continue;
+    const key = toIsoDateStr(toUtcDate(new Date(s.entry.date)));
+    const list = sharedByDate.get(key) ?? [];
+    list.push({ id: s.id, text: s.text, resolved: s.resolved, raisedBy: s.entry.user, event: s.event });
+    sharedByDate.set(key, list);
+  }
+
+  const withShared = entries.map((e) => ({
+    ...e,
+    sharedSupportMeetings: sharedByDate.get(toIsoDateStr(toUtcDate(new Date(e.date)))) ?? [],
+  }));
+
+  return { user, entries: withShared };
 }
 
 /** All teams with their lead and members. */

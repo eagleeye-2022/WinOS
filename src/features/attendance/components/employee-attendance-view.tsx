@@ -109,6 +109,12 @@ export function EmployeeAttendanceView({
   const currentWeekRecords = weekDates.map((d) => recordsMap[d]).filter(Boolean);
   const monthLabel = `${MONTH_NAMES[monthIndex]} ${year}`;
   const weekLabel = `${formatShortDate(weekDates[0])} – ${formatShortDate(weekDates[6])}`;
+  // Same "DD Mon YYYY – DD Mon YYYY" format as the week range.
+  const monthStartKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}-01`;
+  const monthEndKey = `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(
+    new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
+  ).padStart(2, "0")}`;
+  const monthRangeLabel = `${formatShortDate(monthStartKey)} – ${formatShortDate(monthEndKey)}`;
 
   const handleOpenDrawer = (record: AttendanceRecord) => {
     setSelectedRecordForDrawer(record);
@@ -189,10 +195,20 @@ export function EmployeeAttendanceView({
       <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Attendance Log</h2>
-          <p className="text-xs text-muted-foreground">{viewMode === "week" ? weekLabel : monthLabel}</p>
+          <p className="text-xs text-muted-foreground">{viewMode === "week" ? weekLabel : monthRangeLabel}</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Left of the toggle + fixed-width picker, so Week/Month never shifts when this appears. */}
+          {selectedDate !== today && (
+            <button
+              onClick={() => setSelectedDate(today)}
+              className="h-8 rounded-lg border border-border/80 bg-background px-3 text-xs font-semibold text-foreground hover:bg-accent"
+            >
+              Today
+            </button>
+          )}
+
           <div className="flex items-center rounded-md border border-border/70 bg-muted/50 p-0.5">
             <button
               onClick={() => setViewMode("week")}
@@ -223,7 +239,7 @@ export function EmployeeAttendanceView({
             modes={["day", "month"]}
             value={viewMode === "week" ? selectedDate : selectedDate.slice(0, 7)}
             stepDays={7}
-            label={viewMode === "week" ? weekLabel : undefined}
+            label={viewMode === "week" ? weekLabel : monthRangeLabel}
             onChange={(period) => {
               if (periodKind(period) === "month") {
                 setViewMode("month");
@@ -233,16 +249,8 @@ export function EmployeeAttendanceView({
                 setSelectedDate(period);
               }
             }}
+            triggerClassName="w-[230px] tabular-nums"
           />
-
-          {selectedDate !== today && (
-            <button
-              onClick={() => setSelectedDate(today)}
-              className="h-8 rounded-lg border border-border/80 bg-background px-3 text-xs font-semibold text-foreground hover:bg-accent"
-            >
-              Today
-            </button>
-          )}
         </div>
       </div>
 

@@ -157,6 +157,14 @@ function supportEventToView(event: {
   };
 }
 
+/** "26 Nov, 5:00 pm" in IST (date only for all-day meetings). */
+function formatMeetingTime(start: Date, isAllDay: boolean): string {
+  const opts: Intl.DateTimeFormatOptions = isAllDay
+    ? { timeZone: "Asia/Kolkata", day: "numeric", month: "short" }
+    : { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" };
+  return new Date(start).toLocaleString("en-IN", opts);
+}
+
 // ── Priority helpers ──────────────────────────────────────────────────────────
 
 /** Priority levels for a given task count — exactly one level per task, unbounded */
@@ -987,6 +995,17 @@ function AddSupportRow({
   const [text, setText] = useState("");
   const [mentionedUserIds, setMentionedUserIds] = useState<string[]>([]);
   const [scheduledEvent, setScheduledEvent] = useState<CalendarEventView | null>(null);
+  // True while the meeting dialog is open: focus leaves the form then, and the blur auto-save
+  // would save the row before the meeting exists (so it never gets linked).
+  const schedulingRef = useRef(false);
+  const openScheduler = () => {
+    const titleText = text.trim() ? `Support Needed: ${text.trim()}` : "Support Needed Meeting";
+    schedulingRef.current = true;
+    onScheduleMeeting?.(titleText, mentionedUserIds, (createdView) => {
+      schedulingRef.current = false;
+      setScheduledEvent(createdView);
+    });
+  };
 
   useFormDraft(`winos_dsm_review_add_support_${entryId}`, { text, mentionedUserIds, scheduledEvent }, adding, (d) => {
     setText(d.text ?? "");
@@ -1021,7 +1040,12 @@ function AddSupportRow({
         setMentionedUserIds([]);
         setScheduledEvent(null);
       }}
+      onFocus={() => {
+        // Focus is back in the form (dialog closed or cancelled) — blur auto-save is allowed again.
+        schedulingRef.current = false;
+      }}
       onBlur={(e) => {
+        if (schedulingRef.current) return;
         if (!e.currentTarget.contains(e.relatedTarget) && text.trim()) {
           e.currentTarget.requestSubmit();
         }
@@ -1055,20 +1079,14 @@ function AddSupportRow({
               event={scheduledEvent}
               supportId=""
               fallbackTitle={text.trim() ? `Support Needed: ${text.trim()}` : "Support Needed Meeting"}
-              onEdit={() => {
-                const titleText = text.trim() ? `Support Needed: ${text.trim()}` : "Support Needed Meeting";
-                onScheduleMeeting?.(titleText, mentionedUserIds, (createdView) => setScheduledEvent(createdView));
-              }}
+              onEdit={openScheduler}
               onDeleted={() => setScheduledEvent(null)}
             />
           ) : (
             onScheduleMeeting && (
               <button
                 type="button"
-                onClick={() => {
-                  const titleText = text.trim() ? `Support Needed: ${text.trim()}` : "Support Needed Meeting";
-                  onScheduleMeeting(titleText, mentionedUserIds, (createdView) => setScheduledEvent(createdView));
-                }}
+                onClick={openScheduler}
                 className="flex items-center gap-1.5 text-xs font-semibold rounded-lg border border-border bg-transparent hover:bg-accent text-muted-foreground hover:text-foreground px-2.5 py-1 transition-all cursor-pointer shadow-xs active:scale-95"
               >
                 <Calendar size={12} className="text-muted-foreground" />
@@ -3579,7 +3597,7 @@ function EntryExpanded({
               <SupportNeededIcon size={15} className="text-info" />
               Support Needed (Meeting)?
               <span className="rounded-full bg-info/15 px-2 py-0.5 text-xs font-semibold text-info">
-                {entry.supportNeeds.length}
+                {entry.supportNeeds.length + (entry.sharedSupportMeetings?.length ?? 0)}
               </span>
             </span>
           </h3>
@@ -3666,6 +3684,41 @@ function EntryExpanded({
                     )}
                   </div>
                   {/* {!isLocked && <DeleteSupportButton supportId={s.id} />} */}
+                </div>
+              );
+            })}
+            {(entry.sharedSupportMeetings ?? []).map((m) => {
+              const view = supportEventToView(m.event);
+              const raisedBy = m.raisedBy.name ?? m.raisedBy.email.split("@")[0];
+              return (
+                <div key={`shared-${m.id}`} className="flex flex-col gap-1.5 rounded-lg px-2.5 py-2 transition-colors hover:bg-info/10">
+                  <div className="flex items-start gap-1.5">
+                    <span className={cn("flex-1 text-sm leading-snug text-foreground/90", m.resolved && "line-through text-muted-foreground")}>
+                      {m.text}
+                    </span>
+                    <span className="shrink-0 rounded-full border border-info/30 bg-info/10 px-1.5 py-0.5 text-xs font-semibold text-info">
+                      From {toTitleCase(raisedBy)}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pl-0.5 pt-0.5">
+                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Calendar size={12} className="text-muted-foreground" />
+                      <span className="max-w-[220px] truncate font-medium" title={view.title}>{view.title}</span>
+                      <span>·</span>
+                      <span>{formatMeetingTime(view.start, view.isAllDay)}</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setScheduleModal({ mode: "edit", title: view.title, participantIds: [], event: view })
+                      }
+                      title="Edit meeting"
+                      className="flex items-center gap-1.5 rounded-lg border border-border bg-transparent px-2.5 py-1 text-xs font-semibold text-muted-foreground shadow-xs transition-all hover:bg-accent hover:text-foreground active:scale-95"
+                    >
+                      <Pencil size={11} className="text-muted-foreground" />
+                      Edit Meeting
+                    </button>
+                  </div>
                 </div>
               );
             })}
