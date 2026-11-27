@@ -75,7 +75,8 @@ async function uploadSelfie(blob: Blob): Promise<string> {
 
 /**
  * Check-in capture: a live selfie from the front camera plus the browser's GPS fix.
- * The photo is required; the location is optional (saved when found, otherwise "Not recorded").
+ * The photo is required. The location is required to check in; for check-out it's optional
+ * (saved when found, otherwise "Not recorded").
  * Camera and location only work on HTTPS (or localhost).
  */
 export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = "check-in", extra }: CheckInCaptureModalProps) {
@@ -242,10 +243,12 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
     onClose();
   };
 
-  // Location never blocks the punch: it's sent when it's ready, otherwise the check-in/out goes ahead without it.
+  // Check-in needs the location (Confirm stays disabled until it's found); check-out sends it when
+  // it's ready and otherwise goes ahead without it.
   const confirm = async () => {
     if (!photo) return;
     const location = locationState.status === "ready" ? locationState.location : undefined;
+    if (mode === "check-in" && !location) return;
     if (locationState.status === "locating") stopLocating();
     setIsSubmitting(true);
     setSubmitError(null);
@@ -261,7 +264,10 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
     }
   };
 
-  const canConfirm = Boolean(photo) && !isSubmitting;
+  /** Location is compulsory for checking in; check-out can go ahead without it. */
+  const locationRequired = mode === "check-in";
+  const hasLocation = locationState.status === "ready";
+  const canConfirm = Boolean(photo) && !isSubmitting && (!locationRequired || hasLocation);
 
   // Portalled to <body>, so it covers the whole screen even when opened from inside the sidebar
   // (whose box would otherwise clip it).
@@ -272,7 +278,9 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
           <div>
             <h3 className="text-base font-bold text-foreground">{heading}</h3>
             <p className="text-xs text-muted-foreground">
-              A photo is required. Sharing your location is optional.
+              {mode === "check-in"
+                ? "A photo and your location are required."
+                : "A photo is required. Sharing your location is optional."}
             </p>
           </div>
           <button
@@ -391,7 +399,9 @@ export function CheckInCaptureModal({ isOpen, onClose, onConfirm, title, mode = 
               {locationState.status === "error" && (
                 <>
                   <p className="text-rose-700 dark:text-rose-300">{locationState.message}</p>
-                  <p className="mt-0.5 text-muted-foreground">You can still {verb} without it.</p>
+                  <p className="mt-0.5 text-muted-foreground">
+                    {mode === "check-in" ? "Your location is required to check in." : `You can still ${verb} without it.`}
+                  </p>
                   <button type="button" onClick={locate} className="mt-1 font-semibold text-rose-700 underline dark:text-rose-300">
                     Try again
                   </button>

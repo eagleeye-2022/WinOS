@@ -30,7 +30,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { StatusPill, TONE_SOFT, type PulseTone } from "@/components/pulse/pulse-ui";
+import { DateTile, StatusPill, TONE_SOFT, type PulseTone } from "@/components/pulse/pulse-ui";
 import { getHolidaysAction } from "../queries/leave-queries";
 import {
   createHolidayAction,
@@ -139,12 +139,11 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
     }
   };
 
-  const TYPE_LOOK: Record<HolidayRecord["type"], { label: string; tone: PulseTone; strip: string }> = {
-    PUBLIC: { label: "Public Holiday", tone: "blue", strip: "bg-blue-500" },
-    COMPANY_SPECIAL: { label: "Special Holiday", tone: "violet", strip: "bg-violet-500" },
-    OPTIONAL: { label: "Optional Holiday", tone: "green", strip: "bg-emerald-500" },
+  const TYPE_LOOK: Record<HolidayRecord["type"], { label: string; tone: PulseTone }> = {
+    PUBLIC: { label: "Public Holiday", tone: "blue" },
+    COMPANY_SPECIAL: { label: "Special Holiday", tone: "violet" },
+    OPTIONAL: { label: "Optional Holiday", tone: "green" },
   };
-  const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const stats: { label: string; value: number; tone: PulseTone; icon: React.ReactNode }[] = [
     { label: "Total Holidays", value: metrics.total, tone: "violet", icon: <Calendar className="h-4 w-4" /> },
     { label: "Upcoming", value: metrics.upcoming, tone: "green", icon: <CalendarCheck className="h-4 w-4" /> },
@@ -233,20 +232,12 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
             ) : (
               holidayList.map((holiday) => {
                 const look = TYPE_LOOK[holiday.type] ?? TYPE_LOOK.PUBLIC;
-                // holiday.date reads like "26 Jan 2026" or "2026-01-26"; show a day + month block when we can.
-                const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(holiday.date);
-                const parts = holiday.date.split(" ");
-                const dayNum = iso ? iso[3] : parts[0];
-                const mon = iso ? MONTHS_SHORT[Number(iso[2]) - 1] : parts[1]?.slice(0, 3);
                 return (
                   <tr key={holiday.id} className="transition-colors hover:bg-muted/40">
                     {/* Holiday + date block */}
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 shrink-0 flex-col overflow-hidden rounded-md border border-border/70 text-center leading-none">
-                          <span className={cn("py-0.5 text-[9px] font-bold uppercase text-white", look.strip)}>{mon}</span>
-                          <span className="flex flex-1 items-center justify-center text-sm font-bold text-foreground">{dayNum}</span>
-                        </div>
+                        <DateTile date={holiday.date} tone={look.tone} />
                         <div className="min-w-0">
                           <p className="flex items-center gap-1.5 text-[13px] font-semibold text-foreground">
                             <span>{holiday.iconType || "🎉"}</span>

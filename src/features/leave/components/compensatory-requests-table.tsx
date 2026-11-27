@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
+import { DateTile, StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
 
 interface CompensatoryRequestsTableProps {
   requests: CompensatoryRequest[];
@@ -164,8 +164,13 @@ export function CompensatoryRequestsTable({
                     >
                       {/* Work Date */}
                       <td className="py-3 px-4">
-                        <div className="font-semibold text-foreground">{r.workDate}</div>
-                        <div className="text-xs text-muted-foreground">{r.workDayOfWeek}</div>
+                        <div className="flex items-center gap-2.5">
+                          <DateTile date={r.workDate} tone="violet" size="sm" />
+                          <div>
+                            <div className="font-semibold text-foreground">{r.workDate}</div>
+                            <div className="text-xs text-muted-foreground">{r.workDayOfWeek}</div>
+                          </div>
+                        </div>
                       </td>
 
                       {/* Hours Worked */}

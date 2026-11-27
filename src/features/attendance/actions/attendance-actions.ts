@@ -115,7 +115,7 @@ export async function lookupPlaceAction(loc: CheckInLocation) {
 export async function checkInAction(payload?: {
   workMode?: "OFFICE" | "REMOTE";
   source?: string;
-  /** Optional: where the employee is when checking in (saved as "Not recorded" when left out). */
+  /** Required: where the employee is when checking in. */
   location?: CheckInLocation;
   /** Required: selfie URL from POST /api/uploads. */
   photo?: string;
@@ -125,6 +125,10 @@ export async function checkInAction(payload?: {
 
   const invalid = captureError(payload, "check in");
   if (invalid || !payload?.photo) return fail(invalid ?? "Take a photo to check in.");
+  // Location is compulsory for checking in (check-out still goes through without one).
+  if (!validLocation(payload.location)) {
+    return fail("Share your location to check in. Allow location for this site in your browser, then try again.");
+  }
 
   // Taken before the address lookup, so the check-in time is when the employee confirmed.
   const now = new Date();

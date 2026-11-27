@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   CalendarClock,
   CalendarDays,
+  ChevronDown,
   Clock,
   Loader2,
   LogIn,
@@ -20,6 +21,8 @@ import {
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserName } from "@/components/shared/user-card";
 import {
+  CountTile,
+  DateTile,
   PulseCard,
   PulseCardLink,
   PulsePage,
@@ -39,6 +42,7 @@ import { ROUTES } from "@/constants/routes";
 import { getActiveTimerAction } from "@/features/projects/actions/active-timer-actions";
 import { projectTaskHref } from "@/lib/project-task-href";
 import { cn } from "@/lib/utils";
+import { usePageViewState } from "@/lib/navigation/use-url-state";
 import type { PulseHomeData, PulsePerson } from "../queries";
 import type { DayTone } from "../utils";
 
@@ -49,8 +53,6 @@ const TONE: Record<DayTone, PulseTone> = {
   muted: "gray",
 };
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
 function initials(name: string) {
   return name
     .split(" ")
@@ -59,17 +61,6 @@ function initials(name: string) {
     .join("")
     .toUpperCase()
     .slice(0, 2);
-}
-
-function personLabel(p: Pick<PulsePerson, "employeeId" | "name">) {
-  return p.employeeId ? (
-    <>
-      <span className="text-muted-foreground">{p.employeeId} - </span>
-      {p.name}
-    </>
-  ) : (
-    p.name
-  );
 }
 
 // ── Active task timer (above the check-in / check-out button) ────────────────
@@ -231,7 +222,7 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
         {initials(me.name)}
       </UserAvatar>
 
-      <p className="text-sm font-semibold text-foreground">{personLabel(me)}</p>
+      <p className="text-sm font-semibold text-foreground">{me.name}</p>
       {me.title && <p className="mt-0.5 text-xs text-muted-foreground">{me.title}</p>}
 
       <div className="mt-2">
@@ -313,7 +304,7 @@ function CheckInCard({ data }: { data: PulseHomeData }) {
   );
 }
 
-function PersonRow({ person, profileHref }: { person: PulsePerson; profileHref?: string }) {
+function PersonRow({ person }: { person: PulsePerson }) {
   const tone = TONE[person.presence.tone];
   return (
     <div className="flex items-center gap-3">
@@ -328,27 +319,22 @@ function PersonRow({ person, profileHref }: { person: PulsePerson; profileHref?:
           {initials(person.name)}
         </UserAvatar>
         <span
-          className={cn("absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-card", TONE_DOT[tone])}
+          className={cn(
+            "absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-card",
+            // Not in yet (red) / unknown: a hollow outline instead of a coloured dot.
+            tone === "red" || tone === "gray" ? "border-[1.5px] border-muted-foreground bg-card" : TONE_DOT[tone]
+          )}
           title={person.presence.label}
         />
       </div>
       <div className="min-w-0 text-sm">
-        <p className="truncate font-medium text-foreground">
+        <p className="truncate font-medium text-muted-foreground">
           <UserName userId={person.id} name={person.name} email={person.email}>
-            {personLabel(person)}
+            {person.name}
           </UserName>
         </p>
-        <p className={cn("text-xs", TONE_TEXT[tone])}>{person.presence.label}</p>
+        <p className="text-xs text-muted-foreground">{person.presence.label}</p>
       </div>
-      {/* Managers: open this member's profile (details, attendance, leave). */}
-      {profileHref && (
-        <Link
-          href={profileHref}
-          className="ml-auto shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-blue-600 transition-colors hover:bg-blue-50 hover:text-foreground dark:text-blue-400 dark:hover:bg-blue-500/10"
-        >
-          Profile
-        </Link>
-      )}
     </div>
   );
 }
@@ -385,38 +371,61 @@ function GreetingCard({ data }: { data: PulseHomeData }) {
           <span className="inline-flex items-center gap-1.5 text-muted-foreground">
             <CalendarDays className="h-3.5 w-3.5" />
             {data.todayLabel}
-          </span>
-          <StatusPill tone={TONE[data.me.presence.tone]}>{data.todaySummary}</StatusPill>
-        </div>
+          </span>        </div>
       </div>
       <GreetingArt />
     </PulseCard>
   );
 }
 
+/** Absent days shown before "Show all". */
+const ABSENT_PREVIEW = 6;
+
 function AbsentDaysCard({ days, onApply }: { days: PulseHomeData["absentDays"]; onApply: (d: ActionRequiredItem) => void }) {
+  const [showAll, setShowAll] = usePageViewState("PulseHome:absentShowAll", false);
   if (days.length === 0) return null;
+  // Latest first; only the latest few until expanded.
+  const sorted = [...days].sort((a, b) => b.date.localeCompare(a.date));
+  const hidden = sorted.length - ABSENT_PREVIEW;
+  const visible = showAll ? sorted : sorted.slice(0, ABSENT_PREVIEW);
   return (
     <PulseCard
       icon={<AlertTriangle className="h-4 w-4" />}
       iconTone="red"
       title="Attendance needs your attention"
+      action={
+        hidden > 0 ? (
+          <button
+            type="button"
+            onClick={() => setShowAll(!showAll)}
+            aria-expanded={showAll}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+          >
+            {showAll ? "Show less" : `Show all (${days.length})`}
+            <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showAll && "rotate-180")} />
+          </button>
+        ) : undefined
+      }
     >
       <div className="flex flex-wrap gap-2.5">
-        {days.map((d) => (
+        {visible.map((d) => (
           <button
             key={d.id}
             type="button"
             onClick={() => onApply(d)}
             title="Apply leave for this day"
-            className="rounded-md border border-l-4 border-border/70 border-l-rose-500 px-3.5 py-2 text-left transition-colors hover:bg-muted/60"
+            className="flex items-center gap-3 rounded-md border border-border/70 py-2 pl-2 pr-3.5 text-left transition-colors hover:bg-muted/60"
           >
-            <p className="text-[13px] font-semibold text-foreground">
-              {d.date.split("-").reverse().join("/")}, {d.dayName}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {d.absentDays} {d.absentDays === 1 ? "day" : "days"}
-            </p>
+            <DateTile date={d.date} tone="red" stripClassName="bg-rose-400" />
+            <span>
+              <span className="block text-[13px] font-semibold text-foreground">
+                {/* {d.date.split("-").reverse().join("/")},{" "} */}
+                {d.dayName}
+              </span>
+              <span className="block text-xs text-muted-foreground">
+                {d.absentDays} {d.absentDays === 1 ? "day" : "days"}
+              </span>
+            </span>
           </button>
         ))}
       </div>
@@ -505,15 +514,9 @@ function HolidaysCard({ holidays }: { holidays: PulseHomeData["holidays"] }) {
           {holidays.map((h) => {
             // dateLabel is "dd/mm/yyyy, Weekday".
             const [dmy, weekday = ""] = h.dateLabel.split(", ");
-            const [d, m] = dmy.split("/");
             return (
               <li key={h.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
-                <div className="flex h-11 w-11 shrink-0 flex-col items-center justify-center overflow-hidden rounded-md border border-border/70 text-center">
-                  <span className="w-full bg-amber-500 text-[9px] font-bold uppercase leading-4 text-white">
-                    {MONTHS[Number(m) - 1]}
-                  </span>
-                  <span className="text-sm font-bold leading-6 text-foreground">{d}</span>
-                </div>
+                <DateTile date={dmy} tone={h.isOptional ? "violet" : "blue"} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-semibold text-foreground">{h.name}</p>
                   <p className="text-xs text-muted-foreground">{weekday}</p>
@@ -538,28 +541,34 @@ function LossOfPayCard({ lop }: { lop: PulseHomeData["lossOfPay"] }) {
       subtitle={lop.rangeLabel}
       action={<PulseCardLink href={`${ROUTES.pulseReports}?report=my-payroll`}>View Details</PulseCardLink>}
     >
-      <div className="flex items-baseline gap-2">
-        <span className={cn("text-3xl font-bold tabular-nums", hasLop ? TONE_TEXT.red : "text-foreground")}>
-          {lop.totalDays}
-        </span>
-        <span className="text-sm text-muted-foreground">{lop.totalDays === 1 ? "day" : "days"} total</span>
-      </div>
-      {lop.breakdown.length > 0 ? (
-        <ul className="mt-3 space-y-1.5">
+      {/* Same list look as Upcoming Holidays: tile + label, one row per reason. */}
+      {hasLop && lop.breakdown.length > 0 ? (
+        <ul className="divide-y divide-border/70">
           {lop.breakdown.map((b) => (
-            <li key={b.label} className="flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-1.5 text-xs">
-              <span className="inline-flex items-center gap-2 text-foreground">
-                <span className="h-2 w-2 rounded-full bg-rose-500" />
-                {b.label}
-              </span>
-              <span className="font-semibold text-foreground">
-                {b.days} {b.days === 1 ? "day" : "days"}
-              </span>
+            <li key={b.label} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+              <CountTile value={b.days} tone="red" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-semibold text-foreground">{b.label}</p>
+                <p className="text-xs text-muted-foreground">
+                  {b.days} {b.days === 1 ? "day" : "days"}
+                </p>
+              </div>
             </li>
           ))}
+          {lop.breakdown.length > 1 && (
+            <li className="flex items-center gap-3 py-2.5 last:pb-0">
+              <CountTile value={lop.totalDays} tone="gray" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-semibold text-foreground">Total</p>
+                <p className="text-xs text-muted-foreground">
+                  {lop.totalDays} {lop.totalDays === 1 ? "day" : "days"}
+                </p>
+              </div>
+            </li>
+          )}
         </ul>
       ) : (
-        <p className="mt-2 text-xs text-muted-foreground">No loss of pay for this period.</p>
+        <p className="text-sm text-muted-foreground">No loss of pay for this period.</p>
       )}
     </PulseCard>
   );
@@ -815,7 +824,7 @@ export function PulseHomeView({ data }: { data: PulseHomeData }) {
             >
               <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
                 {data.members.map((m) => (
-                  <PersonRow key={m.id} person={m} profileHref={data.canManage ? `/pulse/profile/${m.id}` : undefined} />
+                  <PersonRow key={m.id} person={m} />
                 ))}
               </div>
             </PulseCard>

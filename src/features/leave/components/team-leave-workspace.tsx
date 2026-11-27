@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserName } from "@/components/shared/user-card";
 import {
+  DateTile,
   PULSE_PAGE_BG,
   PulseStatTiles,
   PulseStickyTabs,
@@ -787,8 +788,13 @@ export function TeamLeaveWorkspace({
                         </td>
 
                         <td className="py-3 px-4">
-                          <div className="font-semibold text-foreground">{comp.workDate}</div>
-                          <div className="text-xs text-muted-foreground">({comp.workDay})</div>
+                          <div className="flex items-center gap-2.5">
+                            <DateTile date={comp.workDate} tone="violet" size="sm" />
+                            <div>
+                              <div className="font-semibold text-foreground">{comp.workDate}</div>
+                              <div className="text-xs text-muted-foreground">({comp.workDay})</div>
+                            </div>
+                          </div>
                         </td>
 
                         <td className="py-3 px-4 whitespace-pre-line text-muted-foreground font-medium">

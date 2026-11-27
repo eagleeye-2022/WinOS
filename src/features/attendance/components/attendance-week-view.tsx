@@ -4,7 +4,7 @@
 import { Building2, LogIn, LogOut, Wifi } from "lucide-react";
 import { AttendanceRecord } from "../types";
 import { istDateKey } from "../utils";
-import { TONE_DOT, TONE_SOFT, type PulseTone } from "@/components/pulse/pulse-ui";
+import { DateTile, TONE_DOT, TONE_SOFT, type PulseTone } from "@/components/pulse/pulse-ui";
 import { cn } from "@/lib/utils";
 
 interface AttendanceWeekViewProps {
@@ -122,17 +122,7 @@ export function AttendanceWeekView({
             >
               {/* Date */}
               <div className="flex items-center gap-2.5">
-                <div
-                  className={cn(
-                    "flex h-10 w-10 shrink-0 flex-col items-center justify-center rounded-md border text-center leading-none",
-                    isToday ? "border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500" : "border-border/70 bg-card text-foreground"
-                  )}
-                >
-                  <span className="text-sm font-bold">{dayNum}</span>
-                  <span className={cn("mt-0.5 text-[9px] font-semibold uppercase", isToday ? "text-white/80" : "text-muted-foreground")}>
-                    {mon?.slice(0, 3)}
-                  </span>
-                </div>
+                <DateTile day={dayNum} month={mon} tone={isToday ? "blue" : look.tone} highlighted={isToday} />
                 <span className={cn("hidden text-xs font-semibold uppercase md:inline", isToday ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground")}>
                   {record.dayOfWeek}
                 </span>

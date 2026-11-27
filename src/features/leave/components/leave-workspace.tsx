@@ -22,7 +22,7 @@ import { LeaveRequestDetailsView } from "./leave-request-details-view";
 import { CompensatoryDetailsView } from "./compensatory-details-view";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { PULSE_PAGE_BG, PulseStickyTabs, PulseTabs, StatusPill } from "@/components/pulse/pulse-ui";
+import { PULSE_PAGE_BG, PulseStickyTabs, PulseTabs } from "@/components/pulse/pulse-ui";
 import { usePathTab, usePageViewState } from "@/lib/navigation/use-url-state";
 import { ROUTES } from "@/constants/routes";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
@@ -378,12 +378,13 @@ export function LeaveWorkspace({
                 <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1.5">
                     <h1 className="text-lg font-semibold text-foreground">Leave Tracker</h1>
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <StatusPill tone="blue">Booked this year · {stats.bookedThisYear} day(s)</StatusPill>
-                      <span title="Working days with no check-in and no leave — the same days Home counts as loss of pay">
-                        <StatusPill tone={stats.absentDays > 0 ? "red" : "gray"}>Absent this year · {stats.absentDays} day(s)</StatusPill>
+                    <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+                      <span>Booked · {stats.bookedThisYear} {stats.bookedThisYear === 1 ? "day" : "days"}</span>
+                      <span aria-hidden>|</span>
+                      <span title="Working days this year with no check-in and no leave — the same days Home counts as loss of pay">
+                        Absent · {stats.absentDays} {stats.absentDays === 1 ? "day" : "days"}
                       </span>
-                    </div>
+                    </p>
                   </div>
 
                   <Button

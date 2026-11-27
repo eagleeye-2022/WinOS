@@ -11,7 +11,7 @@ import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Plus, X
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/constants/routes";
-import { PULSE_PAGE_BG, PulseStickyTabs, PulseTabs, StatusPill } from "@/components/pulse/pulse-ui";
+import { DateTile, PULSE_PAGE_BG, PulseStickyTabs, PulseTabs, StatusPill } from "@/components/pulse/pulse-ui";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 import { EmployeeSwitcherHeader, type SwitcherEmployee } from "@/components/pulse/employee-switcher-header";
 import { useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
@@ -342,7 +342,12 @@ function SummaryTab({
                 {absent.map((a) => (
                   <tr key={a.dateKey}>
                     <td className="px-5 py-2.5 text-foreground">
-                      {dmy(a.dateKey)}, {a.dayName}
+                      <div className="flex items-center gap-3">
+                        <DateTile date={a.dateKey} tone="red" size="sm" />
+                        <span>
+                          {dmy(a.dateKey)}, {a.dayName}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-5 py-2.5 text-muted-foreground">{a.days === 1 ? "1 day" : `${a.days} day`}</td>
                     <td className="px-5 py-2.5 text-right">
