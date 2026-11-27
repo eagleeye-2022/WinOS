@@ -396,7 +396,7 @@ export function TaskSidebarTree({
                     type="button"
                     onClick={() => duplicate(item)}
                     disabled={duplicatingId === item.id}
-                    title="Copy this task with its description, owners, dates and subtasks (not time logs)"
+                    title="Copy this task with its description, owners, dates and subtasks (not effort logs)"
                     className="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-accent transition-colors cursor-pointer disabled:cursor-wait disabled:opacity-60"
                   >
                     {duplicatingId === item.id ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />}

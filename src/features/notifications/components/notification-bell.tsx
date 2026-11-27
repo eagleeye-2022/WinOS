@@ -3,9 +3,9 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { Bell, Check, CheckCheck, Clock3, CalendarDays, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { markNotificationRead, markAllNotificationsRead, type MarkReadState } from "../actions/mark-read";
 import type { NotificationItem } from "../queries";
+import { notificationHref } from "../utils";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -24,24 +24,53 @@ function timeAgo(date: Date): string {
 function NotifRow({
   notif,
   onRead,
+  onNavigate,
 }: {
   notif: NotificationItem;
   onRead: () => void;
+  onNavigate: () => void;
 }) {
   const [state, action, pending] = useActionState<MarkReadState, FormData>(
     markNotificationRead,
     {}
   );
+  const router = useRouter();
+  const href = notificationHref(notif);
 
   useEffect(() => {
     if (state.message === "marked") onRead();
   }, [state.message, onRead]);
 
+  /** Clicking the row marks it read (best-effort) and opens its page. */
+  function openNotification() {
+    if (!href) return;
+    if (!notif.readAt) {
+      const fd = new FormData();
+      fd.set("notificationId", notif.id);
+      void markNotificationRead({}, fd)
+        .then((res) => {
+          if (res.message === "marked") onRead();
+        })
+        .catch(() => {});
+    }
+    onNavigate();
+    router.push(href);
+  }
+
   return (
     <div
+      role={href ? "link" : undefined}
+      tabIndex={href ? 0 : undefined}
+      onClick={openNotification}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openNotification();
+        }
+      }}
       className={`flex items-start gap-3 px-4 py-3 transition-colors hover:bg-accent/50 ${
         !notif.readAt ? "bg-primary/5" : ""
-      }`}
+      } ${href ? "cursor-pointer" : ""}`}
     >
       {/* Icon */}
       {notif.type === "CALENDAR_INVITE" ? (
@@ -56,20 +85,9 @@ function NotifRow({
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        {notif.type === "CALENDAR_INVITE" && notif.relatedEntryId ? (
-          <Link
-            href={`/calendar?event=${encodeURIComponent(notif.relatedEntryId)}`}
-            className="block hover:underline"
-          >
-            <p className={`text-sm leading-snug ${!notif.readAt ? "font-semibold" : "font-medium"}`}>
-              {notif.title}
-            </p>
-          </Link>
-        ) : (
-          <p className={`text-sm leading-snug ${!notif.readAt ? "font-semibold" : "font-medium"}`}>
-            {notif.title}
-          </p>
-        )}
+        <p className={`text-sm leading-snug ${!notif.readAt ? "font-semibold" : "font-medium"}`}>
+          {notif.title}
+        </p>
         <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed line-clamp-2">
           {notif.message}
         </p>
@@ -80,7 +98,7 @@ function NotifRow({
 
       {/* Mark read button */}
       {!notif.readAt && (
-        <form action={action} className="shrink-0">
+        <form action={action} className="shrink-0" onClick={(e) => e.stopPropagation()}>
           <input type="hidden" name="notificationId" value={notif.id} />
           <button
             type="submit"
@@ -210,6 +228,7 @@ export function NotificationBell({ initialUnread, initialNotifications }: Props)
                   key={n.id}
                   notif={n}
                   onRead={() => handleRead(n.id)}
+                  onNavigate={() => setOpen(false)}
                 />
               ))
             )}

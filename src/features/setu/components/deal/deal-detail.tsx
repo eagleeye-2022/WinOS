@@ -47,7 +47,7 @@ const TABS = [
   { id: "calls", label: "Calls", icon: Phone },
   { id: "meetings", label: "Meetings", icon: CalendarDays },
   { id: "notes", label: "Notes", icon: FileText },
-  { id: "time-logs", label: "Time Logs", icon: Clock3 },
+  { id: "time-logs", label: "Effort Logs", icon: Clock3 },
   { id: "discussions", label: "Discussions", icon: MessagesSquare },
   { id: "proposals", label: "Proposals & Docs", icon: FileCheck2 },
   { id: "negotiations", label: "Negotiations", icon: Handshake },

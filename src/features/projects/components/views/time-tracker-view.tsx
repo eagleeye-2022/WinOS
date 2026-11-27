@@ -1903,7 +1903,7 @@ export function TimeTrackerView({
 
                     <td className="py-3 px-4 border-r border-border font-mono font-bold whitespace-nowrap">
                       <div className="flex items-center gap-2 text-xs">
-                        <span className="text-foreground font-bold" title="Total Logged Hours">{totalStr}</span>
+                        <span className="text-foreground font-bold" title="Total Effort Hours">{totalStr}</span>
                         {showBilling && <span className="text-info font-bold" title="Billable Hours">{billableStr}</span>}
                         {showBilling && <span className="text-warning font-bold" title="Non-Billable Hours">{nonBillableStr}</span>}
                       </div>
@@ -2127,7 +2127,7 @@ export function TimeTrackerView({
 
                     <td className="py-3 px-4 border-r border-border font-mono font-bold whitespace-nowrap">
                       <div className="flex items-center gap-2 text-xs">
-                        <span className="text-foreground font-bold" title="Total Logged Hours">{totalStr}</span>
+                        <span className="text-foreground font-bold" title="Total Effort Hours">{totalStr}</span>
                         {showBilling && <span className="text-info font-bold" title="Billable Hours">{billableStr}</span>}
                         {showBilling && <span className="text-warning font-bold" title="Non-Billable Hours">{nonBillableStr}</span>}
                       </div>
@@ -2364,7 +2364,7 @@ export function TimeTrackerView({
 
             <div className={`grid ${showBilling ? "grid-cols-3" : "grid-cols-1"} gap-3 p-3 rounded-xl bg-muted/30 border border-border`}>
               <div>
-                <span className="text-xs text-muted-foreground font-semibold block uppercase">Total Logged Time</span>
+                <span className="text-xs text-muted-foreground font-semibold block uppercase">Total Effort Hours</span>
                 <span className="text-sm font-bold text-foreground font-mono">{formatMinutes(totalMinutesAll)}</span>
               </div>
               {showBilling && (
@@ -2427,7 +2427,7 @@ export function TimeTrackerView({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in-0 duration-150">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-5 shadow-2xl space-y-4 font-sans text-xs">
             <div className="flex items-center justify-between border-b pb-2 border-border">
-              <h3 className="text-sm font-bold text-foreground">Reject Selected Timesheets</h3>
+              <h3 className="text-sm font-bold text-foreground">Reject Selected Effort Logs</h3>
               <button
                 type="button"
                 onClick={() => setShowRejectionModal(false)}

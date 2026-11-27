@@ -1331,7 +1331,7 @@ export function TemplateTaskPage({
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Total Logged Hours</span>
+                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Total Effort Hours</span>
                   <span className="font-bold text-foreground font-mono text-sm dark:text-zinc-100">0.00 h</span>
                 </div>
               </div>

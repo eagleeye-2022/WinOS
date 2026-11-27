@@ -4947,7 +4947,7 @@ export async function createTimeLogAction(
   const session = await requireAuth();
   const isClient = await isClientUser(session.user.id);
   if (isClient) {
-    throw new Error("Client users have read-only access and cannot create time logs.");
+    throw new Error("Client users have read-only access and cannot create effort logs.");
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
@@ -5113,7 +5113,7 @@ export async function updateTimeLogAction(
   const session = await requireAuth();
   const isClient = await isClientUser(session.user.id);
   if (isClient) {
-    throw new Error("Client users have read-only access and cannot edit time logs.");
+    throw new Error("Client users have read-only access and cannot edit effort logs.");
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
@@ -5126,7 +5126,7 @@ export async function updateTimeLogAction(
 
   const isManager = await isPrivilegedViewer(session.user.id);
   if (!isManager && existingLog.userId !== session.user.id) {
-    throw new Error("You do not have permission to edit this time log.");
+    throw new Error("You do not have permission to edit this effort log.");
   }
 
   const dataToUpdate: any = {};
@@ -5233,7 +5233,7 @@ export async function deleteTimeLogAction(logId: string): Promise<{ success: boo
 export async function approveTimeLogsAction(logIds: string[]): Promise<boolean> {
   const session = await requireAuth();
   const isManager = await isPrivilegedViewer(session.user.id);
-  if (!isManager) throw new Error("Only managers can approve time logs.");
+  if (!isManager) throw new Error("Only managers can approve effort logs.");
 
   if (!logIds || logIds.length === 0) return true;
 
@@ -5254,7 +5254,7 @@ export async function rejectTimeLogsAction(
 ): Promise<boolean> {
   const session = await requireAuth();
   const isManager = await isPrivilegedViewer(session.user.id);
-  if (!isManager) throw new Error("Only managers can reject time logs.");
+  if (!isManager) throw new Error("Only managers can reject effort logs.");
 
   if (!logIds || logIds.length === 0) return true;
 

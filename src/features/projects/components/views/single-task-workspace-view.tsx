@@ -2133,7 +2133,7 @@ export function SingleTaskWorkspaceView({
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Total Logged Hours</span>
+                  <span className="text-muted-foreground block text-xs font-medium mb-1 dark:text-zinc-400">Total Effort Hours</span>
                   <span className="font-bold text-foreground font-mono text-sm dark:text-zinc-100">{formattedTotalTaskHours} h</span>
                 </div>
                 <div>
@@ -2580,7 +2580,7 @@ export function SingleTaskWorkspaceView({
                         {dateGroupsData.length === 0 ? (
                           <tr>
                             <td colSpan={showBilling ? 8 : 7} className="py-8 text-center text-muted-foreground italic">
-                              No effort logs recorded for this task yet. Click &quot;Add Effort Log&quot; to log work hours.
+                              No effort logs recorded for this task yet. Click &quot;Add Effort Log&quot; to log effort hours.
                             </td>
                           </tr>
                         ) : (

@@ -3,7 +3,16 @@ import { db } from "@/lib/db";
 
 export type NotificationItem = {
   id: string;
-  type: "DSM_REMINDER" | "REPORT_REMINDER" | "CALENDAR_INVITE";
+  type:
+    | "DSM_REMINDER"
+    | "REPORT_REMINDER"
+    | "CALENDAR_INVITE"
+    | "PROJECT_ASSIGNED"
+    | "CLIENT_INVITATION_SENT"
+    | "CLIENT_INVITATION_ACCEPTED"
+    | "CLIENT_INVITATION_REVOKED"
+    | "CLIENT_ADDED_TO_PROJECT"
+    | "CLIENT_REMOVED_FROM_PROJECT";
   title: string;
   message: string;
   readAt: Date | null;

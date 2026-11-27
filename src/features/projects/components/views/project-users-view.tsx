@@ -167,7 +167,7 @@ export function ProjectUsersView({
       "Department",
       "Open Tasks",
       "Completed Tasks",
-      "Total Hours Logged",
+      "Total Effort Hours",
       "Hourly Rate ($)",
       "Status",
     ];
@@ -597,7 +597,7 @@ export function ProjectUsersView({
                   {/* <th className="py-3 px-4 border-r">Project Role</th> */}
                   <th className="py-3 px-4 border-r">Role</th>
                   <th className="py-3 px-4 border-r text-center">Open Tasks</th>
-                  <th className="py-3 px-4 border-r text-center">Logged Hours</th>
+                  <th className="py-3 px-4 border-r text-center">Effort Hours</th>
                   {/* <th className="py-3 px-4 border-r text-right">Hourly Rate</th> */}
                   <th className="py-3 px-4 text-center w-24">Actions</th>
                 </tr>

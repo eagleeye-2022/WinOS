@@ -452,7 +452,7 @@ export function NewTimeLogModal({
     setIsSubmitting(true);
 
     const title = isGeneralLog
-      ? logTitle || "General Time Log"
+      ? logTitle || "General Effort Log"
       : taskSearchQuery || "Task Log";
 
     let durationStr = "00:00";
