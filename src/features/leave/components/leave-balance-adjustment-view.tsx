@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants/routes";
 import { istDateKey } from "@/features/attendance/utils";
 import { StatusPill } from "@/components/pulse/pulse-ui";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -645,7 +646,7 @@ export function LeaveBalanceAdjustmentView({
           <Button
             type="button"
             variant="outline"
-            onClick={() => (onCancel ? onCancel() : router.push("/pulse/leave/team"))}
+            onClick={() => (onCancel ? onCancel() : router.push(ROUTES.pulseTeamLeave))}
             className="h-9 cursor-pointer rounded-md px-5 text-xs font-semibold"
           >
             Cancel

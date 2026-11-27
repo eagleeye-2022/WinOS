@@ -426,19 +426,38 @@ function toRegularizationRequest(r: RegularizationWithUsers): RegularizationRequ
   };
 }
 
-export async function getRegularizationRequestsData(filters?: { status?: string; search?: string }) {
+/** Whose regularization requests a list shows. */
+export type RegularizationScope = "mine" | "team" | "all";
+
+export async function getRegularizationRequestsData(filters?: {
+  status?: string;
+  search?: string;
+  /** "mine" = My Attendance, "team" = Team Attendance (managers; never the viewer's own), "all" = both. */
+  scope?: RegularizationScope;
+}) {
   const session = await requireSession();
   const viewer = await viewerOf(session.user.id);
   const isManager = canManageAttendance(viewer);
   const scope = isManager && viewer ? await managedUserIds(viewer) : null;
+  const me = session.user.id;
+  const listScope = filters?.scope ?? "all";
+
+  // `scope` null = the manager manages everyone.
+  let where: { userId?: string | { in: string[] } | { not: string } };
+  if (listScope === "mine") {
+    where = { userId: me };
+  } else if (!isManager) {
+    // Non-managers have no team: their own requests, and an empty team list.
+    where = listScope === "team" ? { userId: { in: [] } } : { userId: me };
+  } else if (listScope === "team") {
+    where = scope === null ? { userId: { not: me } } : { userId: { in: [...scope].filter((id) => id !== me) } };
+  } else {
+    // "all": the manager's own requests plus their team's.
+    where = scope === null ? {} : { userId: { in: [me, ...scope] } };
+  }
 
   const raw = await db.attendanceRegularization.findMany({
-    // Managers: their own requests plus their team's. Everyone else: their own.
-    where: isManager
-      ? scope === null
-        ? {}
-        : { userId: { in: [session.user.id, ...scope] } }
-      : { userId: session.user.id },
+    where,
     include: regularizationInclude,
     orderBy: { createdAt: "desc" },
   });

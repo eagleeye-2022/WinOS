@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants/routes";
 import { StatusPill, TONE_SOFT, TONE_TEXT, type PulseTone } from "@/components/pulse/pulse-ui";
 import { getLeaveTypesAction } from "../queries/leave-queries";
 import { deleteLeaveTypeAction, toggleLeaveTypeStatusAction } from "../actions/leave-actions";
@@ -201,7 +202,7 @@ export function LeavePolicyView({ onCreateNew, onEdit }: LeavePolicyViewProps) {
     if (onCreateNew) {
       onCreateNew();
     } else {
-      router.push("/pulse/leave/policy/new");
+      router.push(ROUTES.pulseTeamLeavePolicyNew);
     }
   };
 

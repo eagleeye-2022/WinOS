@@ -8,6 +8,7 @@ import Link from "next/link";
 import { ChevronRight, Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { ROUTES } from "@/constants/routes";
 import { getEmployeesForAdjustmentAction } from "../queries/leave-queries";
 
 type Member = Awaited<ReturnType<typeof getEmployeesForAdjustmentAction>>[number];
@@ -74,7 +75,7 @@ export function TeamMemberLeaveList() {
               {shown.map((m) => {
                 const booked = round(m.balances.reduce((s, b) => s + b.booked, 0));
                 const available = round(m.balances.reduce((s, b) => s + Math.max(0, b.available), 0));
-                const href = `/pulse/leave/employee/${m.id}`;
+                const href = ROUTES.pulseTeamMemberLeave(m.id);
                 return (
                   <tr key={m.id} className="group cursor-pointer transition-colors hover:bg-muted/40">
                     <td className="px-4 py-2.5">

@@ -25,12 +25,9 @@ type ActionResult<T = object> = ({ success: true } & T) | { success: false; mess
 
 const fail = (message: string): { success: false; message: string } => ({ success: false, message });
 
+/** Every Pulse page (My / Team attendance and leave, Home) shows attendance. */
 function revalidateAttendance() {
-  revalidatePath("/pulse/attendance");
-  revalidatePath("/pulse/team-attendance");
-  revalidatePath("/pulse/regularization");
-  revalidatePath("/pulse/leave");
-  revalidatePath("/pulse/home");
+  revalidatePath("/pulse", "layout");
 }
 
 /** Session + a fresh User row (guards against a stale JWT after a DB reset). */
@@ -326,8 +323,8 @@ export async function checkOutAction(payload?: {
 const REASON_MAX = 500;
 const REMARKS_MAX = 250;
 /** Email links: the member's own requests, and the manager's team requests to review. */
-const MY_REGULARIZATION_LINK = "/pulse/attendance?tab=regularization";
-const TEAM_REGULARIZATION_LINK = "/pulse/team-attendance?tab=regularization";
+const MY_REGULARIZATION_LINK = ROUTES.pulseRegularization;
+const TEAM_REGULARIZATION_LINK = ROUTES.pulseTeamRegularization;
 /** Keep in sync with APPROVAL_NOTE_MAX in leave/components/approve-note-dialog. */
 const APPROVAL_NOTE_MAX = 500;
 
@@ -667,7 +664,7 @@ export async function editAttendanceTimesAction(payload: {
       title: "Attendance times edited",
       message: `${actor.name || "Your manager"} changed your attendance for ${day} from ${before} to ${checkIn} – ${checkOut}.${note ? ` Note: “${note}”` : ""}`,
     },
-  ], { link: "/pulse/attendance" });
+  ], { link: ROUTES.pulseAttendance });
 
   revalidateAttendance();
   return { success: true };
@@ -810,7 +807,7 @@ export async function submitCompOffAction(payload: {
         message: `${user.name || "A team member"} requested a comp-off for working on ${workKey.split("-").reverse().join("/")}.`,
         relatedEntryId: compOff.id,
       })),
-      { link: `/pulse/leave/compensatory/${compOff.id}` }
+      { link: ROUTES.pulseCompensatoryRequest(compOff.id) }
     );
   }
 

@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants/routes";
 
 interface ApplyCompensatoryFormProps {
   onSubmitCompensatory?: (newComp: CompensatoryRequest) => void;
@@ -193,7 +194,7 @@ export function ApplyCompensatoryForm({
       if (onSubmitCompensatory) {
         onSubmitCompensatory(newComp);
       } else {
-        router.push("/pulse/leave?tab=compensatory");
+        router.push(ROUTES.pulseLeaveCompensatory);
       }
     } catch (err) {
       setSubmitError(errorMessage(err, "Failed to submit compensatory request."));
@@ -447,7 +448,7 @@ export function ApplyCompensatoryForm({
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => (onCancel ? onCancel() : router.push("/pulse/leave"))}
+                  onClick={() => (onCancel ? onCancel() : router.push(ROUTES.pulseLeave))}
                   className="h-9 rounded-md px-5 text-xs font-semibold"
                 >
                   Cancel

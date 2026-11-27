@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Plus, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants/routes";
 import { PULSE_PAGE_BG, PulseStickyTabs, PulseTabs, StatusPill } from "@/components/pulse/pulse-ui";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 import { EmployeeSwitcherHeader, type SwitcherEmployee } from "@/components/pulse/employee-switcher-header";
@@ -117,7 +118,7 @@ export function EmployeeLeaveWorkspace({ userId, embedded = false }: { userId: s
 
   const switchEmployee = (id: string) => {
     const qs = tab === "summary" ? "" : `?tab=${tab}`;
-    router.push(`/pulse/leave/employee/${id}${qs}`);
+    router.push(`${ROUTES.pulseTeamMemberLeave(id)}${qs}`);
   };
 
   if (!data && !loadError) {
@@ -180,7 +181,7 @@ export function EmployeeLeaveWorkspace({ userId, embedded = false }: { userId: s
                 onSwitch={switchEmployee}
                 actions={
                   <Button asChild variant="outline" className="h-8 gap-1.5 rounded-md px-3 text-xs font-semibold">
-                    <Link href={`/pulse/team-attendance/${userId}`}>
+                    <Link href={ROUTES.pulseTeamMemberAttendance(userId)}>
                       <CalendarDays className="h-3.5 w-3.5" />
                       Attendance
                     </Link>
@@ -205,7 +206,7 @@ export function EmployeeLeaveWorkspace({ userId, embedded = false }: { userId: s
               leaveTypes={leaveTypes}
               requests={yearRequests}
               onApply={(date) => setApplyFor({ date })}
-              onViewRequest={(r) => router.push(`/pulse/leave/team/requests/${r.id}`)}
+              onViewRequest={(r) => router.push(ROUTES.pulseTeamLeaveRequest(r.id))}
             />
           )}
 
@@ -217,7 +218,7 @@ export function EmployeeLeaveWorkspace({ userId, embedded = false }: { userId: s
               </div>
               <LeaveRequestsTable
                 requests={requests}
-                onViewRequest={(r) => router.push(`/pulse/leave/team/requests/${r.id}`)}
+                onViewRequest={(r) => router.push(ROUTES.pulseTeamLeaveRequest(r.id))}
                 showFilters
                 showDateRangeNav={false}
                 title=""
@@ -228,7 +229,7 @@ export function EmployeeLeaveWorkspace({ userId, embedded = false }: { userId: s
           {tab === "compensatory" && (
             <CompensatoryRequestsTable
               requests={(data.compensatoryRequests ?? []) as unknown as CompensatoryRequest[]}
-              onViewRequest={(r) => router.push(`/pulse/leave/team/compensatory/${r.id}`)}
+              onViewRequest={(r) => router.push(ROUTES.pulseTeamCompensatoryRequest(r.id))}
             />
           )}
 
@@ -415,7 +416,7 @@ function PolicyTab({ userId, name }: { userId: string; name: string }) {
           <h2 className="text-sm font-semibold text-foreground">
             {applies} of {policy.policies.length} leave types apply to {name}
           </h2>
-          <Link href="/pulse/leave/team?tab=leave-policy" className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400">
+          <Link href={ROUTES.pulseTeamLeavePolicy} className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400">
             Edit leave types in Leave Policy →
           </Link>
         </div>

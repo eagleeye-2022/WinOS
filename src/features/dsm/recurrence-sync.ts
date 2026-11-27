@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { isTaskDone } from "@/features/projects/types";
 import { parseRule, serializeRule } from "./recurring-utils";
 import { toUtcDate } from "./utils";
 
@@ -12,7 +13,9 @@ import { toUtcDate } from "./utils";
  *    never deleted).
  *  - Srijan → DSM: `syncRecurrenceFromProjectTask` after the Srijan task's recurrence changes.
  *    Existing templates take the new rule; people who recently had the task in their DSM but no
- *    template yet get one. Nobody else's DSM gains a row.
+ *    template yet get one.
+ *  - Owners: `ensureOwnedRecurringTemplates` (on DSM page load) gives the owners of a repeating
+ *    Srijan task a template, so it appears in their DSM without being picked.
  *  - New DSM rows: `adoptProjectRecurrence` links a saved row to (or creates) the user's template
  *    when its Srijan task already repeats.
  * All of these are best effort: the save that triggered them has already succeeded.
@@ -126,6 +129,68 @@ export async function syncRecurrenceFromProjectTask(projectTaskId: string, rule:
     }
   } catch (err) {
     console.error("[recurrence-sync] Srijan → DSM failed:", err);
+  }
+}
+
+/**
+ * Srijan → DSM for owners: every open Srijan task that repeats and that `userId` owns (primary
+ * owner or co-owner) gets a recurring template for that user if they have none yet, so it shows
+ * up in their DSM on its days without being picked by hand. Run when the DSM page loads, before
+ * the recurring queries — this also covers tasks set to repeat before this existed, and owners
+ * added later. A task whose template the user paused or deleted has its Srijan recurrence turned
+ * off by `syncRecurrenceFromDsm`, so it isn't brought back here.
+ */
+export async function ensureOwnedRecurringTemplates(userId: string) {
+  try {
+    const tasks: {
+      id: string;
+      title: string;
+      priority: string | null;
+      projectId: string | null;
+      recurrence: string | null;
+      status: string | null;
+      completionPercentage: number | null;
+    }[] = await d.projectTask.findMany({
+      where: {
+        hasRecurrence: true,
+        OR: [{ ownerId: userId }, { owners: { some: { userId } } }],
+        recurringStandupTasks: { none: { userId } },
+      },
+      select: { id: true, title: true, priority: true, projectId: true, recurrence: true, status: true, completionPercentage: true },
+    });
+    const due = tasks
+      .map((t) => ({ ...t, rule: normalizeRecurrence(t.recurrence) }))
+      .filter((t) => t.rule && !isTaskDone(t.status, false, t.completionPercentage ?? 0));
+    if (due.length === 0) return;
+
+    const today = toUtcDate();
+    const since = new Date(today.getTime() - RECURRENCE_ADOPT_WINDOW_DAYS * 86_400_000);
+    let order: number = await d.recurringStandupTask.count({ where: { userId } });
+    for (const t of due) {
+      const created = await d.recurringStandupTask.create({
+        data: {
+          userId,
+          createdById: userId,
+          text: t.title,
+          priority: t.priority && t.priority !== "None" ? t.priority : null,
+          projectId: t.projectId || null,
+          projectTaskId: t.id,
+          recurrenceRule: t.rule,
+          startDate: today,
+          isActive: true,
+          order: order++,
+        },
+        select: { id: true },
+      });
+      // Recent DSM rows for this task join the template, so yesterday's unfinished row isn't
+      // carried in next to today's recurring one.
+      await d.standupTask.updateMany({
+        where: { projectTaskId: t.id, recurringTaskId: null, entry: { userId, date: { gte: since } } },
+        data: { recurringTaskId: created.id },
+      });
+    }
+  } catch (err) {
+    console.error("[recurrence-sync] owner templates failed:", err);
   }
 }
 

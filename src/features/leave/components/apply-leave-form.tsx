@@ -67,6 +67,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants/routes";
 
 interface ApplyLeaveFormProps {
   leaveTypes: LeaveTypeConfig[];
@@ -975,7 +976,7 @@ export function ApplyLeaveForm({
                   onClick={() => {
                     clearDraft();
                     if (onCancel) onCancel();
-                    else router.push("/pulse/leave");
+                    else router.push(ROUTES.pulseLeave);
                   }}
                   className="h-9 rounded-md px-5 text-xs font-semibold"
                 >

@@ -23,7 +23,8 @@ import { CompensatoryDetailsView } from "./compensatory-details-view";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { PULSE_PAGE_BG, PulseStickyTabs, PulseTabs, StatusPill } from "@/components/pulse/pulse-ui";
-import { useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
+import { usePathTab, usePageViewState } from "@/lib/navigation/use-url-state";
+import { ROUTES } from "@/constants/routes";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 import { toast } from "@/components/shared/toast";
 import {
@@ -52,7 +53,7 @@ interface LeaveWorkspaceProps {
   initialSelectedRequestId?: string;
   initialSelectedCompRequestId?: string;
   /**
-   * A team member's request opened by a manager (/pulse/leave/team/…): the breadcrumb and the
+   * A team member's request opened by a manager (/pulse/team/leaves/…): the breadcrumb and the
    * not-found fallback go back to the Team Leave lists instead of the manager's own leave.
    */
   teamView?: boolean;
@@ -62,9 +63,17 @@ interface LeaveWorkspaceProps {
 
 /** The Team Leave tab each detail view belongs to. */
 const TEAM_LIST = {
-  requests: { label: "Leave Requests", href: "/pulse/leave/team?tab=leave-requests" },
-  compensatory: { label: "Compensatory Requests", href: "/pulse/leave/team?tab=compensatory-requests" },
+  requests: { label: "Leave Requests", href: ROUTES.pulseTeamLeaveRequests },
+  compensatory: { label: "Compensatory Requests", href: ROUTES.pulseTeamLeaveCompensatory },
 } as const;
+
+/** Each My Leaves tab is its own path. */
+const LIST_TAB_PATHS: Readonly<Record<ListTab, string>> = {
+  overview: ROUTES.pulseLeave,
+  requests: ROUTES.pulseLeaveRequests,
+  compensatory: ROUTES.pulseLeaveCompensatory,
+  holidays: ROUTES.pulseLeaveHolidays,
+};
 
 export function LeaveWorkspace({
   initialTab = "overview",
@@ -74,13 +83,14 @@ export function LeaveWorkspace({
   embedded = false,
 }: LeaveWorkspaceProps) {
   const router = useRouter();
-  // List tabs live in the URL (restored on return, Back/Forward-able). Form / detail views depend
-  // on in-memory selections, so they stay as a transient overlay on top of the list tab.
+  // List tabs are paths (/pulse/my/leaves/requests …: restored on return, Back/Forward-able).
+  // Form / detail views depend on in-memory selections, so they stay as a transient overlay on top
+  // of the list tab. Embedded (profile page) and team-detail views never rewrite the URL.
   const initialIsListTab = (LIST_TABS as readonly ActiveTab[]).includes(initialTab);
-  const [listTab, setListTab] = useUrlState<ListTab>(
-    "tab",
+  const [listTab, setListTab] = usePathTab<ListTab>(
+    LIST_TAB_PATHS,
     initialIsListTab ? (initialTab as ListTab) : "overview",
-    { allowed: LIST_TABS, history: "push" }
+    !embedded && !teamView
   );
   const [transientTab, setTransientTab] = useState<ActiveTab | null>(initialIsListTab ? null : initialTab);
   const activeTab: ActiveTab = transientTab ?? listTab;

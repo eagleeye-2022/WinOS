@@ -4,7 +4,7 @@
 // Team Leave, Reports). The bar only renders while a page registers its tab with usePulseCrumbs.
 //
 // The trail is built from two parts:
-//   1. the route (pathname), mapped below — e.g. /pulse/leave/team → Pulse › Team Leave
+//   1. the route (pathname), mapped below — e.g. /pulse/team/leaves/requests → Pulse › Team Leave
 //   2. extra steps a page adds for state that isn't in the URL path (its tab, an open request,
 //      a selected team member…) via `usePulseCrumbs([...])`.
 // Back goes to the step before the current one, so it always lands one level up the trail.
@@ -13,6 +13,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants/routes";
 
 export interface PulseCrumb {
   label: string;
@@ -47,7 +48,8 @@ export function usePulseCrumbs(crumbs: PulseCrumb[] | null) {
 // ── Route → steps ────────────────────────────────────────────────────────────
 
 const PULSE: PulseCrumb = { label: "Pulse", href: "/pulse/home" };
-const TEAM_LEAVE: PulseCrumb = { label: "Team Leave", href: "/pulse/leave/team" };
+const TEAM_LEAVE: PulseCrumb = { label: "Team Leave", href: ROUTES.pulseTeamLeave };
+const TEAM_ATTENDANCE: PulseCrumb = { label: "Team Attendance", href: ROUTES.pulseTeamAttendance };
 const WHYFI: PulseCrumb = { label: "WhyFi School", href: "/pulse/whyfi-learning" };
 
 function routeCrumbs(pathname: string): PulseCrumb[] {
@@ -55,20 +57,19 @@ function routeCrumbs(pathname: string): PulseCrumb[] {
   let m: RegExpExecArray | null;
 
   if (p === "/pulse/home" || p === "/pulse") return [PULSE, { label: "Home", href: "/pulse/home" }];
-  if (p === "/pulse/team-attendance") return [PULSE, { label: "Team Attendance", href: "/pulse/team-attendance" }];
-  if (/^\/pulse\/(attendance|regularization)$/.test(p)) return [PULSE, { label: "My Attendance", href: "/pulse/attendance" }];
-  // One team member (manager views): the page adds their name and tab.
-  if (/^\/pulse\/team-attendance\/[^/]+$/.test(p))
-    return [PULSE, { label: "Team Attendance", href: "/pulse/team-attendance" }];
-  if (/^\/pulse\/leave\/employee\/[^/]+$/.test(p))
-    return [PULSE, TEAM_LEAVE, { label: "Team Member Leave", href: "/pulse/leave/team?tab=employee-leave" }];
-  if (p === "/pulse/leave/team" || p === "/pulse/leave/policy") return [PULSE, TEAM_LEAVE];
-  // A team member's request opened by a manager (the page adds its own trail after this).
-  if (/^\/pulse\/leave\/team\/(requests|compensatory)\/[^/]+$/.test(p)) return [PULSE, TEAM_LEAVE];
-  if (p === "/pulse/leave/policy/new")
-    return [PULSE, TEAM_LEAVE, { label: "Leave Policy", href: "/pulse/leave/policy" }, { label: "New Leave Type" }];
-  if (p === "/pulse/leave/adjust") return [PULSE, TEAM_LEAVE, { label: "Adjust Balance" }];
-  if (p === "/pulse/leave" || p.startsWith("/pulse/leave/")) return [PULSE, { label: "My Leaves", href: "/pulse/leave" }];
+  // Personal pages (/pulse/my/…): the page adds its tab and any open request.
+  if (p === "/pulse/my/attendance" || p.startsWith("/pulse/my/attendance/"))
+    return [PULSE, { label: "My Attendance", href: ROUTES.pulseAttendance }];
+  if (p === "/pulse/my/leaves" || p.startsWith("/pulse/my/leaves/")) return [PULSE, { label: "My Leaves", href: ROUTES.pulseLeave }];
+  // Team pages (/pulse/team/…). One team member's page adds their name and tab.
+  if (p === "/pulse/team/attendance" || p.startsWith("/pulse/team/attendance/")) return [PULSE, TEAM_ATTENDANCE];
+  if (/^\/pulse\/team\/leaves\/employee\/[^/]+$/.test(p))
+    return [PULSE, TEAM_LEAVE, { label: "Team Member Leave", href: ROUTES.pulseTeamLeaveEmployees }];
+  if (p === ROUTES.pulseTeamLeavePolicyNew)
+    return [PULSE, TEAM_LEAVE, { label: "Leave Policy", href: ROUTES.pulseTeamLeavePolicy }, { label: "New Leave Type" }];
+  if (p === ROUTES.pulseTeamLeaveAdjust) return [PULSE, TEAM_LEAVE, { label: "Adjust Balance" }];
+  // The Team Leave tabs and a team member's request opened by a manager (the page adds the rest).
+  if (p === "/pulse/team/leaves" || p.startsWith("/pulse/team/leaves/")) return [PULSE, TEAM_LEAVE];
   if (p === "/pulse/reports" || p === "/pulse/team-leave-payroll") return [PULSE, { label: "Reports", href: "/pulse/reports" }];
   if (p === "/pulse/profile") return [PULSE, { label: "My Profile", href: "/pulse/profile" }];
   // Another member's profile (managers): the page adds their name and the open section.

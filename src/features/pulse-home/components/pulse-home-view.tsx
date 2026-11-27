@@ -496,7 +496,7 @@ function HolidaysCard({ holidays }: { holidays: PulseHomeData["holidays"] }) {
       icon={<TreePalm className="h-4 w-4" />}
       iconTone="amber"
       title="Upcoming Holidays"
-      action={<PulseCardLink href={`${ROUTES.pulseLeave}?tab=holidays`}>View all</PulseCardLink>}
+      action={<PulseCardLink href={ROUTES.pulseLeaveHolidays}>View all</PulseCardLink>}
     >
       {holidays.length === 0 ? (
         <p className="text-sm text-muted-foreground">No upcoming holidays.</p>
@@ -784,7 +784,7 @@ export function PulseHomeView({ data }: { data: PulseHomeData }) {
   const tabs = [
     { label: "Activities", href: ROUTES.pulseHome, active: true },
     { label: "Profile", href: ROUTES.pulseProfile },
-    ...(data.canManage ? [{ label: "Approvals", href: "/pulse/leave/team" }] : []),
+    ...(data.canManage ? [{ label: "Approvals", href: ROUTES.pulseTeamLeave }] : []),
     { label: "Leave", href: ROUTES.pulseLeave },
     { label: "Attendance", href: ROUTES.pulseAttendance },
     { label: "Regularization", href: ROUTES.pulseRegularization },

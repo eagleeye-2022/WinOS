@@ -53,6 +53,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants/routes";
 import { DEPARTMENTS, LEAVE_MEMBER_TYPES } from "@/features/users/constants";
 import { createLeaveTypeAction, getLeaveTypeForEditAction, updateLeaveTypeAction } from "../actions/leave-actions";
 import { getLeaveTypesAction } from "../queries/leave-queries";
@@ -607,7 +608,7 @@ export function CreateLeaveTypeWizard({
         if (onSuccess) {
           onSuccess();
         } else {
-          router.push("/pulse/leave/team");
+          router.push(ROUTES.pulseTeamLeavePolicy);
         }
       } catch (err) {
         setSubmitError(errorMessage(err, isEdit ? "Failed to save the leave type." : "Failed to create leave type."));
@@ -624,7 +625,7 @@ export function CreateLeaveTypeWizard({
       if (onCancel) {
         onCancel();
       } else {
-        router.push("/pulse/leave/team");
+        router.push(ROUTES.pulseTeamLeavePolicy);
       }
     }
   };
@@ -636,7 +637,7 @@ export function CreateLeaveTypeWizard({
         {loadError ? (
           <>
             <p className="text-rose-600 dark:text-rose-400">{loadError}</p>
-            <Button type="button" variant="outline" size="sm" onClick={() => (onCancel ? onCancel() : router.push("/pulse/leave/team"))}>
+            <Button type="button" variant="outline" size="sm" onClick={() => (onCancel ? onCancel() : router.push(ROUTES.pulseTeamLeavePolicy))}>
               Back to Leave Policy
             </Button>
           </>
@@ -662,7 +663,7 @@ export function CreateLeaveTypeWizard({
         <Button
           type="button"
           variant="outline"
-          onClick={() => (onCancel ? onCancel() : router.push("/pulse/leave/team"))}
+          onClick={() => (onCancel ? onCancel() : router.push(ROUTES.pulseTeamLeavePolicy))}
           className="h-9 px-4 rounded-md text-xs font-semibold gap-1.5 self-start sm:self-auto"
         >
           <X className="w-4 h-4" />

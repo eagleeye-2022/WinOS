@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { ROUTES } from "@/constants/routes";
 import { MANDATORY_HOLIDAY } from "@/features/attendance/attendance-data";
 import {
   canManageAttendance,
@@ -76,11 +77,8 @@ async function requireManager() {
 
 /** Leave changes what attendance shows for those days, so refresh both modules. */
 function revalidateLeaveAndAttendance() {
-  revalidatePath("/pulse/leave");
-  revalidatePath("/pulse/leave/team");
-  revalidatePath("/pulse/attendance");
-  revalidatePath("/pulse/team-attendance");
-  revalidatePath("/pulse/home");
+  // Every Pulse page under /pulse/my/… and /pulse/team/…, plus Home.
+  revalidatePath("/pulse", "layout");
 }
 
 function parseKey(value: string | undefined, what: string): string {
@@ -483,7 +481,7 @@ export async function applyLeaveAction(formData: {
             : `${user.name || "A team member"} applied for ${leaveType.name}: ${days}.`,
           relatedEntryId: result.requestId,
         })),
-        { link: `/pulse/leave/requests/${result.requestId}` }
+        { link: ROUTES.pulseLeaveRequest(result.requestId) }
       );
     }
     // The employee hears about leave applied for them.
@@ -495,7 +493,7 @@ export async function applyLeaveAction(formData: {
           message: `${actor.name || "Your manager"} applied ${leaveType.name} for you: ${days}${result.autoApproved ? " — approved" : ""}.`,
           relatedEntryId: result.requestId,
         },
-      ], { link: `/pulse/leave/requests/${result.requestId}` });
+      ], { link: ROUTES.pulseLeaveRequest(result.requestId) });
     }
 
     revalidateLeaveAndAttendance();
@@ -548,7 +546,7 @@ export async function cancelLeaveRequestAction(requestId: string): Promise<Actio
           message: `${user.name || "Your manager"} cancelled your ${request.leaveType.name} (${leaveDateLabel(dateKeyFromUtc(request.fromDate), dateKeyFromUtc(request.toDate))}).`,
           relatedEntryId: request.id,
         },
-      ], { link: `/pulse/leave/requests/${request.id}` });
+      ], { link: ROUTES.pulseLeaveRequest(request.id) });
     }
 
     revalidateLeaveAndAttendance();
@@ -624,7 +622,7 @@ export async function approveLeaveRequestAction(
           message: `${approver.name || "Your manager"} approved your ${request.leaveType.name} (${dateLabel}). Waiting for ${pending.next.stepName}.${withNote(note)}`,
           relatedEntryId: request.id,
         },
-      ], { link: `/pulse/leave/requests/${request.id}`, actorLabel: "Approved by" });
+      ], { link: ROUTES.pulseLeaveRequest(request.id), actorLabel: "Approved by" });
 
       revalidateLeaveAndAttendance();
       return { isLossOfPay: request.isLossOfPay, lopDays: request.lopDaysCount, completed: false, nextStep: pending.next.stepName };
@@ -693,7 +691,7 @@ export async function approveLeaveRequestAction(
         }${withNote(note)}`,
         relatedEntryId: request.id,
       },
-    ], { link: `/pulse/leave/requests/${request.id}` });
+    ], { link: ROUTES.pulseLeaveRequest(request.id) });
 
     revalidateLeaveAndAttendance();
     return { ...outcome, completed: true };
@@ -755,7 +753,7 @@ export async function rejectLeaveRequestAction(requestId: string, rejectionReaso
         )})${rejectionReason ? `: ${rejectionReason}` : "."}`,
         relatedEntryId: request.id,
       },
-    ], { link: `/pulse/leave/requests/${request.id}` });
+    ], { link: ROUTES.pulseLeaveRequest(request.id) });
 
     revalidateLeaveAndAttendance();
     return {};
@@ -852,7 +850,7 @@ export async function applyCompensatoryAction(data: {
           message: `${user.name || "A team member"} requested a comp-off for working on ${leaveDateLabel(workKey, workKey)}.`,
           relatedEntryId: comp.id,
         })),
-        { link: `/pulse/leave/compensatory/${comp.id}` }
+        { link: ROUTES.pulseCompensatoryRequest(comp.id) }
       );
     }
 
@@ -914,7 +912,7 @@ export async function approveCompensatoryAction(requestId: string, comments?: st
         message: `${manager.name || "Your manager"} approved your comp-off for ${leaveDateLabel(dateKeyFromUtc(comp.workDate), dateKeyFromUtc(comp.workDate))}: ${comp.creditedDays} day(s) added to your balance.${withNote(note)}`,
         relatedEntryId: comp.id,
       },
-    ], { link: `/pulse/leave/compensatory/${comp.id}` });
+    ], { link: ROUTES.pulseCompensatoryRequest(comp.id) });
 
     revalidateLeaveAndAttendance();
     return {};
@@ -960,7 +958,7 @@ export async function rejectCompensatoryAction(requestId: string, reason?: strin
         message: `${manager.name || "Your manager"} rejected your comp-off for ${leaveDateLabel(dateKeyFromUtc(comp.workDate), dateKeyFromUtc(comp.workDate))}${reason ? `: ${reason}` : "."}`,
         relatedEntryId: comp.id,
       },
-    ], { link: `/pulse/leave/compensatory/${comp.id}` });
+    ], { link: ROUTES.pulseCompensatoryRequest(comp.id) });
 
     revalidateLeaveAndAttendance();
     return {};
@@ -1278,8 +1276,8 @@ export async function toggleLeaveTypeStatusAction(id: string, isActive: boolean)
   return run("toggleLeaveTypeStatus", async () => {
     await requireManager();
     await db.leaveType.update({ where: { id }, data: { isActive } });
-    revalidatePath("/pulse/leave/team");
-    revalidatePath("/pulse/leave");
+    revalidatePath(ROUTES.pulseTeamLeave, "layout");
+    revalidatePath(ROUTES.pulseLeave, "layout");
     return {};
   });
 }
