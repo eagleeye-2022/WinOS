@@ -34,9 +34,12 @@ export function AddSubtaskDrawer({
     onClose();
   };
   const [title, setTitle] = usePageDraft(draft, "title", "");
-  // No dates by default — left empty they're saved as "--" (no start / due date).
-  const [startDate, setStartDate] = usePageDraft(draft, "startDate", "");
-  const [dueDate, setDueDate] = usePageDraft(draft, "dueDate", "");
+  // Both dates default to today (local date, as the <input type="date"> value "yyyy-mm-dd");
+  // cleared, they're saved as "--".
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const [startDate, setStartDate] = usePageDraft(draft, "startDate", today);
+  const [dueDate, setDueDate] = usePageDraft(draft, "dueDate", today);
   const [status, setStatus] = usePageDraft<TaskStatus>(draft, "status", "Open");
   const [description, setDescription] = usePageDraft(draft, "description", "");
   const [isSubmitting, setIsSubmitting] = useState(false);

@@ -1,6 +1,7 @@
 // Pure helpers — no server imports, fully unit-testable.
 
 import { parseTimeToMinutes } from "@/features/projects/utils/time-helpers";
+import { isTaskDone } from "@/features/projects/types";
 
 /** Normalize a Date to UTC midnight so it matches seed/DB date values. */
 export function toUtcDate(d: Date = new Date()): Date {
@@ -34,6 +35,15 @@ export const PROJECT_REQUIRED_MESSAGE = "Select a project for every task before 
  * Label for a Subtask picker option. The list holds every level under the task (B, its subtask C,
  * C's subtask D…), so deeper levels are indented with "↳" to show the hierarchy.
  */
+/**
+ * DSM task / subtask pickers offer only work that's still open — done (Done / Closed / Approved)
+ * tasks and subtasks are hidden. `keepId` (the row's current pick) always stays, so a row already
+ * linked to a since-closed task still shows what it's linked to.
+ */
+export function openTaskOptions<T extends { id: string; status: string }>(items: T[], keepId?: string): T[] {
+  return items.filter((t) => !isTaskDone(t.status) || (!!keepId && t.id === keepId));
+}
+
 export function subtaskOptionLabel(st: { code: string | null; title: string; depth?: number }): string {
   const depth = st.depth ?? 0;
   const indent = depth > 0 ? `${"   ".repeat(depth - 1)}↳ ` : "";

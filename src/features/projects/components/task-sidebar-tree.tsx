@@ -29,6 +29,13 @@ import { taskOwnerPeople } from "../utils/task-owner-people";
 import { canUserActOnTask } from "../utils/task-authorization";
 import { deleteTaskAction, duplicateTaskAction, updateTaskAction } from "../actions/project-actions";
 import { removeTaskFromList } from "../utils/remove-task-from-list";
+import {
+  applyStatusWithRollup,
+  reconcileRollup,
+  rollupMessage,
+  sameRollup,
+  type RollupChange,
+} from "../utils/status-rollup";
 import { PROJECT_TASK_STATUSES, getTaskStatusPillClasses, isTaskDone, type TaskItem, type TaskStatus } from "../types";
 
 type SidebarUser = { id: string; name: string; email: string; role: "ADMIN" | "TEAM_MEMBER" } | null;
@@ -156,15 +163,32 @@ export function TaskSidebarTree({
       ...(changes.phaseCode && { phaseCode: item.phaseCode, phaseName: item.phaseName }),
       ...(changes.dueDate !== undefined && { dueDate: item.dueDate }),
     };
-    setTasks(apply(changes));
+    // A status change also closes / reopens its parent(s) on screen at once (status-rollup.ts);
+    // `shown` is filled in by the updater, which has run by the time the save returns.
+    let shown: RollupChange[] = [];
+    const status = changes.status;
+    setTasks((prev) => {
+      const base = apply(changes)(prev);
+      if (!status) return base;
+      const rolled = applyStatusWithRollup(base, item, status);
+      shown = rolled.changes;
+      return rolled.tasks;
+    });
+    const settle = (serverCodes: string[]) => {
+      if (status && !sameRollup(shown, serverCodes)) {
+        setTasks((prev) => reconcileRollup(prev, shown, serverCodes, status));
+      }
+    };
     try {
       const { ownerNames: _ownerNames, ...serverChanges } = changes;
       void _ownerNames;
       const result = await updateTaskAction(item.id, serverChanges);
       if (result.success) {
-        toast.success("Task updated");
+        toast.success(rollupMessage(shown) ?? "Task updated");
+        settle([...(result.autoClosedParents ?? []), ...(result.autoReopenedParents ?? [])]);
         return;
       }
+      settle([]);
       setTasks(apply(previous));
       if (result.checklistBlock && changes.status) {
         showChecklistGate({ ...result.checklistBlock, status: changes.status, onForced: () => router.refresh() });
@@ -173,6 +197,7 @@ export function TaskSidebarTree({
       }
     } catch (err) {
       console.error("[TaskSidebarTree] Failed to save task:", err);
+      settle([]);
       setTasks(apply(previous));
       toast.error("Failed to save changes — please try again.");
     }

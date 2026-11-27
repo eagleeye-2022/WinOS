@@ -37,7 +37,7 @@ import { editSupport, type EditSupportState } from "@/features/support-needed/ac
 import { deleteSupport, type DeleteSupportState } from "@/features/support-needed/actions/delete-support";
 import { addSupport, type AddSupportState } from "@/features/support-needed/actions/add-support";
 import { parkNewTask, updateParkedTask, removeParkedTask, moveParkedTaskToToday } from "@/features/dsm/actions/parking-lot";
-import { reviewStatus, relativeDayLabel, previousDsmDayLabel, previousDsmHeading, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink, formatEffortMinutes, formatEffortSpan, subtaskOptionLabel, effortStartMinutes } from "@/features/dsm/utils";
+import { reviewStatus, relativeDayLabel, previousDsmDayLabel, previousDsmHeading, formatShortDate, formatFullDate, formatFullDateTime, getWeekRange, formatWeekRange, toIsoDateStr, toUtcDate, countTasksWithoutProject, isNotAlignedTaskLink, formatEffortMinutes, formatEffortSpan, subtaskOptionLabel, openTaskOptions, effortStartMinutes } from "@/features/dsm/utils";
 import type { MemberReview, MemberReviewEntry } from "../queries";
 import type { TeamMember, ParkedTask, RecurringTaskItem } from "@/features/dsm/queries";
 import { RecurringTasksManager } from "@/features/dsm/components/recurring-tasks-manager";
@@ -2097,20 +2097,20 @@ function SummaryTaskEditor({
               const chosen = currentProject.tasks.find((t) => t.id === v);
               if (chosen && !text.trim()) setText(chosen.title);
             }}
-            options={currentProject.tasks.map((t) => ({
+            options={openTaskOptions(currentProject.tasks, parentTaskId).map((t) => ({
               value: t.id,
               label: `${t.code ? `[${t.code}] ` : ""}${t.title}`,
             }))}
-            placeholder={currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
+            placeholder={openTaskOptions(currentProject.tasks, parentTaskId).length === 0 ? "No tasks" : "Select Task"}
             searchPlaceholder="Search tasks..."
             className={selectCls}
           />
         )}
-        {currentTask && currentTask.subtasks.length > 0 && (
+        {currentTask && openTaskOptions(currentTask.subtasks, subtaskId).length > 0 && (
           <SearchableSelect
             value={subtaskId}
             onChange={setSubtaskId}
-            options={currentTask.subtasks.map((st) => ({
+            options={openTaskOptions(currentTask.subtasks, subtaskId).map((st) => ({
               value: st.id,
               label: subtaskOptionLabel(st),
             }))}
@@ -3369,25 +3369,25 @@ export function ParkingLotSection({
                         value={tree.taskId}
                         disabled={isLocked && item.persisted}
                         onChange={(v) => handleTaskChange(i, v, tree.currentProject)}
-                        options={tree.currentProject.tasks.map((t) => ({
+                        options={openTaskOptions(tree.currentProject.tasks, tree.taskId).map((t) => ({
                           value: t.id,
                           label: `${t.code ? `[${t.code}] ` : ""}${t.title}`,
                         }))}
-                        placeholder={tree.currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
+                        placeholder={openTaskOptions(tree.currentProject.tasks, tree.taskId).length === 0 ? "No tasks" : "Select Task"}
                         searchPlaceholder="Search tasks..."
                         className="text-xs font-medium text-foreground hover:text-primary transition-colors max-w-[200px] disabled:opacity-75"
                       />
                     </>
                   )}
 
-                  {tree.currentTask && tree.currentTask.subtasks && tree.currentTask.subtasks.length > 0 && (
+                  {tree.currentTask && openTaskOptions(tree.currentTask.subtasks ?? [], tree.subtaskId).length > 0 && (
                     <>
                       <div className="h-3.5 w-px bg-border shrink-0" />
                       <SearchableSelect
                         value={tree.subtaskId}
                         disabled={isLocked && item.persisted}
                         onChange={(v) => handleSubtaskChange(i, v, tree.currentTask)}
-                        options={tree.currentTask.subtasks.map((st) => ({
+                        options={openTaskOptions(tree.currentTask.subtasks ?? [], tree.subtaskId).map((st) => ({
                           value: st.id,
                           label: subtaskOptionLabel(st),
                         }))}

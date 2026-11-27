@@ -178,8 +178,9 @@ export function AddTaskDrawer({
       owner: primaryOwner,
       owners: selectedOwners,
       workHours: "00:00",
+      // A new task starts and ends today; change either date on the task afterwards.
       startDate: new Date().toLocaleDateString("en-GB"),
-      dueDate: "01/01/2027",
+      dueDate: new Date().toLocaleDateString("en-GB"),
       duration,
       completionPercentage: 0,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

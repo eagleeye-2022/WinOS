@@ -34,6 +34,7 @@ import { SMM_PROJECT_TEMPLATE } from "../../data/sop-templates";
 import { isCustomTemplatePhaseCode } from "../../template-utils";
 import { AvatarStack } from "@/components/shared/avatar-stack";
 import { taskOwnerPeople } from "../../utils/task-owner-people";
+import { applyStatusWithRollup, rollupMessage, type RollupChange } from "../../utils/status-rollup";
 import { toast } from "@/components/shared/toast";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -511,7 +512,7 @@ export function TasksBoardView({
         owners: primaryOwner !== "Unassigned" ? [primaryOwner] : [],
         workHours: "00:00",
         startDate: new Date().toLocaleDateString("en-GB"),
-        dueDate: "",
+        dueDate: new Date().toLocaleDateString("en-GB"),
         duration: "1 day",
         completionPercentage: 0,
         priority: "Medium",
@@ -668,8 +669,16 @@ export function TasksBoardView({
       toast.info("This is a checklist item of its task — it moves with its task.");
       return;
     }
-    // Shown straight away on the parent's card.
-    setLocalTasks((prev) =>
+    // Shown straight away on the parent's card — and a status change closes / reopens the parent(s)
+    // at once too (status-rollup.ts); the reload after the save brings the server's final word.
+    let shown: RollupChange[] = [];
+    const rollUp = (list: TaskItem[]) => {
+      if (!changes.status) return list;
+      const rolled = applyStatusWithRollup(list, task, changes.status);
+      shown = rolled.changes;
+      return rolled.tasks;
+    };
+    setLocalTasks((prev) => rollUp(
       prev.map((p) =>
         p.id === task.id
           ? {
@@ -702,7 +711,7 @@ export function TasksBoardView({
               ),
             }
       )
-    );
+    ));
     try {
       if (isRealTask) {
         const res = await updateTaskAction(task.id, {
@@ -724,7 +733,7 @@ export function TasksBoardView({
           ...(changes.owners && { ownerName: changes.owners[0] || "Unassigned" }),
         });
       }
-      toast.success("Subtask updated");
+      toast.success(rollupMessage(shown) ?? "Subtask updated");
     } catch (err) {
       console.error("[TasksBoardView] Error updating subtask:", err);
       toast.error(err instanceof Error && err.message ? err.message : "Failed to update subtask");

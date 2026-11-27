@@ -10,7 +10,7 @@ import { projectSelectOptions } from "./project-task-selectors";
 import { addTaskAfterReview, type AddTaskAfterReviewState } from "../actions/add-task-after-review";
 import { fetchUserProjectsWithTasksAction } from "../actions/get-user-project-tasks";
 import type { CascadingProjectOption } from "../queries";
-import { subtaskOptionLabel } from "../utils";
+import { openTaskOptions, subtaskOptionLabel } from "../utils";
 
 function findSelectedTaskMeta(
   cascadingProjects: CascadingProjectOption[],
@@ -165,21 +165,21 @@ export function AddTaskAfterReviewRow({
           <SearchableSelect
             value={selectedTaskId}
             onChange={handleTaskChange}
-            options={currentProject.tasks.map((t) => ({
+            options={openTaskOptions(currentProject.tasks, selectedTaskId).map((t) => ({
               value: t.id,
               label: `${t.code ? `[${t.code}] ` : ""}${t.title}`,
             }))}
-            placeholder={currentProject.tasks.length === 0 ? "No tasks" : "Select Task"}
+            placeholder={openTaskOptions(currentProject.tasks, selectedTaskId).length === 0 ? "No tasks" : "Select Task"}
             searchPlaceholder="Search tasks..."
             className="rounded-md border bg-background py-1 px-2 text-xs font-medium text-foreground hover:border-primary focus:border-primary max-w-[200px]"
           />
         )}
 
-        {currentTask && currentTask.subtasks && currentTask.subtasks.length > 0 && (
+        {currentTask && openTaskOptions(currentTask.subtasks ?? [], selectedSubtaskId).length > 0 && (
           <SearchableSelect
             value={selectedSubtaskId}
             onChange={handleSubtaskChange}
-            options={currentTask.subtasks.map((st) => ({
+            options={openTaskOptions(currentTask.subtasks ?? [], selectedSubtaskId).map((st) => ({
               value: st.id,
               label: subtaskOptionLabel(st),
             }))}

@@ -8,6 +8,13 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { canUserActOnTask } from "../../utils/task-authorization";
 import { removeTaskFromList } from "../../utils/remove-task-from-list";
 import {
+  applyStatusWithRollup,
+  reconcileRollup,
+  rollupMessage,
+  sameRollup,
+  type RollupChange,
+} from "../../utils/status-rollup";
+import {
   ArrowLeft,
   ArrowRightLeft,
   X,
@@ -426,6 +433,38 @@ export function SingleTaskWorkspaceView({
     }
   }, [activeTask?.id, activeTask?.status, activeTask?.title, activeTask?.description]);
 
+  /**
+   * Zoho-style roll-up, shown at once: closing a task's last open subtask closes the task, reopening
+   * a subtask reopens its closed parent (see status-rollup.ts). Sets `target`'s status everywhere it
+   * shows (its row, its entry in the parent's subtask list) plus its parents', and returns the
+   * parents it changed so the server's answer can be checked against them.
+   */
+  const setStatusWithRollup = (target: { id?: string; dbId?: string; code?: string }, status: TaskStatus) => {
+    // The open task's row carries the Subtasks table's list, with the codes filled in (as `subtasks`
+    // below does — not read here, it's declared further down).
+    const withCodes = (t: TaskItem): TaskItem => ({
+      ...t,
+      subtasks: (t.subtasks || []).map((st, i) => ({ ...st, code: st.code || `${t.code}.${i + 1}` })),
+    });
+    const prepare = (list: TaskItem[]) => list.map((t) => (t.id === activeTask.id ? withCodes(t) : t));
+    const { changes } = applyStatusWithRollup(prepare(leftTaskItems), target, status);
+    setTasks((prev) => applyStatusWithRollup(prepare(prev), target, status).tasks);
+    const message = rollupMessage(changes);
+    if (message) toast.success(message);
+    return changes;
+  };
+
+  /** After the save: matches the parents shown changed to what the server really changed. */
+  const settleRollup = (
+    shown: RollupChange[],
+    result: { autoClosedParents?: string[]; autoReopenedParents?: string[] } | null,
+    status: TaskStatus
+  ) => {
+    const serverCodes = result ? [...(result.autoClosedParents ?? []), ...(result.autoReopenedParents ?? [])] : [];
+    if (sameRollup(shown, serverCodes)) return;
+    setTasks((prev) => reconcileRollup(prev, shown, serverCodes, status));
+  };
+
   const handleStatusChange = async (newStatus: TaskStatus) => {
     if (!canEditTask) {
       toast.warning("Only the task owner can edit this task.");
@@ -444,27 +483,14 @@ export function SingleTaskWorkspaceView({
           ? 0
           : activeTask.completionPercentage,
       };
-      // On a subtask's own page, also its entry in the parent's subtask list.
-      setTasks((prev) =>
-        prev.map((t) =>
-          t.id === activeTask.id
-            ? updatedTask
-            : activeTask.parentTaskId && t.id === activeTask.parentTaskId
-            ? {
-                ...t,
-                subtasks: (t.subtasks || []).map((st) =>
-                  st.id === activeTask.id || st.code === activeTask.code
-                    ? { ...st, status: newStatus, completed: isTaskDone(newStatus) }
-                    : st
-                ),
-              }
-            : t
-        )
-      );
+      // Shown at once — on its row, its entry in the parent's subtask list, and (on a subtask's own
+      // page) its parent closing / reopening with it.
+      const shown = setStatusWithRollup(activeTask, newStatus);
       try {
         const result = await updateTaskAction(activeTask.id, { status: newStatus });
         if (!result.success) {
           setTaskStatus(previousStatus);
+          settleRollup(shown, null, newStatus);
           setTasks((prev) => prev.map((t) => (t.id === activeTask.id ? activeTask : t)));
           if (result.checklistBlock) {
             // Already on the task: "Select / Open checklist" just opens and scrolls to its section.
@@ -482,6 +508,7 @@ export function SingleTaskWorkspaceView({
           }
         } else {
           toast.success(`Task status changed to ${newStatus}`);
+          settleRollup(shown, result, newStatus);
         }
       } catch (err) {
         console.error("Failed to update task status in DB:", err);
@@ -794,9 +821,9 @@ export function SingleTaskWorkspaceView({
       title: titleToUse,
       status: "Open",
       ownerName: activeTask.owner || "Unassigned",
-      // No default dates — a new subtask starts with both empty ("--"); set them in the table.
-      startDate: "--",
-      dueDate: "--",
+      // A new subtask starts and ends today; change the dates in the table.
+      startDate: new Date().toLocaleDateString("en-GB"),
+      dueDate: new Date().toLocaleDateString("en-GB"),
       completed: false,
     });
   };
@@ -847,13 +874,20 @@ export function SingleTaskWorkspaceView({
     const isDone = isTaskDone(newStatus);
     const target = findSubtask(id);
     if (!target) return;
-    setSubtaskStatusLocally(target, newStatus, isDone);
+    // Shown at once, with its parent closing (last open subtask) / reopening along with it.
+    const shown = setStatusWithRollup(target, newStatus);
 
     updateSubtaskAction(id, { status: newStatus, completed: isDone })
       .then((saved) => {
-        if (!saved && target) revertSubtaskStatus(target, newStatus);
+        settleRollup(shown, saved || null, newStatus);
+        if (!saved) revertSubtaskStatus(target, newStatus);
       })
-      .catch((err) => console.error("Failed to update subtask status in DB:", err));
+      .catch((err) => {
+        console.error("Failed to update subtask status in DB:", err);
+        settleRollup(shown, null, newStatus);
+        setSubtaskStatusLocally(target, target.status as TaskStatus, isTaskDone(target.status, target.completed));
+        toast.error("Couldn't update the subtask — please try again.");
+      });
   };
 
   /** Subtasks table: pick a subtask's start or due date. Shown at once, saved, rolled back on failure. */

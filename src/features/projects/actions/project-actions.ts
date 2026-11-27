@@ -9,6 +9,7 @@ import { canUserActOnTask } from "../utils/task-authorization";
 import { rollUpParentDates } from "../utils/parent-date-rollup";
 import { isProjectUser, projectUserWhere } from "../project-user";
 import { openSubtasksOf, openSubtasksMessage } from "../subtask-gate";
+import { closeParentsWhenSubtasksDone, reopenParentsOfReopenedTask } from "../parent-auto-close";
 import {
   Project,
   TaskItem,
@@ -2654,6 +2655,10 @@ export type UpdateTaskResult = {
   error?: string;
   /** Set when closing was refused because of the task's SOP checklist — the UI shows the gate popup. */
   checklistBlock?: ChecklistCloseBlock;
+  /** Codes of parent tasks that closed themselves because this save closed their last open subtask. */
+  autoClosedParents?: string[];
+  /** Codes of closed parent tasks that reopened because this save reopened one of their subtasks. */
+  autoReopenedParents?: string[];
 };
 
 export async function updateTaskAction(
@@ -2971,18 +2976,33 @@ export async function updateTaskAction(
     });
   }
 
+  const actor = { id: session.user.id, name: dbUser?.name || session.user.name || "User" };
+  let autoClosedParents: string[] = [];
+  let autoReopenedParents: string[] = [];
   if (closedEvent) {
-    await recordTaskClosed(
-      { id: session.user.id, name: dbUser?.name || session.user.name || "User" },
-      task.id,
-      closedEvent.forced
-    );
+    await recordTaskClosed(actor, task.id, closedEvent.forced);
+    // Closing the last open subtask closes its parent too (Zoho-style).
+    if (task.parentTaskId) {
+      autoClosedParents = await closeParentsWhenSubtasksDone(task.id, actor, updates.status || "Done");
+    }
+  } else if (task.parentTaskId && isTaskDone(task.status, false, task.completionPercentage)) {
+    // Reopening a subtask reopens its closed parent(s) too.
+    const newStatus = updates.status ?? task.status;
+    const newPercent =
+      updates.completionPercentage ?? (reopenResetsCompletion ? 0 : task.completionPercentage ?? 0);
+    if (!isTaskDone(newStatus, false, newPercent)) {
+      autoReopenedParents = await reopenParentsOfReopenedTask(task.id, actor, newStatus);
+    }
   }
 
   // No revalidatePath here: every /projects view loads its data client-side and applies this
   // edit optimistically, so revalidating only made the action wait on a server re-render of
   // the current route (and marked every visited page stale) before the save could resolve.
-  return { success: true };
+  return {
+    success: true,
+    ...(autoClosedParents.length > 0 && { autoClosedParents }),
+    ...(autoReopenedParents.length > 0 && { autoReopenedParents }),
+  };
 }
 
 /**
@@ -3748,10 +3768,14 @@ export async function createSubtaskAction(
   };
 }
 
+/**
+ * Resolves `false` when nothing was saved (open subtasks / SOP checklist), else the codes of parent
+ * tasks that closed themselves (this closed their last open subtask) or reopened (this reopened it).
+ */
 export async function updateSubtaskAction(
   subtaskId: string,
   updates: Partial<TaskSubtask>
-): Promise<boolean> {
+): Promise<false | { autoClosedParents: string[]; autoReopenedParents: string[] }> {
   const session = await requireAuth();
   if (updates.title) updates = { ...updates, title: toTitleText(updates.title) };
 
@@ -3815,16 +3839,25 @@ export async function updateSubtaskAction(
     await syncTaskOwners(subtask.id, [ownerUserId], session.user.id);
   }
 
+  const actor = { id: session.user.id, name: session.user.name || "User" };
+  let autoClosedParents: string[] = [];
+  let autoReopenedParents: string[] = [];
   if (closesNow) {
-    await recordTaskClosed(
-      { id: session.user.id, name: session.user.name || "User" },
-      subtask!.id,
-      subBlock ? forcedCloseOf(subBlock) : null
-    );
+    await recordTaskClosed(actor, subtask!.id, subBlock ? forcedCloseOf(subBlock) : null);
+    // Closing the last open subtask closes its parent too (Zoho-style).
+    autoClosedParents = await closeParentsWhenSubtasksDone(subtask!.id, actor, updates.status || "Done");
+  } else if (subtask && isTaskDone(subtask.status, false, subtask.completionPercentage)) {
+    // Reopening it (status → not done, or unticked) reopens its closed parent(s) too.
+    const reopens =
+      (updates.status !== undefined && !isTaskDone(updates.status)) || updates.completed === false;
+    if (reopens) {
+      const openStatus = updates.status && !isTaskDone(updates.status) ? updates.status : "Open";
+      autoReopenedParents = await reopenParentsOfReopenedTask(subtask.id, actor, openStatus);
+    }
   }
 
   revalidatePath("/projects");
-  return true;
+  return { autoClosedParents, autoReopenedParents };
 }
 
 export async function deleteSubtaskAction(subtaskId: string): Promise<boolean> {
