@@ -16,7 +16,7 @@ import {
   istDateKey,
   istYear,
 } from "@/features/attendance/utils";
-import { accruedAllocation, checkEligibility } from "../leave-rules";
+import { accruedAllocation, checkEligibility, compareLeaveTypes } from "../leave-rules";
 import { effectiveAvailable } from "../balance";
 import { canManageAttendance } from "@/features/attendance/utils";
 import { canManageUser, managedUserIds, scopeWhere } from "@/features/attendance/team-scope";
@@ -219,6 +219,7 @@ export async function getMyLeaveTrackerDataAction(year = istYear(), forUserId?: 
     select: {
       department: true,
       employmentType: true,
+      location: true,
       profileRole: true,
       dateOfJoining: true,
       dateOfConfirmation: true,
@@ -295,7 +296,7 @@ export async function getMyLeaveTrackerDataAction(year = istYear(), forUserId?: 
       hideBooked: selfView && t.employeeVisibility === "REMAINING_BALANCE_ONLY",
     });
   }
-  balances.sort((a, b) => a.name.localeCompare(b.name));
+  balances.sort(compareLeaveTypes);
 
   // 2. Fetch my leave requests
   const requests = await db.leaveRequest.findMany({
@@ -497,9 +498,9 @@ export async function getEmployeeLeavePolicyAction(userId: string) {
   const [facts, types] = await Promise.all([
     db.user.findUnique({
       where: { id: userId },
-      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
+      select: { department: true, employmentType: true, location: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
     }),
-    db.leaveType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    db.leaveType.findMany({ where: { isActive: true } }).then((ts) => ts.sort(compareLeaveTypes)),
   ]);
   if (!facts) throw new Error("Not found");
 
@@ -509,6 +510,7 @@ export async function getEmployeeLeavePolicyAction(userId: string) {
     employee: {
       department: facts.department || "",
       employmentType: facts.employmentType || "",
+      location: facts.location || "",
       dateOfJoining: facts.dateOfJoining ? formatDayDate(facts.dateOfJoining) : "",
       confirmed: facts.dateOfConfirmation ? dateKeyFromUtc(facts.dateOfConfirmation) <= todayKey : false,
     },
@@ -767,11 +769,11 @@ export async function getApplicableLeaveTypesAction(dateKey: string) {
   const userId = session.user.id;
   const onKey = dateKey && /^\d{4}-\d{2}-\d{2}$/.test(dateKey) ? dateKey : istDateKey();
   const [types, balances, facts] = await Promise.all([
-    db.leaveType.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    db.leaveType.findMany({ where: { isActive: true } }).then((ts) => ts.sort(compareLeaveTypes)),
     db.userLeaveBalance.findMany({ where: { userId: session.user.id, year } }),
     db.user.findUnique({
       where: { id: session.user.id },
-      select: { department: true, employmentType: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
+      select: { department: true, employmentType: true, location: true, profileRole: true, dateOfJoining: true, dateOfConfirmation: true },
     }),
   ]);
   const byType = new Map(balances.map((b) => [b.leaveTypeId, b]));
@@ -807,9 +809,7 @@ export async function getLeaveTypesAction() {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Unauthorized");
 
-  const types = await db.leaveType.findMany({
-    orderBy: { name: "asc" },
-  });
+  const types = (await db.leaveType.findMany()).sort(compareLeaveTypes);
 
   const total = types.length;
   const active = types.filter((t) => t.isActive).length;
@@ -910,10 +910,7 @@ export async function getEmployeesForAdjustmentAction() {
       },
       orderBy: { name: "asc" },
     }),
-    db.leaveType.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" },
-    }),
+    db.leaveType.findMany({ where: { isActive: true } }).then((ts) => ts.sort(compareLeaveTypes)),
   ]);
 
   return users.map((u) => {

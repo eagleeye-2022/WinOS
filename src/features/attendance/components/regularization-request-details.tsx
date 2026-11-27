@@ -233,7 +233,6 @@ export function RegularizationRequestDetails({
                   <th className="px-5 py-2.5" />
                   <th className="px-5 py-2.5">Check-in</th>
                   <th className="px-5 py-2.5">Check-out</th>
-                  <th className="px-5 py-2.5">Worked</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/70">
@@ -241,15 +240,11 @@ export function RegularizationRequestDetails({
                   <td className="px-5 py-3 font-semibold text-muted-foreground">Existing</td>
                   <td className="px-5 py-3 text-foreground">{request.existingAttendance.checkIn || "--:--"}</td>
                   <td className="px-5 py-3 text-foreground">{request.existingAttendance.checkOut || "--:--"}</td>
-                  <td className="px-5 py-3 text-foreground">{request.existingAttendance.workedDuration || "--"}</td>
                 </tr>
                 <tr className="bg-blue-50/50 dark:bg-blue-500/10">
                   <td className="px-5 py-3 font-semibold text-blue-700 dark:text-blue-300">Requested</td>
                   <td className="px-5 py-3 font-semibold text-foreground">{request.requestedAttendance.checkIn}</td>
                   <td className="px-5 py-3 font-semibold text-foreground">{request.requestedAttendance.checkOut}</td>
-                  <td className="px-5 py-3 font-semibold text-emerald-600 dark:text-emerald-400">
-                    {request.requestedAttendance.workedDuration}
-                  </td>
                 </tr>
               </tbody>
             </table>

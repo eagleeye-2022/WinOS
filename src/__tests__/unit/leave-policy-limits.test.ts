@@ -7,6 +7,7 @@ import {
   accruedAllocation,
   carryForwardFrom,
   checkEligibility,
+  compareLeaveTypes,
   checkRequestLimits,
   validCompOffDays,
   type EligibilityPolicy,
@@ -42,6 +43,21 @@ function emp(over: Partial<EmployeeFacts> = {}): EmployeeFacts {
   };
 }
 
+describe("compareLeaveTypes", () => {
+  it("orders Paid → Sick → Compensatory → Floating → Unpaid → others (A–Z)", () => {
+    const types = [
+      { code: "ML", name: "Maternity Leave" },
+      { code: "LOP", name: "Loss of Pay (LOP)" },
+      { code: "FH", name: "Floating Holiday" },
+      { code: "CL", name: "Casual Leave" },
+      { code: "COMP", name: "Comp Off" },
+      { code: "SL", name: "Sick Leave" },
+      { code: "PL", name: "Paid Leave" },
+    ];
+    expect([...types].sort(compareLeaveTypes).map((t) => t.code)).toEqual(["PL", "SL", "COMP", "FH", "LOP", "CL", "ML"]);
+  });
+});
+
 describe("checkEligibility", () => {
   it("allows everyone by default", () => {
     expect(checkEligibility(eligibility(), emp(), "2026-10-29")).toBeNull();
@@ -54,6 +70,13 @@ describe("checkEligibility", () => {
   it("a member with a set employment type / department only gets the types meant for it", () => {
     expect(checkEligibility(eligibility({ employmentTypes: ["Intern"] }), emp({ employmentType: "Permanent" }), "2026-10-29")).toMatch(/Intern/);
     expect(checkEligibility(eligibility({ employmentTypes: ["intern"] }), emp({ employmentType: "Intern" }), "2026-10-29")).toBeNull();
+  });
+  it("'Permanent WFH' is only for Permanent members whose profile Location is Work From Home", () => {
+    const wfh = eligibility({ employmentTypes: ["Permanent WFH"] });
+    expect(checkEligibility(wfh, emp({ location: "Work From Home" }), "2026-10-29")).toBeNull();
+    expect(checkEligibility(wfh, emp({ location: "EagleEye Digital HQ" }), "2026-10-29")).toMatch(/Permanent WFH/);
+    expect(checkEligibility(wfh, emp({ location: null }), "2026-10-29")).toMatch(/Permanent WFH/);
+    expect(checkEligibility(wfh, emp({ employmentType: "Intern", location: "Work From Home" }), "2026-10-29")).toMatch(/Permanent WFH/);
   });
   it("a member whose employment type / department isn't set gets every leave type", () => {
     expect(checkEligibility(eligibility({ departments: ["HR"] }), emp({ department: null }), "2026-10-29")).toBeNull();

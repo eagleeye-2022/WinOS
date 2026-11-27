@@ -257,6 +257,8 @@ interface PeriodNavProps {
   /** Replaces the default label (e.g. a week range). */
   label?: string;
   className?: string;
+  /** Extra classes for the middle (date) button — e.g. a fixed width so the bar never shifts. */
+  triggerClassName?: string;
 }
 
 /**
@@ -264,7 +266,7 @@ interface PeriodNavProps {
  * range's length, a month or a year). The middle opens a picker for a date, a range, a month or
  * a year, limited to `modes`.
  */
-export function PeriodNav({ value, onChange, modes = ALL_MODES, stepDays = 1, label, className }: PeriodNavProps) {
+export function PeriodNav({ value, onChange, modes = ALL_MODES, stepDays = 1, label, className, triggerClassName }: PeriodNavProps) {
   const kind = periodKind(value);
   const { start, end } = periodBounds(value);
   const step = kind === "day" ? stepDays : 1;
@@ -338,10 +340,13 @@ export function PeriodNav({ value, onChange, modes = ALL_MODES, stepDays = 1, la
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="h-8 flex items-center gap-2 px-3 bg-background border border-border/80 rounded-lg text-xs font-medium text-foreground whitespace-nowrap hover:bg-accent transition-colors"
+            className={cn(
+              "h-8 flex items-center gap-2 px-3 bg-background border border-border/80 rounded-lg text-xs font-medium text-foreground whitespace-nowrap hover:bg-accent transition-colors",
+              triggerClassName
+            )}
           >
-            <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>{label ?? periodLabel(value)}</span>
+            <Calendar className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+            <span className="flex-1 text-left">{label ?? periodLabel(value)}</span>
             <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
           </button>
         </PopoverTrigger>

@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Building2, Clock, LogIn, LogOut, Wifi } from "lucide-react";
+
+import { Building2, LogIn, LogOut, Wifi } from "lucide-react";
 import { AttendanceRecord } from "../types";
-import { SHIFT_END, SHIFT_START, parseTime12h } from "../utils";
-import { TONE_DOT, TONE_TEXT, type PulseTone } from "@/components/pulse/pulse-ui";
+import { istDateKey } from "../utils";
+import { TONE_DOT, TONE_SOFT, type PulseTone } from "@/components/pulse/pulse-ui";
 import { cn } from "@/lib/utils";
 
 interface AttendanceWeekViewProps {
@@ -19,39 +19,12 @@ interface AttendanceWeekViewProps {
   isPunching?: boolean;
 }
 
-// The timeline spans 7 AM – 9 PM; times outside it are pinned to the edges.
-const DAY_START = 7 * 60;
-const DAY_END = 21 * 60;
-const TICKS = [9, 12, 15, 18]; // hour labels along the axis
-
-function pct(minutes: number): number {
-  return Math.min(100, Math.max(0, ((minutes - DAY_START) / (DAY_END - DAY_START)) * 100));
-}
-
-function hourLabel(h: number) {
-  return `${((h + 11) % 12) + 1}${h < 12 ? "a" : "p"}`;
-}
-
-/** Current IST minutes since midnight, set after mount (so server and client renders agree). */
-function useIstMinutes(): number | null {
-  const [mins, setMins] = useState<number | null>(null);
-  useEffect(() => {
-    const read = () => setMins(Math.floor((Date.now() / 60_000 + 330) % 1440));
-    read();
-    const id = setInterval(read, 60_000);
-    return () => clearInterval(id);
-  }, []);
-  return mins;
-}
-
 interface DayLook {
   label: string;
   tone: PulseTone;
-  /** No punch to draw: show a full-width line instead (dashed for days off). */
-  line?: "solid" | "dashed";
 }
 
-function lookFor(record: AttendanceRecord, isToday: boolean): DayLook {
+function lookFor(record: AttendanceRecord, isToday: boolean, todayKey: string): DayLook {
   switch (record.status) {
     case "WORKING_NOW":
       return { label: record.workMode === "REMOTE" ? "Working remotely" : "Working now", tone: "blue" };
@@ -62,105 +35,45 @@ function lookFor(record: AttendanceRecord, isToday: boolean): DayLook {
     case "HALF_DAY_LEAVE": {
       const type = record.leaveInfo?.leaveType || "Leave";
       const session = record.leaveInfo?.session ? ` (${record.leaveInfo.session})` : "";
-      return { label: `Half day · ${type}${session}`, tone: "amber", line: record.checkInTime ? undefined : "solid" };
+      return { label: `Half day · ${type}${session}`, tone: "amber" };
     }
     case "ON_LEAVE":
       return {
         label: `${record.leaveInfo?.leaveType || "Leave"}${record.leaveInfo?.status === "PENDING" ? " · Pending" : ""}`,
         tone: "amber",
-        line: "solid",
       };
     case "ACTION_REQUIRED":
       if (!record.actionRequiredType) {
-        return { label: record.actionRequiredReason || "Regularization pending", tone: "amber", line: record.checkInTime ? undefined : "solid" };
+        return { label: record.actionRequiredReason || "Regularization pending", tone: "amber" };
       }
       return record.checkInTime
         ? { label: "Check-out missing", tone: "red" }
-        : { label: "Absent", tone: "red", line: "solid" };
+        : { label: "Absent", tone: "red" };
     case "WEEKEND":
-      return { label: "Weekend", tone: "amber", line: "dashed" };
+      return { label: "Weekend", tone: "amber" };
     case "HOLIDAY":
-      return { label: record.holidayInfo?.name || "Holiday", tone: "violet", line: "dashed" };
+      return { label: record.holidayInfo?.name || "Holiday", tone: "violet" };
     default:
-      return isToday ? { label: "Yet to check-in", tone: "gray", line: "dashed" } : { label: "Absent", tone: "red", line: "solid" };
+      // resolveDay leaves a working day without a check-in as plain "ABSENT" only for today, days
+      // still to come and days before joining — missed past days are ACTION_REQUIRED (above).
+      // So none of these is a real absence.
+      if (isToday) return { label: "Yet to check-in", tone: "gray" };
+      if (record.date > todayKey) return { label: "Upcoming", tone: "gray" };
+      return { label: "Before joining", tone: "gray" };
   }
 }
 
-const LINE_COLOR: Record<PulseTone, string> = {
-  blue: "border-blue-400",
-  green: "border-emerald-400",
-  red: "border-rose-400",
-  amber: "border-amber-400",
-  violet: "border-violet-400",
-  gray: "border-border",
-};
-
-const BAR_COLOR: Record<PulseTone, string> = {
-  blue: "bg-blue-500/80",
-  green: "bg-emerald-500/80",
-  red: "bg-rose-500/70",
-  amber: "bg-amber-500/80",
-  violet: "bg-violet-500/80",
-  gray: "bg-muted-foreground/40",
-};
-
-function Timeline({ record, look, nowMins, isToday }: { record: AttendanceRecord; look: DayLook; nowMins: number | null; isToday: boolean }) {
-  const shiftStart = parseTime12h(SHIFT_START);
-  const shiftEnd = parseTime12h(SHIFT_END);
-  const inMins = parseTime12h(record.checkInTime);
-  const outMins =
-    parseTime12h(record.checkOutTime) ?? (record.status === "WORKING_NOW" && isToday && nowMins !== null ? nowMins : null);
-
+/** The day's status as a soft pill (flexible hours: no clock times or durations shown). */
+function StatusPill({ look }: { look: DayLook }) {
   return (
-    <div className="relative h-9">
-      {/* Shift hours, shaded */}
-      {shiftStart !== null && shiftEnd !== null && (
-        <div
-          className="absolute top-1/2 h-5 -translate-y-1/2 rounded bg-muted/70"
-          style={{ left: `${pct(shiftStart)}%`, width: `${pct(shiftEnd) - pct(shiftStart)}%` }}
-        />
-      )}
-
-      {inMins !== null && !look.line ? (
-        <>
-          <div
-            className={cn("absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full", BAR_COLOR[look.tone])}
-            style={{ left: `${pct(inMins)}%`, width: `${Math.max(1, pct(outMins ?? inMins) - pct(inMins))}%` }}
-          />
-          <span
-            className={cn("absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card", TONE_DOT[look.tone])}
-            style={{ left: `${pct(inMins)}%` }}
-          />
-          {outMins !== null && (
-            <span
-              className={cn(
-                "absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-card",
-                record.status === "WORKING_NOW" ? "animate-pulse bg-blue-500" : TONE_DOT[look.tone]
-              )}
-              style={{ left: `${pct(outMins)}%` }}
-            />
-          )}
-        </>
-      ) : (
-        <div
-          className={cn("absolute inset-x-0 top-1/2 -translate-y-1/2 border-t-2", LINE_COLOR[look.tone], look.line === "dashed" && "border-dashed")}
-        />
-      )}
-
-      {/* Status label sits on the line */}
-      <span
-        className={cn(
-          "absolute left-1/2 top-1/2 max-w-[80%] -translate-x-1/2 -translate-y-1/2 truncate rounded-full border border-border/70 bg-card px-2.5 py-0.5 text-[11px] font-semibold shadow-xs",
-          TONE_TEXT[look.tone]
-        )}
-      >
-        {look.label}
-      </span>
-    </div>
+    <span className={cn("inline-flex max-w-full items-center gap-1.5 truncate rounded-full px-2.5 py-1 text-xs font-semibold", TONE_SOFT[look.tone])}>
+      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", TONE_DOT[look.tone])} />
+      <span className="truncate">{look.label}</span>
+    </span>
   );
 }
 
-/** Zoho-style list view: one row per day with a check-in → check-out timeline. */
+/** List view: one row per day with its status, work mode and actions (no clock times or hours). */
 export function AttendanceWeekView({
   records,
   onSelectDay,
@@ -170,31 +83,23 @@ export function AttendanceWeekView({
   todayKey,
   isPunching = false,
 }: AttendanceWeekViewProps) {
-  const nowMins = useIstMinutes();
+  const today = todayKey ?? istDateKey();
   const btn = "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50";
 
   return (
     <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-      {/* Column headings + hour axis */}
-      <div className="hidden grid-cols-[88px_92px_minmax(0,1fr)_92px_84px_132px] items-end gap-3 border-b border-border/70 bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground md:grid">
+      {/* Column headings */}
+      <div className="hidden grid-cols-[120px_minmax(0,1fr)_120px_180px] items-end gap-3 border-b border-border/70 bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground md:grid">
         <span>Date</span>
-        <span>Check-in</span>
-        <div className="relative h-4">
-          {TICKS.map((h) => (
-            <span key={h} className="absolute -translate-x-1/2 normal-case" style={{ left: `${pct(h * 60)}%` }}>
-              {hourLabel(h)}
-            </span>
-          ))}
-        </div>
-        <span>Check-out</span>
-        <span>Hours</span>
+        <span>Status</span>
+        <span>Work mode</span>
         <span className="text-right">Action</span>
       </div>
 
       <ul className="divide-y divide-border/70">
         {records.map((record) => {
-          const isToday = record.date === todayKey;
-          const look = lookFor(record, isToday);
+          const isToday = record.date === today;
+          const look = lookFor(record, isToday, today);
           const isWorkingNow = record.status === "WORKING_NOW";
           const isPresent = record.status === "PRESENT" || record.status === "EARLY_LEAVE";
           const isWeekend = record.status === "WEEKEND";
@@ -210,7 +115,7 @@ export function AttendanceWeekView({
               onClick={() => onSelectDay(record)}
               className={cn(
                 "grid cursor-pointer grid-cols-[64px_minmax(0,1fr)] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40",
-                "md:grid-cols-[88px_92px_minmax(0,1fr)_92px_84px_132px]",
+                "md:grid-cols-[120px_minmax(0,1fr)_120px_180px]",
                 isToday && "bg-blue-50/50 shadow-[inset_3px_0_0_#3b82f6] dark:bg-blue-500/10",
                 (isWeekend || isHoliday) && !isToday && "bg-muted/20"
               )}
@@ -233,41 +138,18 @@ export function AttendanceWeekView({
                 </span>
               </div>
 
-              {/* Check-in (desktop) */}
-              <div className="hidden text-[13px] md:block">
-                <p className="font-semibold text-foreground">{record.checkInTime || "--:--"}</p>
-                {record.checkInTime && (
-                  <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                    {record.workMode === "REMOTE" ? <Wifi className="h-3 w-3" /> : <Building2 className="h-3 w-3" />}
-                    {record.workMode === "REMOTE" ? "Remote" : "Office"}
-                  </p>
-                )}
-              </div>
-
-              {/* Timeline (+ times and actions stacked on small screens) */}
+              {/* Status (flexible hours: no clock times or durations) */}
               <div className="min-w-0">
-                <Timeline record={record} look={look} nowMins={nowMins} isToday={isToday} />
-                <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground md:hidden">
-                  <span>
-                    {record.dayOfWeek} · {record.checkInTime || "--:--"} – {record.checkOutTime || (isWorkingNow ? "Now" : "--:--")}
-                  </span>
-                  {record.workedDuration && <span className="font-semibold text-foreground">{record.workedDuration}</span>}
-                </div>
+                <StatusPill look={look} />
+                <p className="mt-1 text-[11px] font-semibold uppercase text-muted-foreground md:hidden">{record.dayOfWeek}</p>
               </div>
 
-              {/* Check-out (desktop) */}
+              {/* Work mode (desktop) */}
               <div className="hidden text-[13px] md:block">
-                <p className={cn("font-semibold", isWorkingNow ? "text-blue-600 dark:text-blue-400" : "text-foreground")}>
-                  {record.checkOutTime || (isWorkingNow ? "Now" : "--:--")}
-                </p>
-              </div>
-
-              {/* Hours (desktop) */}
-              <div className="hidden text-[13px] md:block">
-                {record.workedDuration ? (
-                  <span className="inline-flex items-center gap-1 font-semibold text-foreground">
-                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                    {record.workedDuration}
+                {record.checkInTime ? (
+                  <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                    {record.workMode === "REMOTE" ? <Wifi className="h-3.5 w-3.5" /> : <Building2 className="h-3.5 w-3.5" />}
+                    {record.workMode === "REMOTE" ? "Remote" : "Office"}
                   </span>
                 ) : (
                   <span className="text-muted-foreground">—</span>

@@ -191,9 +191,6 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
               <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-2.5">Team Member</th>
                 <th className="px-4 py-2.5">Status</th>
-                <th className="px-4 py-2.5">Check-in</th>
-                <th className="px-4 py-2.5">Check-out</th>
-                <th className="px-4 py-2.5">Worked Hours</th>
                 <th className="px-4 py-2.5">Work Mode</th>
                 <th className="px-4 py-2.5 text-right">Action</th>
               </tr>
@@ -201,14 +198,14 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
             <tbody className="divide-y divide-border/70 text-xs">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={4} className="py-12 text-center text-muted-foreground">
                     <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
                     Loading team attendance...
                   </td>
                 </tr>
               ) : shownMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={4} className="py-12 text-center text-muted-foreground">
                     No team members found for this date.
                   </td>
                 </tr>
@@ -252,42 +249,6 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                           <span className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[tone])} />
                           {member.status === "On Leave" ? member.leaveType || "On Leave" : member.status}
                         </StatusPill>
-                      </td>
-
-                      {/* Check-in */}
-                      <td className="px-4 py-3">
-                        {member.checkInTime ? (
-                          <div>
-                            <div className="font-semibold text-foreground">{member.checkInTime}</div>
-                            <div className="text-[11px] text-muted-foreground">{member.checkInSource}</div>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-
-                      {/* Check-out */}
-                      <td className="px-4 py-3">
-                        {member.checkOutTime ? (
-                          <div>
-                            <div className="font-semibold text-foreground">{member.checkOutTime}</div>
-                            <div className="text-[11px] text-muted-foreground">{member.checkOutSource}</div>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-
-                      {/* Worked hours */}
-                      <td className="px-4 py-3">
-                        {member.workedHours ? (
-                          <div>
-                            <div className="font-semibold text-foreground">{member.workedHours}</div>
-                            <div className="text-[11px] text-muted-foreground">{member.workedHoursSubtext}</div>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
                       </td>
 
                       {/* Work mode */}

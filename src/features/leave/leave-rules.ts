@@ -2,6 +2,7 @@
 // DB-free (dates are "YYYY-MM-DD" keys) so they can be unit-tested.
 
 import { addDaysToKey, dateFromKey, isWeekendKey } from "@/features/attendance/utils";
+import { PERMANENT_WFH, WFH_LOCATION } from "@/features/users/constants";
 
 export type LeaveDurationType = "FULL_DAY" | "HALF_DAY" | "EARLY_LEAVE" | "QUARTER_DAY" | "HOURLY";
 type Unit = "DAYS" | "WEEKS" | "MONTHS" | "YEARS" | "HOURS";
@@ -265,6 +266,28 @@ export function availableToApply(b: {
   return round(b.allocatedDays + b.carriedForward + b.adjustedDays - b.bookedDays - b.pendingDays);
 }
 
+// ── Display order ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Where a leave type sits in every list: Paid → Sick → Compensatory (comp off) → Floating →
+ * Unpaid (LOP) → everything else (A–Z). Matched by code first, then by name.
+ */
+export function leaveTypeRank(t: { code: string; name: string }): number {
+  const code = t.code.trim().toUpperCase();
+  const name = t.name.trim().toLowerCase();
+  if (code === "LOP" || code === "UL" || /unpaid|loss of pay|\blop\b/.test(name)) return 4;
+  if (code === "PL" || /\bpaid\b/.test(name)) return 0;
+  if (code === "SL" || /sick/.test(name)) return 1;
+  if (code === "COMP" || /comp[\s-]*off|compensat/.test(name)) return 2;
+  if (code === "FH" || /float/.test(name)) return 3;
+  return 5;
+}
+
+/** Sort comparator for leave types / balances (see leaveTypeRank); ties go A–Z by name. */
+export function compareLeaveTypes(a: { code: string; name: string }, b: { code: string; name: string }): number {
+  return leaveTypeRank(a) - leaveTypeRank(b) || a.name.localeCompare(b.name);
+}
+
 // ── Eligibility (applicable to / departments / employment types / service period) ─────────────
 
 export interface EligibilityPolicy {
@@ -282,9 +305,25 @@ export interface EmployeeFacts {
   profileRole: string | null;
   dateOfJoining: Date | null;
   dateOfConfirmation: Date | null;
+  /** Profile Location (User.location): "EagleEye Digital HQ" | "Work From Home". */
+  location?: string | null;
 }
 
 const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/**
+ * Whether the member matches one Member Type of a leave policy. "Permanent WFH" = a Permanent member
+ * whose profile Location is Work From Home — no location set, or HQ, doesn't match (product decision,
+ * Nov 2026: WFH policies are only seen by WFH members). Other types match the employment type.
+ */
+function matchesMemberType(policyType: string, emp: EmployeeFacts): boolean {
+  if (same(policyType, PERMANENT_WFH)) {
+    const isWfh = !!emp.location && same(emp.location, WFH_LOCATION);
+    // As for every member type, an unset employment type doesn't block.
+    return isWfh && (!emp.employmentType || same(emp.employmentType, "Permanent"));
+  }
+  return !emp.employmentType || same(policyType, emp.employmentType);
+}
 
 /**
  * Whether the employee may use this leave type on `onKey`. Returns an error message or null.
@@ -298,7 +337,7 @@ export function checkEligibility(policy: EligibilityPolicy, emp: EmployeeFacts, 
   if (policy.departments.length && emp.department && !policy.departments.some((d) => same(d, emp.department!))) {
     return `${policy.name} is only for ${policy.departments.join(", ")}.`;
   }
-  if (policy.employmentTypes.length && emp.employmentType && !policy.employmentTypes.some((t) => same(t, emp.employmentType!))) {
+  if (policy.employmentTypes.length && !policy.employmentTypes.some((t) => matchesMemberType(t, emp))) {
     return `${policy.name} is only for ${policy.employmentTypes.join(", ")} team members.`;
   }
 

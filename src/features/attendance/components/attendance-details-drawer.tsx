@@ -31,7 +31,7 @@ import {
   History,
 } from "lucide-react";
 import { AttendanceRecord, ActionRequiredItem } from "../types";
-import { formatWorkedDuration, istDateKey, parseTime12h, workedMinutesBetween } from "../utils";
+import { istDateKey, parseTime12h } from "../utils";
 import { getAttendanceEditHistoryAction, type AttendanceEditEntry } from "../actions/attendance-actions";
 
 // "18.44939, 73.89241" — the check-in stores it as the name, or after "·" in the address line.
@@ -169,7 +169,6 @@ function EditTimesForm({
   // Same field look as the regularization form (regularization-fields.tsx).
   const timeClass =
     "w-full pl-10 pr-3 py-2.5 rounded-xl border border-input bg-background text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60 dark:[color-scheme:dark]";
-  const worked = formatWorkedDuration(workedMinutesBetween(checkIn, checkOut));
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
       <div className="flex items-center gap-2.5 border-b border-border bg-muted/40 px-4 py-3">
@@ -214,9 +213,6 @@ function EditTimesForm({
             </div>
           </div>
         </div>
-        <p className="-mt-1 text-xs text-muted-foreground">
-          Worked duration: <span className="font-semibold text-foreground">{worked ?? "--"}</span>
-        </p>
 
         <div>
           <div className="mb-1.5 flex items-center justify-between">
@@ -587,9 +583,6 @@ export function AttendanceDetailsDrawer({
                       <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                         CHECK-IN
                       </span>
-                      <span className="font-bold text-foreground text-sm">
-                        {record.checkInTime}
-                      </span>
                     </div>
 
                     <div className="space-y-2 pt-1 text-xs">
@@ -614,7 +607,7 @@ export function AttendanceDetailsDrawer({
                           src={record.checkInPhoto}
                           alt="Captured check-in photo"
                           onView={() =>
-                            setPhoto({ src: record.checkInPhoto!, label: `Check-in photo · ${record.checkInTime}` })
+                            setPhoto({ src: record.checkInPhoto!, label: "Check-in photo" })
                           }
                         />
                       )}
@@ -629,9 +622,6 @@ export function AttendanceDetailsDrawer({
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                         CHECK-OUT
-                      </span>
-                      <span className="font-bold text-foreground text-sm">
-                        {record.checkOutTime}
                       </span>
                     </div>
 
@@ -658,7 +648,7 @@ export function AttendanceDetailsDrawer({
                           src={record.checkOutPhoto}
                           alt="Captured check-out photo"
                           onView={() =>
-                            setPhoto({ src: record.checkOutPhoto!, label: `Check-out photo · ${record.checkOutTime}` })
+                            setPhoto({ src: record.checkOutPhoto!, label: "Check-out photo" })
                           }
                         />
                       )}
@@ -720,7 +710,7 @@ export function AttendanceDetailsDrawer({
                       <Clock className="w-3.5 h-3.5 text-muted-foreground" /> From
                     </span>
                     <span className="font-semibold text-foreground">
-                      {record.earlyLeaveInfo?.from || record.checkOutTime || "—"}
+                      {record.earlyLeaveInfo?.from || "—"}
                     </span>
                   </div>
 
@@ -925,58 +915,18 @@ export function AttendanceDetailsDrawer({
               </div>
             )}
 
-            {/* ── SECTION: WORK DETAILS ───────────────────────────────────── */}
-            <div className="space-y-3 pt-3 border-t border-border">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
-                <span className="w-2 h-2 rounded-full bg-purple-600" />
-                <span>
-                  {/* Only an open session is live — a past day's figures are final. */}
-                  {isWorkingNow ? "WORK DETAILS (Live)" : "WORK DETAILS"}
-                </span>
+            {/* Flexible hours: no worked-duration figures. A full-day leave still says why the day is empty. */}
+            {isFullLeave && (
+              <div className="p-4 rounded-xl border border-border bg-muted/40 flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-700/60 flex items-center justify-center text-muted-foreground">
+                  <Briefcase className="w-5 h-5" />
+                </div>
+                <div>
+                  <h5 className="text-sm font-bold text-foreground">No attendance recorded</h5>
+                  <p className="text-xs text-muted-foreground mt-0.5">You were on leave for this day.</p>
+                </div>
               </div>
-
-              {record.workedDuration ? (
-                <div className="flex items-center justify-between text-sm py-1">
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    Worked Duration
-                  </span>
-                  <span className="font-bold text-foreground">
-                    {record.workedDuration}
-                  </span>
-                </div>
-              ) : isActionRequired ? (
-                <div className="flex items-center justify-between text-sm py-1">
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    Worked Duration
-                  </span>
-                  <span className="font-bold text-muted-foreground">-</span>
-                </div>
-              ) : isFullLeave ? (
-                <div className="p-4 rounded-xl border border-border bg-muted/40 flex items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-lg bg-zinc-100 dark:bg-zinc-700/60 flex items-center justify-center text-muted-foreground">
-                    <Briefcase className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h5 className="text-sm font-bold text-foreground">
-                      No attendance recorded
-                    </h5>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      You were on leave for this day.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between text-sm py-1">
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    Worked Duration
-                  </span>
-                  <span className="font-bold text-muted-foreground">-</span>
-                </div>
-              )}
-            </div>
+            )}
           </div>
         </div>
       </div>

@@ -20,6 +20,16 @@ export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
 
 export const LOCATIONS = ["EagleEye Digital HQ", "Work From Home"] as const;
 
+/**
+ * Extra Member Type for leave policies only (not a User Management member type): a Permanent member
+ * whose profile Location is "Work From Home". See checkEligibility in features/leave/leave-rules.ts.
+ */
+export const PERMANENT_WFH = "Permanent WFH";
+export const WFH_LOCATION: (typeof LOCATIONS)[number] = "Work From Home";
+
+/** Member Type options in the leave policy wizard. */
+export const LEAVE_MEMBER_TYPES = [...EMPLOYMENT_TYPES, PERMANENT_WFH] as const;
+
 export const GENDERS = ["Male", "Female", "Other"] as const;
 export const MARITAL_STATUSES = ["Single", "Married"] as const;
 export const PARENT_RELATIONSHIPS = ["Father", "Mother", "Spouse", "Brother", "Sister", "Guardian", "Other"] as const;

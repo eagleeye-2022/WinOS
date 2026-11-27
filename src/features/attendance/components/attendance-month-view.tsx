@@ -20,11 +20,11 @@ interface AttendanceMonthViewProps {
 function cellLook(record: AttendanceRecord, isToday: boolean): { label: string; sub?: string; tone: PulseTone } | null {
   switch (record.status) {
     case "WORKING_NOW":
-      return { label: "Working", sub: record.checkInTime, tone: "blue" };
+      return { label: "Working", tone: "blue" };
     case "PRESENT":
-      return { label: "Present", sub: record.workedDuration, tone: "green" };
+      return { label: "Present", tone: "green" };
     case "EARLY_LEAVE":
-      return { label: "Early leave", sub: record.workedDuration, tone: "amber" };
+      return { label: "Early leave", tone: "amber" };
     case "HALF_DAY_LEAVE":
       return { label: "Half day", sub: record.leaveInfo?.leaveType, tone: "amber" };
     case "ON_LEAVE":

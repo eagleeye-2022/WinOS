@@ -358,6 +358,9 @@ export function AttendanceWorkspace({
                   }
                   stepDays={7}
                   label={viewMode === "week" ? weekLabel : undefined}
+                  // Fixed width (fits "23 Nov 2026 – 29 Nov 2026") so the toolbar doesn't jump
+                  // when switching Week ↔ Month.
+                  triggerClassName="w-[236px]"
                   onChange={(period) => {
                     if (periodKind(period) === "month") {
                       setViewMode("month");
@@ -369,14 +372,19 @@ export function AttendanceWorkspace({
                   }}
                 />
 
-                {selectedDate !== todayKey && (
-                  <button
-                    onClick={() => goToDate(todayKey)}
-                    className="h-8 rounded-lg border border-border/80 bg-background px-3 text-xs font-semibold text-foreground hover:bg-accent"
-                  >
-                    Today
-                  </button>
-                )}
+                {/* Always rendered (hidden when already on today) so its space is kept and the
+                    controls never shift. */}
+                <button
+                  onClick={() => goToDate(todayKey)}
+                  aria-hidden={selectedDate === todayKey}
+                  tabIndex={selectedDate === todayKey ? -1 : undefined}
+                  className={cn(
+                    "h-8 rounded-lg border border-border/80 bg-background px-3 text-xs font-semibold text-foreground hover:bg-accent",
+                    selectedDate === todayKey && "invisible"
+                  )}
+                >
+                  Today
+                </button>
               </div>
             </div>
 

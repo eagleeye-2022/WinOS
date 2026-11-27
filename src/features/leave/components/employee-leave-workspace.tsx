@@ -402,6 +402,7 @@ function PolicyTab({ userId, name }: { userId: string; name: string }) {
   const applies = policy.policies.filter((p) => p.applies).length;
   const facts = [
     ["Member type", policy.employee.employmentType || "Not set"],
+    ["Work location", policy.employee.location || "Not set"],
     ["Department", policy.employee.department || "Not set"],
     ["Date of joining", policy.employee.dateOfJoining || "Not set"],
     ["Probation", policy.employee.confirmed ? "Confirmed" : "On probation / not confirmed"],

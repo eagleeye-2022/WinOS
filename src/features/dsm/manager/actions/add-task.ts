@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { linkNoProjectRowsToUnassigned, linkProjectOnlyRowsToNat } from "../nat-rows";
 import { syncDueDateFromDsm } from "../../due-date-sync";
 import { parseRule, serializeRule } from "../../recurring-utils";
+import { syncRecurrenceFromDsm } from "../../recurrence-sync";
 
 export type AddTaskState = { message?: string };
 
@@ -95,6 +96,8 @@ export async function addTask(
 
   // A due date on a linked row becomes the Srijan task's due date too.
   await syncDueDateFromDsm(projectTaskId, dueDate);
+  // Same for a recurrence set while adding it.
+  if (recurringTaskId) await syncRecurrenceFromDsm(projectTaskId, serializedRule);
 
   // Added to an already-reviewed DSM with a project but no task: there's no later review to
   // create its NAT task, so do it now (see reviewStandup).
