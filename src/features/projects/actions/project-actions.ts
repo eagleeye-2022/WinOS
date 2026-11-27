@@ -1936,7 +1936,7 @@ async function loadTasks(projectId: string | undefined, userMap: Map<string, str
     }),
     db.projectSubtask.findMany({
       where: { task: taskWhere },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
     }),
     db.projectTaskRemark.findMany({ where: { task: taskWhere } }),
     db.user.findMany({ select: { id: true, name: true, email: true } }),
@@ -2048,9 +2048,10 @@ async function loadTasks(projectId: string | undefined, userMap: Map<string, str
     // Build comprehensive subtasks map from childTasks, ProjectSubtask, and matching parentTaskId rows
     const subtasksMap = new Map<string, TaskSubtask>();
 
-    // Same rows the `childTasks` relation (parentTaskId = this task's id) used to return, oldest first.
+    // Same rows the `childTasks` relation (parentTaskId = this task's id) used to return: drag order,
+    // then newest first (like tasks), so a new subtask shows at the top.
     const childTasks = [...(childrenByParentKey.get(t.id) ?? [])].sort(
-      (a, b) => (a.order ?? 0) - (b.order ?? 0) || a.createdAt.getTime() - b.createdAt.getTime()
+      (a, b) => (a.order ?? 0) - (b.order ?? 0) || b.createdAt.getTime() - a.createdAt.getTime()
     );
     for (const ct of childTasks) {
       subtasksMap.set(ct.id, {
@@ -2174,7 +2175,7 @@ export async function getProjectTasksAction(projectId?: string): Promise<TaskIte
       author: { select: { id: true, name: true, email: true } },
       childTasks: {
         include: { ownerUser: { select: { name: true } } },
-        orderBy: [{ order: "asc" as const }, { createdAt: "asc" as const }],
+        orderBy: [{ order: "asc" as const }, { createdAt: "desc" as const }],
       },
       remarks: true,
       activities: true,
@@ -2307,7 +2308,7 @@ export async function getMyTasksAction(): Promise<TaskItem[]> {
       },
       childTasks: {
         include: { ownerUser: { select: { name: true } } },
-        orderBy: [{ order: "asc" as const }, { createdAt: "asc" as const }],
+        orderBy: [{ order: "asc" as const }, { createdAt: "desc" as const }],
       },
       project: { select: { name: true } },
       remarks: true,
@@ -3136,9 +3137,9 @@ export async function duplicateTaskAction(
 
 /**
  * Puts a duplicated task directly below its original. The copy shares the original's `order`, so
- * without this the tie-break (createdAt) sends it to the end of a subtask list (or the top of a
- * task list). Siblings are renumbered 0..n in the order the lists already show them — tasks sort
- * by order, then newest first; subtasks by order, then oldest first — and only changed rows are written.
+ * without this the tie-break (createdAt) sends it to the top of the list. Siblings are renumbered
+ * 0..n in the order the lists already show them — tasks and subtasks both sort by order, then
+ * newest first — and only changed rows are written.
  */
 async function placeCopyAfterOriginal(
   originalId: string,
@@ -3149,9 +3150,7 @@ async function placeCopyAfterOriginal(
   const siblings = await db.projectTask.findMany({
     where: { projectId, parentTaskId },
     select: { id: true, order: true },
-    orderBy: parentTaskId
-      ? [{ order: "asc" }, { createdAt: "asc" }]
-      : [{ order: "asc" }, { createdAt: "desc" }],
+    orderBy: [{ order: "asc" }, { createdAt: "desc" }],
   });
   const ids = siblings.map((s) => s.id).filter((id) => id !== copyId);
   const at = ids.indexOf(originalId);

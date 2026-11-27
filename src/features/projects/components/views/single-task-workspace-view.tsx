@@ -787,7 +787,8 @@ export function SingleTaskWorkspaceView({
     };
     setTasks((prev) => [
       ...prev.map((t) =>
-        t.id === activeTask.id ? { ...activeTask, subtasks: [...subtasks, created] } : t
+        // Newest first, the order the server lists them in.
+        t.id === activeTask.id ? { ...activeTask, subtasks: [created, ...subtasks] } : t
       ),
       subtaskItem,
     ]);
