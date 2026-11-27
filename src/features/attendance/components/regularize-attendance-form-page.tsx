@@ -148,7 +148,7 @@ export function RegularizeAttendanceFormPage({
   return (
     <div className="flex w-full flex-col gap-4">
       {/* Title bar */}
-      <div className="rounded-lg border border-border/70 bg-card px-5 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="rounded-xl border border-border/60 bg-card px-5 py-3">
         <h1 className="text-lg font-semibold text-foreground">Regularize Attendance</h1>
         {onBehalfOf && <p className="text-xs text-muted-foreground">On behalf of {onBehalfOf.name}</p>}
       </div>
@@ -158,7 +158,7 @@ export function RegularizeAttendanceFormPage({
         <div className="lg:col-span-2">
           <form
             onSubmit={handleSubmit}
-            className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+            className="overflow-hidden rounded-xl border border-border/60 bg-card"
           >
             {error && (
               <div className="flex items-center gap-2 border-b border-rose-200 bg-rose-50 px-5 py-3 text-xs text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
@@ -243,7 +243,7 @@ export function RegularizeAttendanceFormPage({
 
         {/* Summary */}
         <div className="space-y-4">
-          <section className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <section className="rounded-xl border border-border/60 bg-card">
             <header className="flex items-center gap-2.5 px-5 pt-4">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
                 <Calendar className="h-4 w-4" />

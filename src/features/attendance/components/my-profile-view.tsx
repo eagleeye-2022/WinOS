@@ -581,7 +581,7 @@ export function ProfileView(props: ProfileViewProps) {
 
   if (isLoading) {
     return (
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col items-center justify-center gap-3 rounded-lg border border-border/70 bg-card py-20 text-muted-foreground">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col items-center justify-center gap-3 rounded-xl border border-border/60 bg-card py-20 text-muted-foreground">
         <Loader2 className="h-7 w-7 animate-spin text-blue-600 dark:text-blue-400" />
         <span className="text-xs font-semibold">Loading profile...</span>
       </div>
@@ -590,7 +590,7 @@ export function ProfileView(props: ProfileViewProps) {
 
   if (!profile) {
     return (
-      <div className="mx-auto w-full max-w-[1400px] rounded-lg border border-border/70 bg-card py-20 text-center text-xs text-muted-foreground">
+      <div className="mx-auto w-full max-w-[1400px] rounded-xl border border-border/60 bg-card py-20 text-center text-xs text-muted-foreground">
         {loadError}
       </div>
     );
@@ -867,7 +867,7 @@ export function ProfileView(props: ProfileViewProps) {
       {section === "profile" && (
         <>
           {/* Key details at a glance */}
-          <section className="rounded-lg border border-border/70 bg-card px-6 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <section className="rounded-xl border border-border/60 bg-card px-6 py-5">
             <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
               <EditableInfoItem icon={<MapPin className="h-5 w-5" />} {...edit("location")} />
               <EditableInfoItem icon={<Network className="h-5 w-5" />} {...edit("department")} />

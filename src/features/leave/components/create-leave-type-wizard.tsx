@@ -633,7 +633,7 @@ export function CreateLeaveTypeWizard({
   // Edit mode waits for the saved settings so no step briefly shows the create defaults.
   if (isEdit && (isLoadingEdit || loadError)) {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border/70 bg-card py-20 text-sm text-muted-foreground">
+      <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border/60 bg-card py-20 text-sm text-muted-foreground">
         {loadError ? (
           <>
             <p className="text-rose-600 dark:text-rose-400">{loadError}</p>
@@ -672,7 +672,7 @@ export function CreateLeaveTypeWizard({
       </div>
 
       {/* 6-Step Stepper Bar */}
-      <div className="bg-card border rounded-lg p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="bg-card border rounded-lg p-4">
         <div className="flex items-center justify-between relative">
           {steps.map((step, idx) => {
             const isCompleted = currentStep > step.number;
@@ -686,7 +686,7 @@ export function CreateLeaveTypeWizard({
                 >
                   <div
                     className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+                      "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all",
                       isCompleted
                         ? "bg-primary text-primary-foreground"
                         : isCurrent
@@ -726,7 +726,7 @@ export function CreateLeaveTypeWizard({
 
       {/* STEP 1: BASIC INFORMATION (Image 2) */}
       {currentStep === 1 && (
-        <div className="bg-card border rounded-lg p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
+        <div className="bg-card border rounded-lg p-6 space-y-6">
           <div className="pb-2 border-b">
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Basic Information
@@ -820,7 +820,7 @@ export function CreateLeaveTypeWizard({
                     onClick={() => setIsIconModalOpen(true)}
                     title="Click to change icon and color theme"
                     className={cn(
-                      "w-11 h-11 rounded-md flex items-center justify-center border transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-[0_1px_2px_rgba(15,23,42,0.04)] shrink-0 group relative",
+                      "w-11 h-11 rounded-md flex items-center justify-center border transition-all cursor-pointer hover:scale-105 active:scale-95 shrink-0 group relative",
                       currentColor.bg,
                       currentColor.text,
                       currentColor.border
@@ -832,7 +832,7 @@ export function CreateLeaveTypeWizard({
                     type="button"
                     variant="outline"
                     onClick={() => setIsIconModalOpen(true)}
-                    className="h-11 flex-1 rounded-md text-xs font-semibold gap-2 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary/50 cursor-pointer shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                    className="h-11 flex-1 rounded-md text-xs font-semibold gap-2 text-primary border-primary/30 hover:bg-primary/5 hover:border-primary/50 cursor-pointer"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                     <span>Change Icon & Color</span>
@@ -906,7 +906,7 @@ export function CreateLeaveTypeWizard({
 
       {/* STEP 2: LEAVE & BALANCE SETUP (Image 3) */}
       {currentStep === 2 && (
-        <div className="bg-card border rounded-lg p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
+        <div className="bg-card border rounded-lg p-6 space-y-6">
           <div className="pb-2 border-b">
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Leave & Balance Setup
@@ -1173,7 +1173,7 @@ export function CreateLeaveTypeWizard({
 
       {/* STEP 3: ELIGIBILITY & DURATION (New Image 1) */}
       {currentStep === 3 && (
-        <div className="bg-card border rounded-lg p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
+        <div className="bg-card border rounded-lg p-6 space-y-6">
           <div className="pb-2 border-b">
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Eligibility & Duration
@@ -1401,7 +1401,7 @@ export function CreateLeaveTypeWizard({
 
       {/* STEP 4: APPLICATION RULES (New Image 2) */}
       {currentStep === 4 && (
-        <div className="bg-card border rounded-lg p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
+        <div className="bg-card border rounded-lg p-6 space-y-6">
           <div className="pb-2 border-b">
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Application Rules
@@ -1410,7 +1410,7 @@ export function CreateLeaveTypeWizard({
 
           <div className="space-y-6 text-xs">
             {/* Card 1: Application Date Rules */}
-            <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-4">
+            <div className="bg-card border rounded-lg p-5 space-y-4">
               <h4 className="text-xs font-bold text-foreground">
                 Application Date Rules
               </h4>
@@ -1520,7 +1520,7 @@ export function CreateLeaveTypeWizard({
             </div>
 
             {/* Card 2: Leave Request Limits */}
-            <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-4">
+            <div className="bg-card border rounded-lg p-5 space-y-4">
               <h4 className="text-xs font-bold text-foreground">
                 Leave Request Limits
               </h4>
@@ -1612,7 +1612,7 @@ export function CreateLeaveTypeWizard({
             {/* Card 3: Two Column Box */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Left: Maximum Number of Requests */}
-              <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-3">
+              <div className="bg-card border rounded-lg p-5 space-y-3">
                 <span className="font-bold text-foreground flex items-center gap-1 text-xs">
                   Maximum Number of Requests
                   <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1656,7 +1656,7 @@ export function CreateLeaveTypeWizard({
               </div>
 
               {/* Right: Days chips */}
-              <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-3">
+              <div className="bg-card border rounded-lg p-5 space-y-3">
                 <span className="font-bold text-foreground flex items-center gap-1 text-xs">
                   This leave can be applied only on
                   <HelpCircle className="w-3.5 h-3.5 text-muted-foreground" />
@@ -1696,7 +1696,7 @@ export function CreateLeaveTypeWizard({
 
       {/* STEP 5: POLICIES & DOCUMENTS (New Image 4) */}
       {currentStep === 5 && (
-        <div className="bg-card border rounded-lg p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
+        <div className="bg-card border rounded-lg p-6 space-y-6">
           <div className="pb-2 border-b">
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Policies & Documents
@@ -1705,7 +1705,7 @@ export function CreateLeaveTypeWizard({
 
           <div className="space-y-6 text-xs">
             {/* Card 1: Sandwich & Clubbing Policies */}
-            <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-card border rounded-lg p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left: Sandwich Leave Policy */}
               <div className="space-y-4">
                 <span className="font-bold text-foreground flex items-center gap-1 text-xs">
@@ -1801,7 +1801,7 @@ export function CreateLeaveTypeWizard({
             </div>
 
             {/* Card 2: Supporting Documents & File Types */}
-            <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-card border rounded-lg p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left: Supporting Document Policy */}
               <div className="space-y-4">
                 <span className="font-bold text-foreground flex items-center gap-1 text-xs">
@@ -1972,7 +1972,7 @@ export function CreateLeaveTypeWizard({
 
       {/* STEP 6: APPROVAL & VISIBILITY / REVIEW & CREATE (New Image 3) */}
       {currentStep === 6 && (
-        <div className="bg-card border rounded-lg p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-6">
+        <div className="bg-card border rounded-lg p-6 space-y-6">
           <div className="pb-2 border-b">
             <h3 className="text-base font-bold text-foreground tracking-tight">
               Approval & Visibility
@@ -1981,7 +1981,7 @@ export function CreateLeaveTypeWizard({
 
           <div className="space-y-6 text-xs">
             {/* Card 1: Approval Settings & Allow Admin on Behalf */}
-            <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-card border rounded-lg p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left: Approval Settings */}
               <div className="space-y-4">
                 <span className="font-bold text-foreground text-xs">
@@ -2043,7 +2043,7 @@ export function CreateLeaveTypeWizard({
             </div>
 
             {/* Card 2: Employee Leave Visibility */}
-            <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-4">
+            <div className="bg-card border rounded-lg p-5 space-y-4">
               <div>
                 <h4 className="text-xs font-bold text-foreground">
                   Team Member Leave Visibility
@@ -2130,7 +2130,7 @@ export function CreateLeaveTypeWizard({
       )}
 
       {/* Footer Navigation Bar */}
-      <div className="bg-card border rounded-lg p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] flex items-center justify-between">
+      <div className="bg-card border rounded-lg p-4 flex items-center justify-between">
         <Button
           type="button"
           variant="outline"
@@ -2150,7 +2150,7 @@ export function CreateLeaveTypeWizard({
           type="button"
           disabled={isSubmitting}
           onClick={handleNext}
-          className="h-10 px-8 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] gap-1.5"
+          className="h-10 px-8 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 gap-1.5"
         >
           <span>
             {isSubmitting
@@ -2195,7 +2195,7 @@ export function CreateLeaveTypeWizard({
               {/* Live Preview Box */}
               <div className="flex items-center justify-between p-3.5 rounded-md border bg-muted/30">
                 <div className="flex items-center gap-3">
-                  <div className={cn("w-12 h-12 rounded-md flex items-center justify-center border shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all", currentColor.bg, currentColor.text, currentColor.border)}>
+                  <div className={cn("w-12 h-12 rounded-md flex items-center justify-center border transition-all", currentColor.bg, currentColor.text, currentColor.border)}>
                     {renderIconComponent(selectedIcon, "w-6 h-6")}
                   </div>
                   <div>
@@ -2282,7 +2282,7 @@ export function CreateLeaveTypeWizard({
                 <Button
                   type="button"
                   onClick={() => setIsIconModalOpen(false)}
-                  className="w-full h-10 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 cursor-pointer shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                  className="w-full h-10 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
                 >
                   Apply & Done
                 </Button>

@@ -206,7 +206,7 @@ export function LeavePolicyView({ onCreateNew, onEdit }: LeavePolicyViewProps) {
     }
   };
 
-  const CARD = "rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+  const CARD = "rounded-xl border border-border/60 bg-card";
   const stats: { label: string; value: number; tone: PulseTone; icon: React.ReactNode }[] = [
     { label: "Total Leave Types", value: metrics.total, tone: "blue", icon: <Calendar className="h-4 w-4" /> },
     { label: "Active", value: metrics.active, tone: "green", icon: <CheckCircle2 className="h-4 w-4" /> },

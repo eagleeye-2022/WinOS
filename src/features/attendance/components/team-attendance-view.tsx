@@ -130,7 +130,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
   return (
     <div className="flex w-full flex-col gap-4">
       {/* Toolbar: title + date */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Team Attendance</h1>
         </div>
@@ -141,7 +141,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
       <PulseStatTiles items={stats} />
 
       {/* Table card with its filter bar (tiles scroll here; scroll-mt clears the sticky tabs) */}
-      <div ref={tableRef} className="scroll-mt-24 overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div ref={tableRef} className="scroll-mt-24 overflow-hidden rounded-xl border border-border/60 bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
           <div className="flex flex-wrap items-center gap-2">
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectCls}>

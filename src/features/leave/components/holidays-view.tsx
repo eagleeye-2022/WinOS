@@ -154,7 +154,7 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
   return (
     <div className="space-y-4 select-none">
       {/* Toolbar: title, year, add */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Holidays</h1>
         </div>
@@ -192,7 +192,7 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
         {stats.map((s) => (
           <div
             key={s.label}
-            className="flex items-center gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+            className="flex items-center gap-3 rounded-xl border border-border/60 bg-card px-4 py-3"
           >
             <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", TONE_SOFT[s.tone])}>{s.icon}</span>
             <div>
@@ -204,7 +204,7 @@ export function HolidaysView({ canManage = false }: { canManage?: boolean }) {
       </div>
 
       {/* Holiday list */}
-      <div className="overflow-x-auto rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="overflow-x-auto rounded-xl border border-border/60 bg-card">
         <table className="w-full border-collapse text-left text-xs">
           <thead>
             <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

@@ -20,7 +20,7 @@ export const PROFILE_COVER_BUTTON =
   "inline-flex h-8 items-center gap-1.5 rounded-md bg-black/30 px-3 text-xs font-semibold text-white backdrop-blur-xs transition-colors hover:bg-black/45";
 
 /** White card used for every profile section. */
-export const PROFILE_CARD = "rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
+export const PROFILE_CARD = "rounded-xl border border-border/60 bg-card";
 
 /** Card with a "Title ———" heading. */
 export function ProfileSectionCard({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {

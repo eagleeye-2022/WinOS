@@ -278,7 +278,7 @@ export function LeaveRequestDetailsView({
   return (
     <div className="w-full space-y-4 pb-12">
       {/* Breadcrumb Header */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
 
           <div className="flex flex-wrap items-center gap-2.5">
@@ -313,7 +313,7 @@ export function LeaveRequestDetailsView({
         {/* Left Column: Leave Information & Attachments */}
         <div className="space-y-4 lg:col-span-8">
           {/* Leave Information Card */}
-          <div className="space-y-5 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          <div className="space-y-5 rounded-xl border border-border/60 bg-card p-5">
             <div className="flex items-center gap-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
                 <FileText className="h-4 w-4" />
@@ -414,7 +414,7 @@ export function LeaveRequestDetailsView({
           </div>
 
           {/* Attachments Card */}
-          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
             <div className="flex items-center gap-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
                 <FileText className="h-4 w-4" />
@@ -472,7 +472,7 @@ export function LeaveRequestDetailsView({
 
           {/* Action Buttons: Manager Approve / Reject or Employee Cancel */}
           {status === "PENDING" && (
-            <div className="space-y-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-5 py-3">
+            <div className="space-y-3 rounded-xl border border-border/60 bg-card px-5 py-3">
             {showReview && <ApprovalNoteField value={note} onChange={setNote} disabled={isProcessing} />}
             <div className="flex flex-wrap items-center justify-end gap-2">
               {/* Employee Action: Cancel Request */}
@@ -535,7 +535,7 @@ export function LeaveRequestDetailsView({
         {/* Right Column: Approval Flow vs Leave Balance Switcher */}
         <div className="lg:col-span-4 space-y-4">
           {/* Switcher Buttons */}
-          <div className="flex items-center gap-1 rounded-md border border-border/70 bg-card p-1 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <div className="flex items-center gap-1 rounded-md border border-border/70 bg-card p-1">
             <button
               type="button"
               onClick={() => setActiveTab("approval")}
@@ -567,7 +567,7 @@ export function LeaveRequestDetailsView({
 
           {/* Approval Flow Card */}
           {activeTab === "approval" && (
-            <div className="space-y-6 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+            <div className="space-y-6 rounded-xl border border-border/60 bg-card p-5">
               <h3 className="text-[15px] font-semibold text-foreground">Approval Flow</h3>
 
               <div className="relative pl-6 space-y-8 before:absolute before:left-3 before:top-3 before:bottom-3 before:w-0.5 before:bg-border">
@@ -659,7 +659,7 @@ export function LeaveRequestDetailsView({
 
           {/* Leave Balance Card */}
           {activeTab === "balance" && (
-            <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+            <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
               <h3 className="text-[15px] font-semibold text-foreground">Remaining Leaves</h3>
 
               {balances.length === 0 ? (
@@ -760,7 +760,7 @@ export function LeaveRequestDetailsView({
                   <img
                     src={previewAttachment.url}
                     alt={previewAttachment.name}
-                    className="max-h-[55vh] max-w-full object-contain rounded-lg border shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                    className="max-h-[55vh] max-w-full object-contain rounded-lg border"
                   />
                 </div>
               ) : previewAttachment.url &&
@@ -775,7 +775,7 @@ export function LeaveRequestDetailsView({
                 </div>
               ) : (
                 <div className="text-center space-y-3 py-8 max-w-sm">
-                  <div className="w-16 h-16 rounded-lg bg-primary/10 text-primary flex items-center justify-center mx-auto shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-primary/20">
+                  <div className="w-16 h-16 rounded-lg bg-primary/10 text-primary flex items-center justify-center mx-auto border border-primary/20">
                     <FileText className="w-8 h-8" />
                   </div>
                   <div className="space-y-1">

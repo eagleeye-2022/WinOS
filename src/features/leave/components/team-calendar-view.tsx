@@ -157,7 +157,7 @@ export function TeamCalendarView() {
   return (
     <div className="space-y-4 select-none">
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Team Calendar</h1>
         </div>
@@ -191,7 +191,7 @@ export function TeamCalendarView() {
       {/* Main 2-Column Grid */}
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
         {/* Left Column: Interactive Month Grid */}
-        <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5 lg:col-span-8">
+        <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5 lg:col-span-8">
           {/* Legend & Month Title */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
             <div className="flex items-center gap-2">
@@ -360,7 +360,7 @@ export function TeamCalendarView() {
         </div>
 
         {/* Right Column: Selected Day's Events Card */}
-        <div className="space-y-5 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5 lg:col-span-4">
+        <div className="space-y-5 rounded-xl border border-border/60 bg-card p-5 lg:col-span-4">
           <div>
             <div className="flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">

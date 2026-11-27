@@ -83,7 +83,7 @@ export function CompensatoryView() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-card border rounded-lg p-6 shadow-[0_1px_2px_rgba(15,23,42,0.04)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-card border rounded-lg p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h3 className="text-base font-bold text-foreground tracking-tight">
             Compensatory Off Requests
@@ -96,14 +96,14 @@ export function CompensatoryView() {
         <Button
           type="button"
           onClick={() => setIsModalOpen(true)}
-          className="h-9 px-4 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+          className="h-9 px-4 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700"
         >
           <Plus className="w-3.5 h-3.5 mr-1.5" />
           Claim Comp Off
         </Button>
       </div>
 
-      <div className="bg-card border rounded-lg p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-4">
+      <div className="bg-card border rounded-lg p-5 space-y-4">
         <div className="border border-border/80 rounded-md overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>

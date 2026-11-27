@@ -68,7 +68,7 @@ export function TeamLeavePayrollView() {
       className="flex w-full flex-col gap-4 select-none"
     >
       {/* Header with Title and Month Controls */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground">
             Team Leave for Payroll
@@ -79,7 +79,7 @@ export function TeamLeavePayrollView() {
           <PeriodNav modes={["month"]} value={selectedMonth} onChange={setSelectedMonth} />
 
           {/* Export Button */}
-          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-foreground hover:bg-accent shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-foreground hover:bg-accent transition-colors">
             <Download className="w-3.5 h-3.5 text-muted-foreground" />
             <span>Export</span>
           </button>
@@ -87,7 +87,7 @@ export function TeamLeavePayrollView() {
       </div>
 
       {/* Table Container */}
-      <div className="overflow-visible rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="overflow-visible rounded-xl border border-border/60 bg-card">
         <div className="overflow-x-auto overflow-y-visible">
           <table className="w-full text-left border-collapse">
             <thead>

@@ -120,7 +120,7 @@ export function RegularizationRequestDetails({
   return (
     <div className="flex w-full flex-col gap-4">
       {/* Header: who + status + actions */}
-      <section className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <section className="rounded-xl border border-border/60 bg-card">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <UserAvatar

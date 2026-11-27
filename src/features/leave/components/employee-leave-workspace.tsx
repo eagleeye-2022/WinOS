@@ -212,7 +212,7 @@ export function EmployeeLeaveWorkspace({ userId, embedded = false }: { userId: s
 
           {tab === "requests" && (
             <div className="space-y-4">
-              <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <h1 className="text-lg font-semibold text-foreground">Leave Requests</h1>
                 <ApplyButton onClick={() => setApplyFor({})} />
               </div>
@@ -280,7 +280,7 @@ function SummaryTab({
   return (
     <div className="space-y-4">
       {/* Toolbar: year totals, year navigation, Apply Leave */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
         <p className="text-sm text-muted-foreground">
           Leave booked {year === thisYear ? "this year" : `in ${year}`}:{" "}
           <span className="font-semibold text-foreground">{data.stats.bookedThisYear} day(s)</span>
@@ -328,7 +328,7 @@ function SummaryTab({
       <LeaveBalanceGrid leaveTypes={leaveTypes} onSelectType={() => onApply()} />
 
       {/* Absent days — each can be covered by a leave */}
-      <section className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <section className="overflow-hidden rounded-xl border border-border/60 bg-card">
         <div className="flex items-center gap-2 border-b border-border/70 px-5 py-3">
           <h2 className="text-sm font-semibold text-foreground">Absent</h2>
           <span className="text-xs text-muted-foreground">· {data.stats.absentDays} day(s)</span>
@@ -416,7 +416,7 @@ function PolicyTab({ userId, name }: { userId: string; name: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-border/70 bg-card px-5 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="rounded-xl border border-border/60 bg-card px-5 py-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
           <h2 className="text-sm font-semibold text-foreground">
             {applies} of {policy.policies.length} leave types apply to {name}
@@ -446,7 +446,7 @@ function PolicyTab({ userId, name }: { userId: string; name: string }) {
             <div
               key={p.id}
               className={cn(
-                "flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+                "flex flex-col gap-3 rounded-lg border bg-card p-4",
                 p.applies ? "border-border/70" : "border-dashed border-border opacity-80"
               )}
             >

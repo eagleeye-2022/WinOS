@@ -132,7 +132,7 @@ export function EmployeeAttendanceView({
     <div className="flex w-full flex-col gap-4">
       {/* Profile card */}
       {!hideProfile && (
-      <section className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <section className="overflow-hidden rounded-xl border border-border/60 bg-card">
         <div className="h-14 bg-gradient-to-r from-blue-600 to-sky-500 dark:from-blue-700 dark:to-sky-700" />
         <div className="flex flex-col gap-4 px-5 pb-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-end gap-4">
@@ -192,7 +192,7 @@ export function EmployeeAttendanceView({
       )}
 
       {/* Toolbar: title, view switcher & date navigation */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-foreground">Attendance Log</h2>
           <p className="text-xs text-muted-foreground">{viewMode === "week" ? weekLabel : monthRangeLabel}</p>

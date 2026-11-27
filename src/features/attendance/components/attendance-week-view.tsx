@@ -87,7 +87,7 @@ export function AttendanceWeekView({
   const btn = "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors disabled:opacity-50";
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
       {/* Column headings */}
       <div className="hidden grid-cols-[120px_minmax(0,1fr)_120px_180px] items-end gap-3 border-b border-border/70 bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground md:grid">
         <span>Date</span>

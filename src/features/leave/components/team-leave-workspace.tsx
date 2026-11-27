@@ -443,14 +443,14 @@ export function TeamLeaveWorkspace({
       {activeTab === "leave-requests" && (
         <div className="space-y-4">
           {/* Toolbar */}
-          <div className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3">
+          <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
             <h1 className="text-lg font-semibold text-foreground">All Leave Requests</h1>
           </div>
 
           <PulseStatTiles items={statusTiles(metrics, "requests")} />
 
           {/* Filter Bar (stat tiles scroll here; scroll-mt clears the sticky tabs) */}
-          <div ref={requestsFilterRef} className="scroll-mt-24 space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          <div ref={requestsFilterRef} className="scroll-mt-24 space-y-4 rounded-xl border border-border/60 bg-card p-5">
             <div className="flex flex-wrap gap-3 items-center">
               {/* Search */}
               <div className="relative flex-1 min-w-[200px]">
@@ -683,7 +683,7 @@ export function TeamLeaveWorkspace({
       {activeTab === "compensatory-requests" && (
         <div className="space-y-4">
           {/* Toolbar */}
-          <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-lg font-semibold text-foreground">Compensatory Requests</h1>
             </div>
@@ -701,7 +701,7 @@ export function TeamLeaveWorkspace({
           <PulseStatTiles items={statusTiles(compMetrics, "compensatory")} />
 
           {/* Filter Bar (stat tiles scroll here; scroll-mt clears the sticky tabs) */}
-          <div ref={compFilterRef} className="scroll-mt-24 space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          <div ref={compFilterRef} className="scroll-mt-24 space-y-4 rounded-xl border border-border/60 bg-card p-5">
             <div className="flex flex-wrap gap-3 items-center">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />

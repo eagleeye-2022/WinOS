@@ -205,7 +205,7 @@ export function ApplyCompensatoryForm({
   return (
     <div className="w-full space-y-4 pb-12">
       {/* Breadcrumb Header */}
-      <div className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-1 px-4 py-3">
+      <div className="rounded-xl border border-border/60 bg-card space-y-1 px-4 py-3">
         <h1 className="text-lg font-semibold text-foreground">Compensatory Request</h1>
       </div>
 
@@ -213,7 +213,7 @@ export function ApplyCompensatoryForm({
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
         {/* Left Column: Form */}
         <div className="lg:col-span-8">
-          <form onSubmit={handleSubmit} className="divide-y divide-border/70 overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <form onSubmit={handleSubmit} className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/60 bg-card">
             {/* 1. Work Date & Time */}
             <div className="space-y-4 px-6 py-5">
               <SectionTitle n={1}>Work Date & Time</SectionTitle>
@@ -469,7 +469,7 @@ export function ApplyCompensatoryForm({
         {/* Right Column: Request Summary & Duration Guide */}
         <div className="space-y-4 lg:col-span-4">
           {/* Request Summary Card */}
-          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
             <WidgetTitle icon={<FileText className="h-4 w-4" />}>Request Summary</WidgetTitle>
 
             <div className="space-y-3 text-xs">

@@ -84,7 +84,7 @@ export function RegularizationRequestsList({
   return (
     <div className="flex w-full flex-col gap-4">
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground">
             {scope === "team" ? "Team Regularization Requests" : scope === "mine" ? "My Regularization Requests" : "Regularization Requests"}
@@ -101,7 +101,7 @@ export function RegularizationRequestsList({
         )}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
         {/* Status tabs with counts */}
         <div className="flex gap-1 overflow-x-auto border-b border-border/70 px-2">
           {statusTabs.map((t) => {

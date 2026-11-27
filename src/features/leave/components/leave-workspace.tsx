@@ -375,7 +375,7 @@ export function LeaveWorkspace({
             {activeTab === "overview" && (
               <>
                 {/* Toolbar: title, yearly stats, Apply Leave */}
-                <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1.5">
                     <h1 className="text-lg font-semibold text-foreground">Leave Tracker</h1>
                     <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
@@ -429,7 +429,7 @@ export function LeaveWorkspace({
             {/* LEAVE REQUEST TAB */}
             {activeTab === "requests" && (
               <div className="space-y-4">
-                <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h1 className="text-lg font-semibold text-foreground">Leave Requests</h1>
                   </div>

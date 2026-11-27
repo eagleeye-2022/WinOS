@@ -94,7 +94,7 @@ export function AttendanceMonthView({
 
   return (
     // Phones: the month keeps a readable width and scrolls sideways.
-    <div className="overflow-x-auto rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="overflow-x-auto rounded-xl border border-border/60 bg-card">
       {/* Weekday header */}
       <div className="grid min-w-[640px] grid-cols-7 border-b border-border/70 bg-muted/40 text-center">
         {daysOfWeek.map((day) => (

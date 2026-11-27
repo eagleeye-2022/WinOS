@@ -323,7 +323,7 @@ export function AttendanceWorkspace({
         {activeTab === "my-attendance" && (
           <>
             {/* Toolbar: title, view switcher & date navigation */}
-            <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h1 className="text-lg font-semibold text-foreground">My Attendance</h1>
                 <p className="text-xs text-muted-foreground">
@@ -409,7 +409,7 @@ export function AttendanceWorkspace({
 
             {/* View Content */}
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border/70 bg-card py-20 text-muted-foreground">
+              <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border/60 bg-card py-20 text-muted-foreground">
                 <Loader2 className="h-7 w-7 animate-spin text-blue-600 dark:text-blue-400" />
                 <span className="text-xs font-semibold">Loading attendance data...</span>
               </div>

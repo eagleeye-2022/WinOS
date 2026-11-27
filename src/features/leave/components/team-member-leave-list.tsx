@@ -35,7 +35,7 @@ export function TeamMemberLeaveList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Team Member Leave</h1>
           <p className="text-xs text-muted-foreground">Open a team member to see and manage their leave.</p>
@@ -46,7 +46,7 @@ export function TeamMemberLeaveList() {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="overflow-x-auto rounded-xl border border-border/60 bg-card">
         {error ? (
           <p className="px-5 py-6 text-sm text-rose-600">{error}</p>
         ) : !members ? (
