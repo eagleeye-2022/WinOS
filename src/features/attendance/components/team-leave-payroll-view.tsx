@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import {
-  Download,
   ChevronLeft,
   ChevronRight,
   Info,
@@ -78,11 +77,6 @@ export function TeamLeavePayrollView() {
         <div className="flex items-center gap-3">
           <PeriodNav modes={["month"]} value={selectedMonth} onChange={setSelectedMonth} />
 
-          {/* Export Button */}
-          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-input bg-background text-xs font-semibold text-foreground hover:bg-accent transition-colors">
-            <Download className="w-3.5 h-3.5 text-muted-foreground" />
-            <span>Export</span>
-          </button>
         </div>
       </div>
 

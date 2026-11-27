@@ -14,7 +14,6 @@ import {
   Check,
   X,
   Eye,
-  Download,
   Sliders,
   Plus,
   ArrowUpDown,
@@ -687,15 +686,7 @@ export function TeamLeaveWorkspace({
             <div>
               <h1 className="text-lg font-semibold text-foreground">Compensatory Requests</h1>
             </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="h-8 gap-1.5 self-start rounded-md px-3 text-xs font-semibold sm:self-auto"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Export
-            </Button>
+
           </div>
 
           <PulseStatTiles items={statusTiles(compMetrics, "compensatory")} />

@@ -97,6 +97,24 @@ const pad2 = (n: number) => String(n).padStart(2, "0");
 const hms = (s: number) => `${pad2(Math.floor(s / 3600))}:${pad2(Math.floor((s % 3600) / 60))}:${pad2(s % 60)}`;
 
 /**
+ * "HH:MM:SS" that never changes width as it ticks: every character sits in its own fixed-width
+ * slot (the app font's digits aren't all the same width, so tabular-nums alone isn't enough).
+ */
+function StableClock({ seconds }: { seconds: number }) {
+  return (
+    <span className="inline-flex shrink-0 font-semibold text-foreground" aria-label={hms(seconds)}>
+      {hms(seconds)
+        .split("")
+        .map((ch, i) => (
+          <span key={i} aria-hidden className={cn("inline-block text-center", ch === ":" ? "w-[0.4em]" : "w-[0.65em]")}>
+            {ch}
+          </span>
+        ))}
+    </span>
+  );
+}
+
+/**
  * Just two things: the running task's ID with its timer (when one is running), and today's total
  * on all tasks. Re-read every 30s and when the tab regains focus, so starting / stopping a timer
  * elsewhere shows up; the running timer ticks every second.
@@ -161,22 +179,22 @@ function ActiveTaskTimer() {
       {timer && (
         <p className="flex items-center justify-between gap-2">
           {href ? (
-            <Link href={href} title={tooltip} className="truncate font-medium text-foreground hover:underline">
+            <Link href={href} title={tooltip} className="min-w-0 truncate font-medium text-foreground hover:underline">
               {timer.taskCode || "Task"}
             </Link>
           ) : (
-            <span title={tooltip} className="truncate font-medium text-foreground">
+            <span title={tooltip} className="min-w-0 truncate font-medium text-foreground">
               {timer.taskCode || "Task"}
             </span>
           )}
-          {/* Fixed width + tabular digits, so the time doesn't shift as it ticks. */}
-          <span className="w-[8ch] shrink-0 text-right font-mono font-semibold tabular-nums text-foreground">{hms(session)}</span>
+          {/* Fixed-width digit slots, so the time doesn't shift as it ticks. */}
+          <StableClock seconds={session} />
         </p>
       )}
       {/* Total on all tasks today. */}
       <p className="flex items-center justify-between gap-2" title="Total time logged today on all tasks">
-        <span className="text-muted-foreground">Total today</span>
-        <span className="w-[8ch] shrink-0 text-right font-mono font-semibold tabular-nums text-foreground">{hms(totalSeconds)}</span>
+        <span className="min-w-0 truncate text-muted-foreground">Total today</span>
+        <StableClock seconds={totalSeconds} />
       </p>
     </div>
   );

@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import {
-  ChevronDown,
-  Download,
   Building2,
   Home,
   CheckCircle2,
@@ -66,12 +64,7 @@ export function MyShiftSummaryView() {
             My Shift Summary
           </h1>
         </div>
-
-        <button className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-xs font-semibold hover:bg-accent transition-colors">
-          <Download className="w-3.5 h-3.5 text-muted-foreground" />
-          <span>Export Summary</span>
-          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-0.5" />
-        </button>
+
       </div>
 
       {/* Filter Row */}

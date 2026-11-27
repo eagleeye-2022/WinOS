@@ -6,8 +6,6 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Download,
-  ChevronDown,
   Search,
   Building2,
   Home,
@@ -70,12 +68,7 @@ export function TeamShiftSummaryView() {
             Team Shift Summary
           </h1>
         </div>
-
-        <button className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-xs font-semibold hover:bg-accent transition-colors">
-          <Download className="w-3.5 h-3.5 text-muted-foreground" />
-          <span>Export</span>
-          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-0.5" />
-        </button>
+
       </div>
 
       {/* Filter Row */}
