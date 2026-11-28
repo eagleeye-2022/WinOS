@@ -53,6 +53,7 @@ import { InviteMemberModal, InviteFormSubmission } from "./modals/invite-member-
 import { ProjectTemplatesModal } from "./modals/project-templates-modal";
 import { toast } from "@/components/shared/toast";
 import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
+import { replaceTaskWithRollup, revertTaskInList, rollupMessage, settleRollupList } from "../utils/status-rollup";
 import { usePageViewState } from "@/lib/navigation/use-url-state";
 
 /**
@@ -301,6 +302,8 @@ export function ProjectsWorkspace() {
           priority: newTask.priority,
           tags: newTask.tags,
           description: newTask.description,
+          startDate: newTask.startDate,
+          dueDate: newTask.dueDate,
         },
         newTask.projectId
       );
@@ -340,14 +343,13 @@ export function ProjectsWorkspace() {
       return;
     }
     const previous = tasks.find((t) => t.id === updatedTask.id);
-    setTasks((prev) =>
-      prev.map((t) => (t.id === updatedTask.id ? updatedTask : t))
-    );
+    // A status change closes / reopens its parent(s) on screen at once too (status-rollup.ts).
+    const { changes: shown } = replaceTaskWithRollup(tasks, updatedTask, previous);
+    setTasks((prev) => replaceTaskWithRollup(prev, updatedTask, previous).tasks);
     const result = await updateTaskAction(updatedTask.id, updatedTask);
+    setTasks((prev) => settleRollupList(prev, shown, result.success ? result : null, updatedTask.status));
     if (!result.success) {
-      if (previous) {
-        setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? previous : t)));
-      }
+      if (previous) setTasks((prev) => revertTaskInList(prev, previous));
       if (result.checklistBlock) {
         showChecklistGate({
           ...result.checklistBlock,
@@ -358,7 +360,7 @@ export function ProjectsWorkspace() {
         toast.error(result.error || "You do not have permission to edit this task.");
       }
     } else {
-      toast.success("Task updated");
+      toast.success(rollupMessage(shown) ?? "Task updated");
     }
   };
 

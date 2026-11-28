@@ -38,7 +38,7 @@ export function EmployeeSwitcherHeader({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between",
+        "flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between",
         className
       )}
     >

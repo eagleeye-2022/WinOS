@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
+import { DateTile, StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
 
 interface CompensatoryRequestsTableProps {
   requests: CompensatoryRequest[];
@@ -82,7 +82,7 @@ export function CompensatoryRequestsTable({
   return (
     <div className="space-y-4">
       {/* Toolbar: title + apply */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Compensatory Requests</h1>
         </div>
@@ -100,7 +100,7 @@ export function CompensatoryRequestsTable({
       </div>
 
       {/* Filter Bar */}
-      <div className="space-y-4 rounded-lg border border-border/70 bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {/* Date range picker display */}
           <div className="flex h-8 items-center gap-2 rounded-md border border-border/80 bg-background px-3 text-xs font-medium text-foreground">
@@ -164,8 +164,13 @@ export function CompensatoryRequestsTable({
                     >
                       {/* Work Date */}
                       <td className="py-3 px-4">
-                        <div className="font-semibold text-foreground">{r.workDate}</div>
-                        <div className="text-xs text-muted-foreground">{r.workDayOfWeek}</div>
+                        <div className="flex items-center gap-2.5">
+                          <DateTile date={r.workDate} tone="violet" size="sm" />
+                          <div>
+                            <div className="font-semibold text-foreground">{r.workDate}</div>
+                            <div className="text-xs text-muted-foreground">{r.workDayOfWeek}</div>
+                          </div>
+                        </div>
                       </td>
 
                       {/* Hours Worked */}

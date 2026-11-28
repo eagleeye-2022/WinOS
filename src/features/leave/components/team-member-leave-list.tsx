@@ -8,6 +8,7 @@ import Link from "next/link";
 import { ChevronRight, Loader2, Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { UserAvatar } from "@/components/shared/user-avatar";
+import { ROUTES } from "@/constants/routes";
 import { getEmployeesForAdjustmentAction } from "../queries/leave-queries";
 
 type Member = Awaited<ReturnType<typeof getEmployeesForAdjustmentAction>>[number];
@@ -34,7 +35,7 @@ export function TeamMemberLeaveList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Team Member Leave</h1>
           <p className="text-xs text-muted-foreground">Open a team member to see and manage their leave.</p>
@@ -45,7 +46,7 @@ export function TeamMemberLeaveList() {
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="overflow-x-auto rounded-xl border border-border/60 bg-card">
         {error ? (
           <p className="px-5 py-6 text-sm text-rose-600">{error}</p>
         ) : !members ? (
@@ -74,7 +75,7 @@ export function TeamMemberLeaveList() {
               {shown.map((m) => {
                 const booked = round(m.balances.reduce((s, b) => s + b.booked, 0));
                 const available = round(m.balances.reduce((s, b) => s + Math.max(0, b.available), 0));
-                const href = `/pulse/leave/employee/${m.id}`;
+                const href = ROUTES.pulseTeamMemberLeave(m.id);
                 return (
                   <tr key={m.id} className="group cursor-pointer transition-colors hover:bg-muted/40">
                     <td className="px-4 py-2.5">

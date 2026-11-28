@@ -67,6 +67,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants/routes";
 
 interface ApplyLeaveFormProps {
   leaveTypes: LeaveTypeConfig[];
@@ -473,7 +474,7 @@ export function ApplyLeaveForm({
   return (
     <div className="w-full space-y-4 pb-12">
       {/* Breadcrumb Header */}
-      <div className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-1 px-4 py-3">
+      <div className="rounded-xl border border-border/60 bg-card space-y-1 px-4 py-3">
         <h1 className="text-lg font-semibold text-foreground">Apply for Leave</h1>
       </div>
 
@@ -481,7 +482,7 @@ export function ApplyLeaveForm({
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
         {/* Left Column: Form */}
         <div className="lg:col-span-8">
-          <form onSubmit={handleSubmit} className="divide-y divide-border/70 overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+          <form onSubmit={handleSubmit} className="divide-y divide-border/70 overflow-hidden rounded-xl border border-border/60 bg-card">
             {/* Managers only: whose leave this is */}
             {applicantOptions.length > 0 && (
               <div className="space-y-3 px-6 py-5">
@@ -975,7 +976,7 @@ export function ApplyLeaveForm({
                   onClick={() => {
                     clearDraft();
                     if (onCancel) onCancel();
-                    else router.push("/pulse/leave");
+                    else router.push(ROUTES.pulseLeave);
                   }}
                   className="h-9 rounded-md px-5 text-xs font-semibold"
                 >
@@ -1002,7 +1003,7 @@ export function ApplyLeaveForm({
         {/* Right Column: Remaining Leaves & Balance Summary Widgets */}
         <div className="space-y-4 lg:col-span-4">
           {/* Remaining Leaves Card */}
-          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
             <WidgetTitle icon={<CalendarDays className="h-4 w-4" />}>Remaining Leaves</WidgetTitle>
 
             {/* The employee's real balance for each leave type they can apply for; click one to pick it. */}
@@ -1039,7 +1040,7 @@ export function ApplyLeaveForm({
           </div>
 
           {/* Balance Summary Card */}
-          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
             <div>
               <WidgetTitle icon={<Wallet className="h-4 w-4" />}>
                 Balance Summary – <span className="text-blue-600 dark:text-blue-400">{selectedType?.name ?? "—"}</span>
@@ -1157,7 +1158,7 @@ export function ApplyLeaveForm({
                   <img
                     src={previewAttachment.url}
                     alt={previewAttachment.name}
-                    className="max-h-[55vh] max-w-full object-contain rounded-lg border shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                    className="max-h-[55vh] max-w-full object-contain rounded-lg border"
                   />
                 </div>
               ) : previewAttachment.url &&
@@ -1172,7 +1173,7 @@ export function ApplyLeaveForm({
                 </div>
               ) : (
                 <div className="text-center space-y-3 py-8 max-w-sm">
-                  <div className="w-16 h-16 rounded-lg bg-primary/10 text-primary flex items-center justify-center mx-auto shadow-[0_1px_2px_rgba(15,23,42,0.04)] border border-primary/20">
+                  <div className="w-16 h-16 rounded-lg bg-primary/10 text-primary flex items-center justify-center mx-auto border border-primary/20">
                     <FileText className="w-8 h-8" />
                   </div>
                   <div className="space-y-1">

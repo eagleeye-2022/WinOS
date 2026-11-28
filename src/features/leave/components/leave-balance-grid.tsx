@@ -47,7 +47,7 @@ export function LeaveBalanceGrid({
   };
 
   return (
-    <div className="space-y-4 rounded-lg border border-border/70 bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
       {/* Header with Title and Scroll Controls */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">

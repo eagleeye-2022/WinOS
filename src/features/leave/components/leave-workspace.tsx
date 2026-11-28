@@ -22,8 +22,9 @@ import { LeaveRequestDetailsView } from "./leave-request-details-view";
 import { CompensatoryDetailsView } from "./compensatory-details-view";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { PULSE_PAGE_BG, PulseStickyTabs, PulseTabs, StatusPill } from "@/components/pulse/pulse-ui";
-import { useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
+import { PULSE_PAGE_BG, PulseStickyTabs, PulseTabs } from "@/components/pulse/pulse-ui";
+import { usePathTab, usePageViewState } from "@/lib/navigation/use-url-state";
+import { ROUTES } from "@/constants/routes";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 import { toast } from "@/components/shared/toast";
 import {
@@ -52,7 +53,7 @@ interface LeaveWorkspaceProps {
   initialSelectedRequestId?: string;
   initialSelectedCompRequestId?: string;
   /**
-   * A team member's request opened by a manager (/pulse/leave/team/…): the breadcrumb and the
+   * A team member's request opened by a manager (/pulse/team/leaves/…): the breadcrumb and the
    * not-found fallback go back to the Team Leave lists instead of the manager's own leave.
    */
   teamView?: boolean;
@@ -62,9 +63,17 @@ interface LeaveWorkspaceProps {
 
 /** The Team Leave tab each detail view belongs to. */
 const TEAM_LIST = {
-  requests: { label: "Leave Requests", href: "/pulse/leave/team?tab=leave-requests" },
-  compensatory: { label: "Compensatory Requests", href: "/pulse/leave/team?tab=compensatory-requests" },
+  requests: { label: "Leave Requests", href: ROUTES.pulseTeamLeaveRequests },
+  compensatory: { label: "Compensatory Requests", href: ROUTES.pulseTeamLeaveCompensatory },
 } as const;
+
+/** Each My Leaves tab is its own path. */
+const LIST_TAB_PATHS: Readonly<Record<ListTab, string>> = {
+  overview: ROUTES.pulseLeave,
+  requests: ROUTES.pulseLeaveRequests,
+  compensatory: ROUTES.pulseLeaveCompensatory,
+  holidays: ROUTES.pulseLeaveHolidays,
+};
 
 export function LeaveWorkspace({
   initialTab = "overview",
@@ -74,13 +83,14 @@ export function LeaveWorkspace({
   embedded = false,
 }: LeaveWorkspaceProps) {
   const router = useRouter();
-  // List tabs live in the URL (restored on return, Back/Forward-able). Form / detail views depend
-  // on in-memory selections, so they stay as a transient overlay on top of the list tab.
+  // List tabs are paths (/pulse/my/leaves/requests …: restored on return, Back/Forward-able).
+  // Form / detail views depend on in-memory selections, so they stay as a transient overlay on top
+  // of the list tab. Embedded (profile page) and team-detail views never rewrite the URL.
   const initialIsListTab = (LIST_TABS as readonly ActiveTab[]).includes(initialTab);
-  const [listTab, setListTab] = useUrlState<ListTab>(
-    "tab",
+  const [listTab, setListTab] = usePathTab<ListTab>(
+    LIST_TAB_PATHS,
     initialIsListTab ? (initialTab as ListTab) : "overview",
-    { allowed: LIST_TABS, history: "push" }
+    !embedded && !teamView
   );
   const [transientTab, setTransientTab] = useState<ActiveTab | null>(initialIsListTab ? null : initialTab);
   const activeTab: ActiveTab = transientTab ?? listTab;
@@ -365,15 +375,16 @@ export function LeaveWorkspace({
             {activeTab === "overview" && (
               <>
                 {/* Toolbar: title, yearly stats, Apply Leave */}
-                <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1.5">
                     <h1 className="text-lg font-semibold text-foreground">Leave Tracker</h1>
-                    <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <StatusPill tone="blue">Booked this year · {stats.bookedThisYear} day(s)</StatusPill>
-                      <span title="Working days with no check-in and no leave — the same days Home counts as loss of pay">
-                        <StatusPill tone={stats.absentDays > 0 ? "red" : "gray"}>Absent this year · {stats.absentDays} day(s)</StatusPill>
+                    <p className="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground">
+                      <span>Booked · {stats.bookedThisYear} {stats.bookedThisYear === 1 ? "day" : "days"}</span>
+                      <span aria-hidden>|</span>
+                      <span title="Working days this year with no check-in and no leave — the same days Home counts as loss of pay">
+                        Absent · {stats.absentDays} {stats.absentDays === 1 ? "day" : "days"}
                       </span>
-                    </div>
+                    </p>
                   </div>
 
                   <Button
@@ -418,7 +429,7 @@ export function LeaveWorkspace({
             {/* LEAVE REQUEST TAB */}
             {activeTab === "requests" && (
               <div className="space-y-4">
-                <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h1 className="text-lg font-semibold text-foreground">Leave Requests</h1>
                   </div>

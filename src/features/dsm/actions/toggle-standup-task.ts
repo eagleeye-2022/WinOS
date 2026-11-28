@@ -7,6 +7,7 @@ import { canCloseWithoutSop, checklistCloseBlock, forcedCloseOf } from "@/featur
 import { recordTaskClosed } from "@/features/sop-checklists/events";
 import { isTaskDone } from "@/features/projects/types";
 import { openSubtasksOf, openSubtasksMessage } from "@/features/projects/subtask-gate";
+import { closeParentsWhenSubtasksDone } from "@/features/projects/parent-auto-close";
 
 export async function toggleStandupTask(taskId: string, isCompleted: boolean) {
   const session = await auth();
@@ -83,11 +84,10 @@ export async function toggleStandupTask(taskId: string, isCompleted: boolean) {
 
         // SOP timeline: the linked task was closed (forced when a manager skipped the checklist).
         if (linked && !isTaskDone(linked.status, false, linked.completionPercentage)) {
-          await recordTaskClosed(
-            { id: session.user.id, name: userName },
-            task.projectTaskId,
-            sopBlock ? forcedCloseOf(sopBlock) : null
-          );
+          const actor = { id: session.user.id, name: userName };
+          await recordTaskClosed(actor, task.projectTaskId, sopBlock ? forcedCloseOf(sopBlock) : null);
+          // If it was the last open subtask, its parent task closes too.
+          await closeParentsWhenSubtasksDone(task.projectTaskId, actor, "Closed");
         }
       }
     }

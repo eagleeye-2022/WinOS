@@ -186,7 +186,7 @@ export function ActiveTeamTimersCard({ projectId, className = "" }: ActiveTeamTi
       toast.success(`Time logged on "${stopped.taskTitle || stopped.taskCode || "task"}".`);
     } catch (err) {
       console.error("[ActiveTeamTimersCard] createTimeLogAction failed:", err);
-      toast.error("Couldn't save the time log. Please try again.");
+      toast.error("Couldn't save the effort log. Please try again.");
       requestPendingTimerLogRecovery();
     } finally {
       isSavingLogRef.current = false;

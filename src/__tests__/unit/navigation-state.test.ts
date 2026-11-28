@@ -9,7 +9,8 @@ describe("resolveNavModule", () => {
     ["/dsm/member/u1", "standup"],
     ["/report/all", "standup"],
     ["/notes/member/u1", "standup"],
-    ["/pulse/leave/requests/abc", "people"],
+    ["/pulse/my/leaves/requests/abc", "people"],
+    ["/pulse/team/attendance/regularization", "people"],
     ["/people", "people"],
     ["/projects", "projects"],
     ["/projects/P-1/tasks/T-9", "projects"],
@@ -60,11 +61,11 @@ describe("navigation store", () => {
     s.recordUrl("projects", "/projects?tab=INACTIVE");
     s.setView("projects", "collapsed", ["3.1"]);
     s.saveScroll("projects", "/projects?tab=INACTIVE", [{ key: "p:0", top: 400, left: 0 }]);
-    s.recordUrl("people", "/pulse/attendance?tab=team-attendance");
+    s.recordUrl("people", "/pulse/team/attendance?view=month");
     s.resetModule("projects");
     const { modules } = useNavigationStore.getState();
     expect(modules.projects).toEqual({ lastUrl: null, scroll: {}, view: {} });
-    expect(modules.people?.lastUrl).toBe("/pulse/attendance?tab=team-attendance");
+    expect(modules.people?.lastUrl).toBe("/pulse/team/attendance?view=month");
   });
 
   it("drops a URL's scroll entry when saved empty and caps stored URLs", () => {

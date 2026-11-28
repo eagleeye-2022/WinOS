@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants/routes";
 import { istDateKey } from "@/features/attendance/utils";
 import { StatusPill } from "@/components/pulse/pulse-ui";
 import { UserAvatar } from "@/components/shared/user-avatar";
@@ -283,12 +284,12 @@ export function LeaveBalanceAdjustmentView({
       {!employeeId && (
       <>
       {/* Breadcrumb Header */}
-      <div className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] space-y-1 px-4 py-3">
+      <div className="rounded-xl border border-border/60 bg-card space-y-1 px-4 py-3">
         <h1 className="text-lg font-semibold text-foreground">Leave Balance Adjustment</h1>
       </div>
 
       {/* Employee Banner / Selector Card */}
-      <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
       <div className="h-1.5 bg-gradient-to-r from-blue-600 to-sky-500" />
       <div className="flex flex-col justify-between gap-4 p-5 md:flex-row md:items-center">
         <div className="flex items-center gap-4">
@@ -374,7 +375,7 @@ export function LeaveBalanceAdjustmentView({
       )}
 
       {/* Leave Adjustments Table Card */}
-      <div className="space-y-5 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-6 pt-5 pb-6">
+      <div className="space-y-5 rounded-xl border border-border/60 bg-card px-6 pt-5 pb-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
@@ -645,7 +646,7 @@ export function LeaveBalanceAdjustmentView({
           <Button
             type="button"
             variant="outline"
-            onClick={() => (onCancel ? onCancel() : router.push("/pulse/leave/team"))}
+            onClick={() => (onCancel ? onCancel() : router.push(ROUTES.pulseTeamLeave))}
             className="h-9 cursor-pointer rounded-md px-5 text-xs font-semibold"
           >
             Cancel
@@ -733,7 +734,7 @@ export function LeaveBalanceAdjustmentView({
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleConfirm}
-                className="flex-1 h-10 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 cursor-pointer shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                className="flex-1 h-10 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>
@@ -807,7 +808,7 @@ export function LeaveBalanceAdjustmentView({
                   setRemarks("");
                   onSuccess?.();
                 }}
-                className="flex-1 h-10 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 cursor-pointer shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                className="flex-1 h-10 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
               >
                 Done
               </Button>

@@ -240,10 +240,10 @@ export function ClientPortalView() {
           <p className="text-xs text-muted-foreground">Phases Verified</p>
         </div>
 
-        {/* Total Hours */}
+        {/* Effort Hours */}
         <div className="rounded-xl border bg-card p-3.5 space-y-1.5 shadow-2xs">
           <div className="flex items-center justify-between text-muted-foreground">
-            <span className="text-xs font-semibold">Total Hours</span>
+            <span className="text-xs font-semibold">Effort Hours</span>
             <Clock size={15} className="text-sky-500" />
           </div>
           <div className="text-lg font-bold text-foreground">{totalHoursText}</div>

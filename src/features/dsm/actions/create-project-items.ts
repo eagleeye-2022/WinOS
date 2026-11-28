@@ -252,7 +252,7 @@ async function ensureUnassignedProject(createdByUserId: string): Promise<{ id: s
           code: UNASSIGNED_PROJECT_CODE,
           name: UNASSIGNED_PROJECT_NAME,
           description:
-            "DSM work started before a project was picked. Move each task to its real project — its time logs move with it.",
+            "DSM work started before a project was picked. Move each task to its real project — its effort logs move with it.",
           createdByUserId,
           accessType: "PUBLIC",
           isClientVisible: false,

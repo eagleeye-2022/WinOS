@@ -14,7 +14,6 @@ import {
   Check,
   X,
   Eye,
-  Download,
   Sliders,
   Plus,
   ArrowUpDown,
@@ -43,6 +42,7 @@ import { cn } from "@/lib/utils";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserName } from "@/components/shared/user-card";
 import {
+  DateTile,
   PULSE_PAGE_BG,
   PulseStatTiles,
   PulseStickyTabs,
@@ -62,18 +62,27 @@ const STATUS_LOOK: Record<string, { label: string; tone: PulseTone }> = {
 };
 
 type StatusCounts = { pending: number; approved: number; rejected: number; cancelled: number; total: number };
-import { useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
+import { useUrlState, usePageViewState, usePathTab } from "@/lib/navigation/use-url-state";
+import { ROUTES } from "@/constants/routes";
 import { PeriodNav, currentPeriod, overlapsPeriod, type Period } from "@/components/shared/period-nav";
 
-const TEAM_LEAVE_LIST_TABS = [
-  "leave-requests",
-  "employee-leave",
-  "compensatory-requests",
-  "team-calendar",
-  "holidays",
-  "leave-policy",
-] as const;
-type TeamLeaveListTab = (typeof TEAM_LEAVE_LIST_TABS)[number];
+type TeamLeaveListTab =
+  | "leave-requests"
+  | "employee-leave"
+  | "compensatory-requests"
+  | "team-calendar"
+  | "holidays"
+  | "leave-policy";
+
+/** Each Team Leave tab is its own path. */
+const TEAM_LEAVE_TAB_PATHS: Readonly<Record<TeamLeaveListTab, string>> = {
+  "leave-requests": ROUTES.pulseTeamLeaveRequests,
+  "employee-leave": ROUTES.pulseTeamLeaveEmployees,
+  "compensatory-requests": ROUTES.pulseTeamLeaveCompensatory,
+  "team-calendar": ROUTES.pulseTeamLeaveCalendar,
+  holidays: ROUTES.pulseTeamLeaveHolidays,
+  "leave-policy": ROUTES.pulseTeamLeavePolicy,
+};
 
 import {
   getTeamLeaveRequestsAction,
@@ -146,12 +155,11 @@ export function TeamLeaveWorkspace({
     | "create-leave-type";
 }) {
   const router = useRouter();
-  // Tabs live in the URL (restored on return, Back/Forward-able). The create-leave-type wizard is
-  // a transient form on top of the Leave Policy tab, not a URL-addressable view.
-  const [listTab, setListTab] = useUrlState<TeamLeaveListTab>(
-    "tab",
-    initialTab === "create-leave-type" ? "leave-policy" : initialTab,
-    { allowed: TEAM_LEAVE_LIST_TABS, history: "push" }
+  // Tabs are paths (/pulse/team/leaves/requests …: restored on return, Back/Forward-able). The
+  // create-leave-type wizard is a transient form on top of the Leave Policy tab.
+  const [listTab, setListTab] = usePathTab<TeamLeaveListTab>(
+    TEAM_LEAVE_TAB_PATHS,
+    initialTab === "create-leave-type" ? "leave-policy" : initialTab
   );
   const [isCreatingLeaveType, setIsCreatingLeaveType] = useState(initialTab === "create-leave-type");
   /** Set while the wizard is editing an existing leave type (null = creating a new one). */
@@ -434,14 +442,14 @@ export function TeamLeaveWorkspace({
       {activeTab === "leave-requests" && (
         <div className="space-y-4">
           {/* Toolbar */}
-          <div className="rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3">
+          <div className="rounded-xl border border-border/60 bg-card px-4 py-3">
             <h1 className="text-lg font-semibold text-foreground">All Leave Requests</h1>
           </div>
 
           <PulseStatTiles items={statusTiles(metrics, "requests")} />
 
           {/* Filter Bar (stat tiles scroll here; scroll-mt clears the sticky tabs) */}
-          <div ref={requestsFilterRef} className="scroll-mt-24 space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          <div ref={requestsFilterRef} className="scroll-mt-24 space-y-4 rounded-xl border border-border/60 bg-card p-5">
             <div className="flex flex-wrap gap-3 items-center">
               {/* Search */}
               <div className="relative flex-1 min-w-[200px]">
@@ -574,7 +582,7 @@ export function TeamLeaveWorkspace({
                     filteredTeamRequests.map((req) => (
                       <tr
                         key={req.id}
-                        onClick={() => router.push(`/pulse/leave/team/requests/${req.id}`)}
+                        onClick={() => router.push(ROUTES.pulseTeamLeaveRequest(req.id))}
                         title="Open request"
                         className="cursor-pointer transition-colors hover:bg-muted/40"
                       >
@@ -604,7 +612,7 @@ export function TeamLeaveWorkspace({
                               <div className="flex items-center gap-1.5 font-semibold text-foreground leading-tight">
                                 {req.userId && !req.isOwn ? (
                                   <Link
-                                    href={`/pulse/leave/employee/${req.userId}`}
+                                    href={ROUTES.pulseTeamMemberLeave(req.userId)}
                                     onClick={(e) => e.stopPropagation()}
                                     title={`Open ${req.employeeName}'s leave`}
                                     className="hover:text-blue-600 hover:underline dark:hover:text-blue-400"
@@ -674,25 +682,17 @@ export function TeamLeaveWorkspace({
       {activeTab === "compensatory-requests" && (
         <div className="space-y-4">
           {/* Toolbar */}
-          <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h1 className="text-lg font-semibold text-foreground">Compensatory Requests</h1>
             </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="h-8 gap-1.5 self-start rounded-md px-3 text-xs font-semibold sm:self-auto"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Export
-            </Button>
+
           </div>
 
           <PulseStatTiles items={statusTiles(compMetrics, "compensatory")} />
 
           {/* Filter Bar (stat tiles scroll here; scroll-mt clears the sticky tabs) */}
-          <div ref={compFilterRef} className="scroll-mt-24 space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          <div ref={compFilterRef} className="scroll-mt-24 space-y-4 rounded-xl border border-border/60 bg-card p-5">
             <div className="flex flex-wrap gap-3 items-center">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -779,8 +779,13 @@ export function TeamLeaveWorkspace({
                         </td>
 
                         <td className="py-3 px-4">
-                          <div className="font-semibold text-foreground">{comp.workDate}</div>
-                          <div className="text-xs text-muted-foreground">({comp.workDay})</div>
+                          <div className="flex items-center gap-2.5">
+                            <DateTile date={comp.workDate} tone="violet" size="sm" />
+                            <div>
+                              <div className="font-semibold text-foreground">{comp.workDate}</div>
+                              <div className="text-xs text-muted-foreground">({comp.workDay})</div>
+                            </div>
+                          </div>
                         </td>
 
                         <td className="py-3 px-4 whitespace-pre-line text-muted-foreground font-medium">
@@ -806,7 +811,7 @@ export function TeamLeaveWorkspace({
                         <td className="py-3 px-4 text-center sticky right-0 bg-background">
                           <div className="flex items-center justify-center gap-1.5">
                             <Link
-                              href={`/pulse/leave/team/compensatory/${comp.id}`}
+                              href={ROUTES.pulseTeamCompensatoryRequest(comp.id)}
                               className="rounded-md p-1.5 text-blue-600 hover:bg-muted hover:text-foreground dark:text-blue-400"
                               title="View Details"
                             >

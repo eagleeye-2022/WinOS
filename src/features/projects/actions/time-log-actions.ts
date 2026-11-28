@@ -246,7 +246,7 @@ export async function createTimeLogAction(params: CreateTimeLogParams | any, ove
     return { success: true, data: newLog };
   } catch (err: any) {
     console.error("[createTimeLogAction] error:", err);
-    return { success: false, error: err?.message || "Failed to create time log" };
+    return { success: false, error: err?.message || "Failed to create effort log" };
   }
 }
 
@@ -275,7 +275,7 @@ export async function updateTimeLogAction(logIdOrParams: string | UpdateTimeLogP
   }
 
   if (!targetLogId) {
-    return { success: false, error: "Time log ID is required" };
+    return { success: false, error: "Effort log ID is required" };
   }
 
   const existingLog = await d.projectTimeLog.findUnique({
@@ -283,17 +283,17 @@ export async function updateTimeLogAction(logIdOrParams: string | UpdateTimeLogP
   });
 
   if (!existingLog) {
-    return { success: false, error: "Time log not found" };
+    return { success: false, error: "Effort log not found" };
   }
 
   const isManager = sessionUser.role === "MANAGER";
 
   if (!isManager) {
     if (existingLog.userId !== sessionUser.id) {
-      return { success: false, error: "You can only edit your own time logs" };
+      return { success: false, error: "You can only edit your own effort logs" };
     }
     if (existingLog.approvalStatus !== "PENDING") {
-      return { success: false, error: "You can only edit PENDING time logs" };
+      return { success: false, error: "You can only edit PENDING effort logs" };
     }
   }
 
@@ -374,7 +374,7 @@ export async function updateTimeLogAction(logIdOrParams: string | UpdateTimeLogP
     return { success: true, data: updated };
   } catch (err: any) {
     console.error("[updateTimeLogAction] error:", err);
-    return { success: false, error: err?.message || "Failed to update time log" };
+    return { success: false, error: err?.message || "Failed to update effort log" };
   }
 }
 
@@ -392,7 +392,7 @@ export async function deleteTimeLogAction(logId: string) {
 
   const isManager = sessionUser.role === "MANAGER";
   if (!isManager) {
-    return { success: false, error: "Only managers can delete time logs" };
+    return { success: false, error: "Only managers can delete effort logs" };
   }
 
   const existingLog = await d.projectTimeLog.findUnique({
@@ -400,7 +400,7 @@ export async function deleteTimeLogAction(logId: string) {
   });
 
   if (!existingLog) {
-    return { success: false, error: "Time log not found" };
+    return { success: false, error: "Effort log not found" };
   }
 
   try {
@@ -415,7 +415,7 @@ export async function deleteTimeLogAction(logId: string) {
     return { success: true };
   } catch (err: any) {
     console.error("[deleteTimeLogAction] error:", err);
-    return { success: false, error: err?.message || "Failed to delete time log" };
+    return { success: false, error: err?.message || "Failed to delete effort log" };
   }
 }
 
@@ -430,7 +430,7 @@ export async function approveTimeLogAction(logId: string) {
 
   const isManager = sessionUser.role === "MANAGER";
   if (!isManager) {
-    return { success: false, error: "Only managers can approve time logs" };
+    return { success: false, error: "Only managers can approve effort logs" };
   }
 
    
@@ -440,7 +440,7 @@ export async function approveTimeLogAction(logId: string) {
     where: { id: logId },
   });
   if (!existing) {
-    return { success: false, error: "Time log not found" };
+    return { success: false, error: "Effort log not found" };
   }
 
   try {
@@ -464,7 +464,7 @@ export async function approveTimeLogAction(logId: string) {
     return { success: true, data: updated };
   } catch (err: any) {
     console.error("[approveTimeLogAction] error:", err);
-    return { success: false, error: err?.message || "Failed to approve time log" };
+    return { success: false, error: err?.message || "Failed to approve effort log" };
   }
 }
 
@@ -479,11 +479,11 @@ export async function rejectTimeLogAction(logId: string, rejectionReason: string
 
   const isManager = sessionUser.role === "MANAGER";
   if (!isManager) {
-    return { success: false, error: "Only managers can reject time logs" };
+    return { success: false, error: "Only managers can reject effort logs" };
   }
 
   if (!rejectionReason || !rejectionReason.trim()) {
-    return { success: false, error: "Rejection reason is required when rejecting a time log" };
+    return { success: false, error: "Rejection reason is required when rejecting an effort log" };
   }
 
    
@@ -493,7 +493,7 @@ export async function rejectTimeLogAction(logId: string, rejectionReason: string
     where: { id: logId },
   });
   if (!existing) {
-    return { success: false, error: "Time log not found" };
+    return { success: false, error: "Effort log not found" };
   }
 
   try {
@@ -517,7 +517,7 @@ export async function rejectTimeLogAction(logId: string, rejectionReason: string
     return { success: true, data: updated };
   } catch (err: any) {
     console.error("[rejectTimeLogAction] error:", err);
-    return { success: false, error: err?.message || "Failed to reject time log" };
+    return { success: false, error: err?.message || "Failed to reject effort log" };
   }
 }
 
@@ -579,7 +579,7 @@ export async function getProjectTimeLogsAction(
     return { success: true, data: logs };
   } catch (err: any) {
     console.error("[getProjectTimeLogsAction] error:", err);
-    return { success: false, error: err?.message || "Failed to fetch project time logs", data: [] };
+    return { success: false, error: err?.message || "Failed to fetch project effort logs", data: [] };
   }
 }
 
@@ -626,6 +626,6 @@ export async function getMyTimeLogsAction(filters?: TimeLogFilterParams) {
     return { success: true, data: logs };
   } catch (err: any) {
     console.error("[getMyTimeLogsAction] error:", err);
-    return { success: false, error: err?.message || "Failed to fetch my time logs", data: [] };
+    return { success: false, error: err?.message || "Failed to fetch my effort logs", data: [] };
   }
 }

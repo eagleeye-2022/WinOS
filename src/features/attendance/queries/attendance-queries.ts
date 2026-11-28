@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { loadAttendanceRange, type UserDay } from "../attendance-data";
+import { getUsersDayEffortMinutes } from "@/features/dsm/queries";
 import { canManageUser, managedUserIds, scopeWhere } from "../team-scope";
 import {
   addDaysToKey,
@@ -275,7 +276,13 @@ export async function getTeamAttendanceData(
     orderBy: { name: "asc" },
   });
 
-  const range = await loadAttendanceRange(users.map((u) => u.id), key, key);
+  const userIds = users.map((u) => u.id);
+  // Hours on this page are effort hours: the total of everyone's task timers / effort logs for
+  // the day — not the check-in → check-out span.
+  const [range, effortMinutes] = await Promise.all([
+    loadAttendanceRange(userIds, key, key),
+    getUsersDayEffortMinutes(userIds, key),
+  ]);
 
   const teamMembers: TeamMemberAttendance[] = users.map((u) => {
     const [day] = range.daysFor(u.id, [key]);
@@ -289,7 +296,7 @@ export async function getTeamAttendanceData(
     // Weekends and holidays aren't absences (anyone who worked one is counted above).
     else if (!day.resolved.isWorkingDay) status = "Day Off";
 
-    const minutes = workedMinutesOf(day);
+    const minutes = effortMinutes.get(u.id) ?? 0;
 
     return {
       id: u.id,
@@ -306,7 +313,7 @@ export async function getTeamAttendanceData(
       checkOutTime: att?.checkOutTime || undefined,
       checkOutSource: (att?.checkOutSource as AttendanceSource) || undefined,
       workedHours: minutes > 0 ? formatClock(minutes) : undefined,
-      workedHoursSubtext: status === "Working Now" && att?.checkInTime ? `Since ${att.checkInTime}` : undefined,
+      workedHoursSubtext: minutes > 0 ? "Total effort logged on tasks" : undefined,
       // Only someone who checked in has a work mode for the day.
       workMode: att?.checkInTime ? (att.workMode === "REMOTE" ? "Remote" : "Office") : undefined,
     };
@@ -426,19 +433,38 @@ function toRegularizationRequest(r: RegularizationWithUsers): RegularizationRequ
   };
 }
 
-export async function getRegularizationRequestsData(filters?: { status?: string; search?: string }) {
+/** Whose regularization requests a list shows. */
+export type RegularizationScope = "mine" | "team" | "all";
+
+export async function getRegularizationRequestsData(filters?: {
+  status?: string;
+  search?: string;
+  /** "mine" = My Attendance, "team" = Team Attendance (managers; never the viewer's own), "all" = both. */
+  scope?: RegularizationScope;
+}) {
   const session = await requireSession();
   const viewer = await viewerOf(session.user.id);
   const isManager = canManageAttendance(viewer);
   const scope = isManager && viewer ? await managedUserIds(viewer) : null;
+  const me = session.user.id;
+  const listScope = filters?.scope ?? "all";
+
+  // `scope` null = the manager manages everyone.
+  let where: { userId?: string | { in: string[] } | { not: string } };
+  if (listScope === "mine") {
+    where = { userId: me };
+  } else if (!isManager) {
+    // Non-managers have no team: their own requests, and an empty team list.
+    where = listScope === "team" ? { userId: { in: [] } } : { userId: me };
+  } else if (listScope === "team") {
+    where = scope === null ? { userId: { not: me } } : { userId: { in: [...scope].filter((id) => id !== me) } };
+  } else {
+    // "all": the manager's own requests plus their team's.
+    where = scope === null ? {} : { userId: { in: [me, ...scope] } };
+  }
 
   const raw = await db.attendanceRegularization.findMany({
-    // Managers: their own requests plus their team's. Everyone else: their own.
-    where: isManager
-      ? scope === null
-        ? {}
-        : { userId: { in: [session.user.id, ...scope] } }
-      : { userId: session.user.id },
+    where,
     include: regularizationInclude,
     orderBy: { createdAt: "desc" },
   });

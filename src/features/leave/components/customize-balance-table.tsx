@@ -114,7 +114,7 @@ export function CustomizeBalanceTable({ userId, onSaved }: { userId: string; onS
   }
   if (member === null) {
     return (
-      <p className="rounded-lg border border-border/70 bg-card px-5 py-6 text-sm text-muted-foreground">
+      <p className="rounded-xl border border-border/60 bg-card px-5 py-6 text-sm text-muted-foreground">
         You can&apos;t adjust this person&apos;s balance — only managers of other team members can (nobody adjusts their own).
       </p>
     );
@@ -122,7 +122,7 @@ export function CustomizeBalanceTable({ userId, onSaved }: { userId: string; onS
 
   return (
     <div className="space-y-3">
-      <div className="overflow-x-auto rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="overflow-x-auto rounded-xl border border-border/60 bg-card">
         <table className="w-full min-w-[820px] text-sm">
           <thead className="bg-muted/60 text-left text-[13px] font-medium text-muted-foreground">
             <tr>

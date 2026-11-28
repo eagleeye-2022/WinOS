@@ -77,7 +77,7 @@ export function PendingTimerLogRecovery({ userId }: { userId: string }) {
       toast.success(`Time logged on "${log.taskTitle || log.taskCode || "task"}".`);
     } catch (err) {
       console.error("[PendingTimerLogRecovery] createTimeLogAction failed:", err);
-      toast.error("Couldn't save the time log. Please try again.");
+      toast.error("Couldn't save the effort log. Please try again.");
       setPending(log); // keep it parked and show the modal again
     } finally {
       isSavingRef.current = false;

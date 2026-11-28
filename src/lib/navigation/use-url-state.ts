@@ -62,6 +62,39 @@ export function useUrlState<T extends string = string>(
   return [value, setValue];
 }
 
+/**
+ * A page's tab as its own path (e.g. /pulse/my/leaves/requests) instead of a `?tab=` value. The
+ * tab is read from the pathname; switching writes the tab's path with the native History API
+ * (shallow, no reload, Back/Forward-able), and each path also has its own page so a refresh or a
+ * shared link opens the same tab. A pathname matching no tab (a detail page) gives `fallback`.
+ * `paths` must be a module-level constant. `enabled: false` (a workspace embedded in another
+ * page) keeps the tab in local state and never touches the URL.
+ */
+export function usePathTab<T extends string>(
+  paths: Readonly<Partial<Record<T, string>>>,
+  fallback: NoInfer<T>,
+  enabled = true
+): [T, (next: T) => void] {
+  const pathname = usePathname();
+  const [local, setLocal] = useState<T>(fallback);
+  const fromPath = (Object.keys(paths) as T[]).find((k) => paths[k] === pathname);
+  const value = enabled ? (fromPath ?? fallback) : local;
+
+  const setValue = useCallback(
+    (next: T) => {
+      if (!enabled) {
+        setLocal(next);
+        return;
+      }
+      const target = paths[next];
+      if (target && target !== window.location.pathname) window.history.pushState(null, "", target);
+    },
+    [enabled, paths]
+  );
+
+  return [value, setValue];
+}
+
 /** Positive-integer variant of useUrlState (pagination). */
 export function useUrlNumberState(key: string, defaultValue: number): [number, (next: Updater<number>) => void] {
   const [raw, setRaw] = useUrlState(key, String(defaultValue));

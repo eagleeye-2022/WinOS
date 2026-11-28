@@ -7,7 +7,7 @@ import { toast } from "@/components/shared/toast";
 import { ProjectTaskStatusPill } from "./project-task-status-pill";
 import { createDsmProjectTaskAction } from "../actions/create-project-items";
 import type { CascadingProjectOption, CascadingTaskOption } from "../queries";
-import { subtaskOptionLabel } from "../utils";
+import { openTaskOptions, subtaskOptionLabel } from "../utils";
 import { shortProjectName } from "@/features/projects/utils/project-name";
 
 const selectCls = "text-xs font-medium text-foreground hover:text-primary transition-colors";
@@ -61,13 +61,16 @@ export function ProjectTaskSelectors({
   const [creating, startCreate] = useTransition();
 
   const project = projects.find((p) => p.id === projectId);
+  // Only open (not done) tasks / subtasks are offered — plus the row's current pick.
   const visibleTasks = project
-    ? taskListCode
-      ? project.tasks.filter((t) => t.phaseCode === taskListCode)
-      : project.tasks
+    ? openTaskOptions(
+        taskListCode ? project.tasks.filter((t) => t.phaseCode === taskListCode) : project.tasks,
+        taskId
+      )
     : [];
   const task = project?.tasks.find((t) => t.id === taskId);
   const subtask = task?.subtasks.find((st) => st.id === subtaskId);
+  const visibleSubtasks = task ? openTaskOptions(task.subtasks, subtaskId) : [];
   // The status pill edits whatever the row is linked to: the subtask if one is picked, else the task.
   const linked = subtask ?? task;
 
@@ -139,13 +142,13 @@ export function ProjectTaskSelectors({
         </>
       )}
 
-      {task && task.subtasks.length > 0 && (
+      {task && visibleSubtasks.length > 0 && (
         <>
           <Divider />
           <SearchableSelect
             value={subtaskId}
             onChange={(v) => onSubtaskChange(v, task)}
-            options={task.subtasks.map((st) => ({
+            options={visibleSubtasks.map((st) => ({
               value: st.id,
               label: subtaskOptionLabel(st),
             }))}

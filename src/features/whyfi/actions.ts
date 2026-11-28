@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { toTitleText } from "@/lib/utils";
 import { openSubtasksOf, openSubtasksMessage } from "@/features/projects/subtask-gate";
+import { closeParentsWhenSubtasksDone, reopenParentsOfReopenedTask } from "@/features/projects/parent-auto-close";
 import { isTaskDone } from "@/features/projects/types";
 import {
   LEARNING_CODE_PREFIX,
@@ -135,6 +136,8 @@ async function findLearningTask(taskId: string) {
       title: true,
       authorId: true,
       projectId: true,
+      status: true,
+      completionPercentage: true,
       owners: { select: { userId: true } },
     },
   });
@@ -830,6 +833,16 @@ export async function updateWhyfiTaskAction(
     await d.projectTask.update({ where: { id: task.id }, data });
   }
   for (const change of changes) await logTaskActivity(task.id, actor, change);
+  // Closing a card's last open subtask closes the card too (Zoho-style); reopening one reopens it.
+  if (typeof data.status === "string") {
+    const wasDone = isTaskDone(task.status, false, task.completionPercentage);
+    const rollupActor = { id: actor.id, name: actor.name };
+    if (isTaskDone(data.status) && !wasDone) {
+      await closeParentsWhenSubtasksDone(task.id, rollupActor, data.status);
+    } else if (!isTaskDone(data.status) && wasDone) {
+      await reopenParentsOfReopenedTask(task.id, rollupActor, data.status);
+    }
+  }
 
   revalidatePath(WHYFI_PATH);
   return { success: true, data: undefined };

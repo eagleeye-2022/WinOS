@@ -7,12 +7,8 @@ import {
   CalendarCheck,
   UserX,
   Search,
-  Download,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Building2,
-  Home as HomeIcon,
   Wifi,
   Loader2,
 } from "lucide-react";
@@ -20,14 +16,12 @@ import { PeriodNav } from "@/components/shared/period-nav";
 import {
   PulseStatTiles,
   StatusPill,
-  TONE_DOT,
   scrollToList,
   type PulseStat,
   type PulseTone,
 } from "@/components/pulse/pulse-ui";
 import { TeamMemberAttendance } from "../types";
 import { getTeamAttendanceData } from "../queries/attendance-queries";
-import { cn } from "@/lib/utils";
 import { formatShortDate, istDateKey } from "../utils";
 import { PersonAvatar } from "./person-avatar";
 import { UserName } from "@/components/shared/user-card";
@@ -130,7 +124,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
   return (
     <div className="flex w-full flex-col gap-4">
       {/* Toolbar: title + date */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground">Team Attendance</h1>
         </div>
@@ -141,7 +135,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
       <PulseStatTiles items={stats} />
 
       {/* Table card with its filter bar (tiles scroll here; scroll-mt clears the sticky tabs) */}
-      <div ref={tableRef} className="scroll-mt-24 overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div ref={tableRef} className="scroll-mt-24 overflow-hidden rounded-xl border border-border/60 bg-card">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
           <div className="flex flex-wrap items-center gap-2">
             <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectCls}>
@@ -178,10 +172,6 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                 className="h-8 w-full rounded-md border border-border/80 bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               />
             </div>
-            <button className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border/80 bg-background px-3 text-xs font-semibold text-foreground transition-colors hover:bg-accent">
-              <Download className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="hidden sm:inline">Export</span>
-            </button>
           </div>
         </div>
 
@@ -191,6 +181,9 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
               <tr className="border-b border-border/70 bg-muted/40 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 <th className="px-4 py-2.5">Team Member</th>
                 <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5">Check-in</th>
+                <th className="px-4 py-2.5">Check-out</th>
+                <th className="px-4 py-2.5">Effort Hours</th>
                 <th className="px-4 py-2.5">Work Mode</th>
                 <th className="px-4 py-2.5 text-right">Action</th>
               </tr>
@@ -198,20 +191,21 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
             <tbody className="divide-y divide-border/70 text-xs">
               {isLoading ? (
                 <tr>
-                  <td colSpan={4} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
                     <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
                     Loading team attendance...
                   </td>
                 </tr>
               ) : shownMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-12 text-center text-muted-foreground">
                     No team members found for this date.
                   </td>
                 </tr>
               ) : (
                 shownMembers.map((member) => {
                   const tone = STATUS_TONE[member.status];
+                  const live = member.status === "Working Now";
                   return (
                     <tr
                       key={member.id}
@@ -221,24 +215,12 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                       {/* Member */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="relative shrink-0">
-                            <PersonAvatar name={member.name} image={member.avatarUrl} userId={member.id} />
-                            <span
-                              className={cn(
-                                "absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full ring-2 ring-card",
-                                TONE_DOT[tone],
-                                member.status === "Working Now" && "animate-pulse"
-                              )}
-                            />
-                          </div>
+                          <PersonAvatar name={member.name} image={member.avatarUrl} userId={member.id} />
                           <div className="min-w-0">
                             <div className="truncate text-[13px] font-semibold text-foreground">
                               <UserName userId={member.id} name={member.name} />
                             </div>
-                            <div className="truncate text-xs text-muted-foreground">
-                              {member.designation}
-                              {/* Employee ID hidden for now: {" "}• ID: {member.employeeId} */}
-                            </div>
+                            <div className="truncate text-xs text-muted-foreground">{member.designation}</div>
                           </div>
                         </div>
                       </td>
@@ -246,9 +228,27 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                       {/* Status */}
                       <td className="px-4 py-3">
                         <StatusPill tone={tone}>
-                          <span className={cn("h-1.5 w-1.5 rounded-full", TONE_DOT[tone])} />
                           {member.status === "On Leave" ? member.leaveType || "On Leave" : member.status}
                         </StatusPill>
+                      </td>
+
+                      {/* Check-in / Check-out / Hours (already loaded with the row) */}
+                      <td className="whitespace-nowrap px-4 py-3 tabular-nums text-foreground">
+                        {member.checkInTime || <span className="text-muted-foreground">—</span>}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 tabular-nums text-foreground">
+                        {live ? (
+                          <span className="text-blue-600 dark:text-blue-400">Now</span>
+                        ) : (
+                          member.checkOutTime || <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 tabular-nums" title={member.workedHoursSubtext}>
+                        {member.workedHours ? (
+                          <span className="font-semibold text-foreground">{member.workedHours}</span>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </td>
 
                       {/* Work mode */}
@@ -288,19 +288,8 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-border/70 px-4 py-2.5 text-xs text-muted-foreground">
-          <div>
-            Showing <span className="font-semibold text-foreground">{shownMembers.length}</span> members
-          </div>
-          <div className="flex items-center gap-2">
-            <button className="rounded-md border border-border/80 p-1.5 hover:bg-accent disabled:opacity-40">
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </button>
-            <span className="font-semibold text-foreground">1</span>
-            <button className="rounded-md border border-border/80 p-1.5 hover:bg-accent disabled:opacity-40">
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
+        <div className="border-t border-border/60 px-4 py-3 text-xs text-muted-foreground">
+          {shownMembers.length} {shownMembers.length === 1 ? "member" : "members"}
         </div>
       </div>
     </div>

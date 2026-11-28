@@ -151,8 +151,12 @@ const MANAGER_EMAIL_OVERRIDE: string | null = "m.thakre@eagleeyedigital.io";
 /** Approver-bound notifications ("Leave request to review", "Regularization to review", …). */
 const isForApprover = (title: string) => /to review/i.test(title);
 
-/** "/pulse/leave/requests/x" → "/pulse/leave/team/requests/x" (same for compensatory); others unchanged. */
-const teamLeaveLink = (link: string) => link.replace(/^\/pulse\/leave\/(requests|compensatory)\//, "/pulse/leave/team/$1/");
+/**
+ * "/pulse/my/leaves/requests/x" → "/pulse/team/leaves/requests/x" (same for compensatory, and for
+ * old-style "/pulse/leave/requests/x" links); others unchanged.
+ */
+const teamLeaveLink = (link: string) =>
+  link.replace(/^\/pulse\/(?:my\/leaves|leave)\/(requests|compensatory)\//, "/pulse/team/leaves/$1/");
 
 const PRODUCTION_BASE_URL = "https://winos.eagleeyedigital.io";
 

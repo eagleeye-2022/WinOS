@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
+import { DateTile, StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
 
 interface LeaveRequestsTableProps {
   requests: LeaveRequest[];
@@ -102,7 +102,7 @@ export function LeaveRequestsTable({
   };
 
   return (
-    <div className="space-y-4 rounded-lg border border-border/70 bg-card p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+    <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
       {/* Header bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         {title && (
@@ -220,12 +220,18 @@ export function LeaveRequestsTable({
 
                     {/* From Date */}
                     <td className="py-3 px-4 whitespace-pre-line text-muted-foreground font-medium">
-                      {req.fromDateDisplay}
+                      <div className="flex items-center gap-2.5">
+                        <DateTile date={req.fromDate} size="sm" />
+                        <span>{req.fromDateDisplay}</span>
+                      </div>
                     </td>
 
                     {/* To Date */}
                     <td className="py-3 px-4 whitespace-pre-line text-muted-foreground font-medium">
-                      {req.toDateDisplay}
+                      <div className="flex items-center gap-2.5">
+                        <DateTile date={req.toDate} size="sm" />
+                        <span>{req.toDateDisplay}</span>
+                      </div>
                     </td>
 
                     {/* Duration */}

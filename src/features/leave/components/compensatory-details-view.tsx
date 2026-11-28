@@ -105,7 +105,7 @@ export function CompensatoryDetailsView({
   return (
     <div className="w-full select-none space-y-4 pb-12">
       {/* Breadcrumb Header */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="text-lg font-semibold text-foreground">
@@ -137,7 +137,7 @@ export function CompensatoryDetailsView({
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
         {/* Left Column: Team Member & Request Details */}
         <div className="space-y-4 lg:col-span-8">
-          <div className="space-y-5 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          <div className="space-y-5 rounded-xl border border-border/60 bg-card p-5">
             <div className="flex items-center gap-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
                 <FileText className="h-4 w-4" />
@@ -226,7 +226,7 @@ export function CompensatoryDetailsView({
           </div>
 
           {/* Attachments Card */}
-          <div className="space-y-4 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          <div className="space-y-4 rounded-xl border border-border/60 bg-card p-5">
             <div className="flex items-center gap-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
                 <FileText className="h-4 w-4" />
@@ -266,7 +266,7 @@ export function CompensatoryDetailsView({
 
           {/* Action Buttons: Reject / Approve — only for a manager responsible for this person */}
           {status === "PENDING" && request.canReview && (
-            <div className="space-y-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-5 py-3">
+            <div className="space-y-3 rounded-xl border border-border/60 bg-card px-5 py-3">
             <ApprovalNoteField value={note} onChange={setNote} disabled={isProcessing} />
             <div className="flex items-center justify-end gap-2">
               <Button
@@ -297,7 +297,7 @@ export function CompensatoryDetailsView({
         {/* Right Column: Approval Flow */}
         <div className="lg:col-span-4 space-y-4">
 
-          <div className="space-y-6 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] p-5">
+          <div className="space-y-6 rounded-xl border border-border/60 bg-card p-5">
             <h3 className="flex items-center gap-2.5 text-[15px] font-semibold text-foreground">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
                 <User className="h-4 w-4" />

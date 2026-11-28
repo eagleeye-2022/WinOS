@@ -11,20 +11,24 @@ import {
   Loader2,
 } from "lucide-react";
 import { RegularizationRequest, RegularizationStatus } from "../types";
-import { getRegularizationRequestsData } from "../queries/attendance-queries";
+import { getRegularizationRequestsData, type RegularizationScope } from "../queries/attendance-queries";
 import { cn } from "@/lib/utils";
 import { PersonAvatar } from "./person-avatar";
 import { UserName } from "@/components/shared/user-card";
 import { StatusPill, TONE_DOT, type PulseTone } from "@/components/pulse/pulse-ui";
 
 interface RegularizationRequestsListProps {
+  /** No handler → no "New Request" button (Team Attendance lists only the team's requests). */
   onNewRequest?: () => void;
   onViewRequest?: (request: RegularizationRequest) => void;
+  /** Whose requests: "mine" (My Attendance), "team" (Team Attendance), "all" (both). */
+  scope?: RegularizationScope;
 }
 
 export function RegularizationRequestsList({
   onNewRequest,
   onViewRequest,
+  scope = "all",
 }: RegularizationRequestsListProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -42,6 +46,7 @@ export function RegularizationRequestsList({
         const res = await getRegularizationRequestsData({
           status: statusFilter,
           search: searchTerm,
+          scope,
         });
         setRequests(res.requests);
         setCounts(res.counts);
@@ -55,7 +60,7 @@ export function RegularizationRequestsList({
 
   useEffect(() => {
     loadData();
-  }, [statusFilter, searchTerm]);
+  }, [statusFilter, searchTerm, scope]);
 
   const visibleRequests =
     issueFilter === "All" ? requests : requests.filter((r) => (r.issueType ?? "OTHER") === issueFilter);
@@ -79,20 +84,24 @@ export function RegularizationRequestsList({
   return (
     <div className="flex w-full flex-col gap-4">
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">Regularization Requests</h1>
+          <h1 className="text-lg font-semibold text-foreground">
+            {scope === "team" ? "Team Regularization Requests" : scope === "mine" ? "My Regularization Requests" : "Regularization Requests"}
+          </h1>
         </div>
-        <button
-          onClick={onNewRequest}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md bg-blue-600 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
-        >
-          <Plus className="h-4 w-4" />
-          Regularize Attendance
-        </button>
+        {onNewRequest && (
+          <button
+            onClick={onNewRequest}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-blue-600 px-3.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
+          >
+            <Plus className="h-4 w-4" />
+            Regularize Attendance
+          </button>
+        )}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
         {/* Status tabs with counts */}
         <div className="flex gap-1 overflow-x-auto border-b border-border/70 px-2">
           {statusTabs.map((t) => {

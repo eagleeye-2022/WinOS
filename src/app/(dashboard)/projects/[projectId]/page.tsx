@@ -18,6 +18,7 @@ import { ProjectStatusTimelineView } from "@/features/projects/components/views/
 import { ProjectEffortLogReport } from "@/features/projects/components/views/project-effort-log-report";
 import { toast } from "@/components/shared/toast";
 import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
+import { replaceTaskWithRollup, revertTaskInList, rollupMessage, settleRollupList } from "@/features/projects/utils/status-rollup";
 
 const PROJECT_TABS = ["TASKS", "USERS", "DOCUMENTS", "TIME_LOGS", "TIMELINE", "INOTES"] as const;
 type ProjectTab = (typeof PROJECT_TABS)[number];
@@ -88,6 +89,8 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
           priority: newTask.priority,
           tags: newTask.tags,
           description: newTask.description,
+          startDate: newTask.startDate,
+          dueDate: newTask.dueDate,
         },
         projectId
       );
@@ -117,12 +120,13 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
       return;
     }
     const previous = tasks.find((t) => t.id === updatedTask.id);
-    setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+    // A status change closes / reopens its parent(s) on screen at once too (status-rollup.ts).
+    const { changes: shown } = replaceTaskWithRollup(tasks, updatedTask, previous);
+    setTasks((prev) => replaceTaskWithRollup(prev, updatedTask, previous).tasks);
     const result = await updateTaskAction(updatedTask.id, updatedTask);
+    setTasks((prev) => settleRollupList(prev, shown, result.success ? result : null, updatedTask.status));
     if (!result.success) {
-      if (previous) {
-        setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? previous : t)));
-      }
+      if (previous) setTasks((prev) => revertTaskInList(prev, previous));
       if (result.checklistBlock) {
         showChecklistGate({
           ...result.checklistBlock,
@@ -133,7 +137,7 @@ export default function ProjectDetailPage({ params }: { params: Promise<{ projec
         toast.error(result.error || "You do not have permission to edit this task.");
       }
     } else {
-      toast.success("Task updated");
+      toast.success(rollupMessage(shown) ?? "Task updated");
     }
   };
 

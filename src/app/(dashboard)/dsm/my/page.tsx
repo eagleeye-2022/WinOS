@@ -21,6 +21,7 @@ import {
   getDueRecurringTasksForDate,
 } from "@/features/dsm/queries";
 import { toIsoDateStr, toUtcDate, formatShortDate } from "@/features/dsm/utils";
+import { ensureOwnedRecurringTemplates } from "@/features/dsm/recurrence-sync";
 import { WorkspaceNotesPanel } from "@/features/dsm/components/workspace-notes-panel";
 import { StandupTimeline } from "@/features/dsm/components/standup-timeline";
 import { CoreDailyTasksPanel } from "@/features/dsm/components/core-daily-tasks-panel";
@@ -43,6 +44,9 @@ export default async function ManagerMyDsmPage({ searchParams }: Props) {
   const sp = await searchParams;
   const weekOffset = parseInt(sp.w ?? "0") || 0;
   const justSubmitted = sp.submitted === "1";
+
+  // Repeating Srijan tasks this user owns get a recurring template, so they show up below unpicked.
+  await ensureOwnedRecurringTemplates(session.user.id);
 
   const [todayEntry, yesterday, yesterdayIncompleteTasks, yesterdayBlockers, yesterdaySupportNeeds, yesterdayIncompleteLearningItems, weekEntries, sharedItems, kpiStats, teamMembers, todayCalendarEvents, inAnyTeam, parkedTasks, coreDailyTasks, yesterdayAdditionalWork, todayEffort, userRecurringTasks, dueRecurringTasks] =
     await Promise.all([

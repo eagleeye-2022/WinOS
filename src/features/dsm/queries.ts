@@ -1396,6 +1396,45 @@ export async function getMyTodayEffort(): Promise<DayEffortRow[]> {
 }
 
 /**
+ * Total effort minutes logged on `dStr` (YYYY-MM-DD) per user, plus any timer still running
+ * when `dStr` is today (IST). Same day matching as getDayEffort, so totals agree with the
+ * Report / DSM pages. Callers are responsible for authorization.
+ */
+export async function getUsersDayEffortMinutes(userIds: string[], dStr: string): Promise<Map<string, number>> {
+  const totals = new Map<string, number>();
+  if (userIds.length === 0) return totals;
+  const dayStartUtc = new Date(`${dStr}T00:00:00.000Z`);
+  const queryStart = new Date(dayStartUtc.getTime() - 14 * 3600 * 1000);
+  const queryEnd = new Date(dayStartUtc.getTime() + (24 + 14) * 3600 * 1000);
+  const isToday = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date()) === dStr;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const d = db as any;
+  const [logs, timers] = await Promise.all([
+    d.projectTimeLog.findMany({
+      where: { userId: { in: userIds }, date: { gte: queryStart, lte: queryEnd } },
+      select: { userId: true, duration: true, date: true },
+    }),
+    isToday
+      ? d.activeTimer.findMany({ where: { userId: { in: userIds } }, select: { userId: true, startedAt: true } })
+      : Promise.resolve([]),
+  ]);
+
+  for (const log of logs as { userId: string; duration: number; date: Date }[]) {
+    if (!logMatchesDay(new Date(log.date), dStr)) continue;
+    totals.set(log.userId, (totals.get(log.userId) ?? 0) + log.duration);
+  }
+  const now = Date.now();
+  const istDayStart = dayStartUtc.getTime() - 330 * 60_000; // 00:00 IST, so a timer left running overnight counts only today's part
+  for (const t of timers as { userId: string; startedAt: Date }[]) {
+    const from = Math.max(new Date(t.startedAt).getTime(), istDayStart);
+    const running = Math.max(0, Math.floor((now - from) / 60_000));
+    totals.set(t.userId, (totals.get(t.userId) ?? 0) + running);
+  }
+  return totals;
+}
+
+/**
  * A user's effort logged on `dStr` (YYYY-MM-DD), summed per task, most first. Callers are
  * responsible for authorization — this does not check the session.
  */

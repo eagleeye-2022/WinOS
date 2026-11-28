@@ -7,6 +7,7 @@ import { TaskItem } from "@/features/projects/types";
 import { TasksListView } from "@/features/projects/components/views/tasks-list-view";
 import { toast } from "@/components/shared/toast";
 import { showChecklistGate } from "@/features/sop-checklists/components/checklist-gate";
+import { replaceTaskWithRollup, revertTaskInList, rollupMessage, settleRollupList } from "@/features/projects/utils/status-rollup";
 import { PageTitle } from "@/components/shared/page-header";
 
 export default function MyTasksPage() {
@@ -38,12 +39,13 @@ export default function MyTasksPage() {
 
   const handleUpdateTask = async (updatedTask: TaskItem) => {
     const previous = tasks.find((t) => t.id === updatedTask.id);
-    setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+    // A status change closes / reopens its parent(s) on screen at once too (status-rollup.ts).
+    const { changes: shown } = replaceTaskWithRollup(tasks, updatedTask, previous);
+    setTasks((prev) => replaceTaskWithRollup(prev, updatedTask, previous).tasks);
     const result = await updateTaskAction(updatedTask.id, updatedTask);
+    setTasks((prev) => settleRollupList(prev, shown, result.success ? result : null, updatedTask.status));
     if (!result.success) {
-      if (previous) {
-        setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? previous : t)));
-      }
+      if (previous) setTasks((prev) => revertTaskInList(prev, previous));
       if (result.checklistBlock) {
         showChecklistGate({
           ...result.checklistBlock,
@@ -54,7 +56,7 @@ export default function MyTasksPage() {
         toast.error(result.error || "You do not have permission to edit this task.");
       }
     } else {
-      toast.success("Task updated");
+      toast.success(rollupMessage(shown) ?? "Task updated");
     }
   };
 

@@ -9,6 +9,7 @@ import { canUserActOnTask } from "../utils/task-authorization";
 import { rollUpParentDates } from "../utils/parent-date-rollup";
 import { isProjectUser, projectUserWhere } from "../project-user";
 import { openSubtasksOf, openSubtasksMessage } from "../subtask-gate";
+import { closeParentsWhenSubtasksDone, reopenParentsOfReopenedTask } from "../parent-auto-close";
 import {
   Project,
   TaskItem,
@@ -1935,7 +1936,7 @@ async function loadTasks(projectId: string | undefined, userMap: Map<string, str
     }),
     db.projectSubtask.findMany({
       where: { task: taskWhere },
-      orderBy: { createdAt: "asc" },
+      orderBy: { createdAt: "desc" },
     }),
     db.projectTaskRemark.findMany({ where: { task: taskWhere } }),
     db.user.findMany({ select: { id: true, name: true, email: true } }),
@@ -2047,9 +2048,10 @@ async function loadTasks(projectId: string | undefined, userMap: Map<string, str
     // Build comprehensive subtasks map from childTasks, ProjectSubtask, and matching parentTaskId rows
     const subtasksMap = new Map<string, TaskSubtask>();
 
-    // Same rows the `childTasks` relation (parentTaskId = this task's id) used to return, oldest first.
+    // Same rows the `childTasks` relation (parentTaskId = this task's id) used to return: drag order,
+    // then newest first (like tasks), so a new subtask shows at the top.
     const childTasks = [...(childrenByParentKey.get(t.id) ?? [])].sort(
-      (a, b) => (a.order ?? 0) - (b.order ?? 0) || a.createdAt.getTime() - b.createdAt.getTime()
+      (a, b) => (a.order ?? 0) - (b.order ?? 0) || b.createdAt.getTime() - a.createdAt.getTime()
     );
     for (const ct of childTasks) {
       subtasksMap.set(ct.id, {
@@ -2173,7 +2175,7 @@ export async function getProjectTasksAction(projectId?: string): Promise<TaskIte
       author: { select: { id: true, name: true, email: true } },
       childTasks: {
         include: { ownerUser: { select: { name: true } } },
-        orderBy: [{ order: "asc" as const }, { createdAt: "asc" as const }],
+        orderBy: [{ order: "asc" as const }, { createdAt: "desc" as const }],
       },
       remarks: true,
       activities: true,
@@ -2306,7 +2308,7 @@ export async function getMyTasksAction(): Promise<TaskItem[]> {
       },
       childTasks: {
         include: { ownerUser: { select: { name: true } } },
-        orderBy: [{ order: "asc" as const }, { createdAt: "asc" as const }],
+        orderBy: [{ order: "asc" as const }, { createdAt: "desc" as const }],
       },
       project: { select: { name: true } },
       remarks: true,
@@ -2654,6 +2656,10 @@ export type UpdateTaskResult = {
   error?: string;
   /** Set when closing was refused because of the task's SOP checklist — the UI shows the gate popup. */
   checklistBlock?: ChecklistCloseBlock;
+  /** Codes of parent tasks that closed themselves because this save closed their last open subtask. */
+  autoClosedParents?: string[];
+  /** Codes of closed parent tasks that reopened because this save reopened one of their subtasks. */
+  autoReopenedParents?: string[];
 };
 
 export async function updateTaskAction(
@@ -2971,18 +2977,33 @@ export async function updateTaskAction(
     });
   }
 
+  const actor = { id: session.user.id, name: dbUser?.name || session.user.name || "User" };
+  let autoClosedParents: string[] = [];
+  let autoReopenedParents: string[] = [];
   if (closedEvent) {
-    await recordTaskClosed(
-      { id: session.user.id, name: dbUser?.name || session.user.name || "User" },
-      task.id,
-      closedEvent.forced
-    );
+    await recordTaskClosed(actor, task.id, closedEvent.forced);
+    // Closing the last open subtask closes its parent too (Zoho-style).
+    if (task.parentTaskId) {
+      autoClosedParents = await closeParentsWhenSubtasksDone(task.id, actor, updates.status || "Done");
+    }
+  } else if (task.parentTaskId && isTaskDone(task.status, false, task.completionPercentage)) {
+    // Reopening a subtask reopens its closed parent(s) too.
+    const newStatus = updates.status ?? task.status;
+    const newPercent =
+      updates.completionPercentage ?? (reopenResetsCompletion ? 0 : task.completionPercentage ?? 0);
+    if (!isTaskDone(newStatus, false, newPercent)) {
+      autoReopenedParents = await reopenParentsOfReopenedTask(task.id, actor, newStatus);
+    }
   }
 
   // No revalidatePath here: every /projects view loads its data client-side and applies this
   // edit optimistically, so revalidating only made the action wait on a server re-render of
   // the current route (and marked every visited page stale) before the save could resolve.
-  return { success: true };
+  return {
+    success: true,
+    ...(autoClosedParents.length > 0 && { autoClosedParents }),
+    ...(autoReopenedParents.length > 0 && { autoReopenedParents }),
+  };
 }
 
 /**
@@ -3116,9 +3137,9 @@ export async function duplicateTaskAction(
 
 /**
  * Puts a duplicated task directly below its original. The copy shares the original's `order`, so
- * without this the tie-break (createdAt) sends it to the end of a subtask list (or the top of a
- * task list). Siblings are renumbered 0..n in the order the lists already show them — tasks sort
- * by order, then newest first; subtasks by order, then oldest first — and only changed rows are written.
+ * without this the tie-break (createdAt) sends it to the top of the list. Siblings are renumbered
+ * 0..n in the order the lists already show them — tasks and subtasks both sort by order, then
+ * newest first — and only changed rows are written.
  */
 async function placeCopyAfterOriginal(
   originalId: string,
@@ -3129,9 +3150,7 @@ async function placeCopyAfterOriginal(
   const siblings = await db.projectTask.findMany({
     where: { projectId, parentTaskId },
     select: { id: true, order: true },
-    orderBy: parentTaskId
-      ? [{ order: "asc" }, { createdAt: "asc" }]
-      : [{ order: "asc" }, { createdAt: "desc" }],
+    orderBy: [{ order: "asc" }, { createdAt: "desc" }],
   });
   const ids = siblings.map((s) => s.id).filter((id) => id !== copyId);
   const at = ids.indexOf(originalId);
@@ -3748,10 +3767,14 @@ export async function createSubtaskAction(
   };
 }
 
+/**
+ * Resolves `false` when nothing was saved (open subtasks / SOP checklist), else the codes of parent
+ * tasks that closed themselves (this closed their last open subtask) or reopened (this reopened it).
+ */
 export async function updateSubtaskAction(
   subtaskId: string,
   updates: Partial<TaskSubtask>
-): Promise<boolean> {
+): Promise<false | { autoClosedParents: string[]; autoReopenedParents: string[] }> {
   const session = await requireAuth();
   if (updates.title) updates = { ...updates, title: toTitleText(updates.title) };
 
@@ -3815,16 +3838,25 @@ export async function updateSubtaskAction(
     await syncTaskOwners(subtask.id, [ownerUserId], session.user.id);
   }
 
+  const actor = { id: session.user.id, name: session.user.name || "User" };
+  let autoClosedParents: string[] = [];
+  let autoReopenedParents: string[] = [];
   if (closesNow) {
-    await recordTaskClosed(
-      { id: session.user.id, name: session.user.name || "User" },
-      subtask!.id,
-      subBlock ? forcedCloseOf(subBlock) : null
-    );
+    await recordTaskClosed(actor, subtask!.id, subBlock ? forcedCloseOf(subBlock) : null);
+    // Closing the last open subtask closes its parent too (Zoho-style).
+    autoClosedParents = await closeParentsWhenSubtasksDone(subtask!.id, actor, updates.status || "Done");
+  } else if (subtask && isTaskDone(subtask.status, false, subtask.completionPercentage)) {
+    // Reopening it (status → not done, or unticked) reopens its closed parent(s) too.
+    const reopens =
+      (updates.status !== undefined && !isTaskDone(updates.status)) || updates.completed === false;
+    if (reopens) {
+      const openStatus = updates.status && !isTaskDone(updates.status) ? updates.status : "Open";
+      autoReopenedParents = await reopenParentsOfReopenedTask(subtask.id, actor, openStatus);
+    }
   }
 
   revalidatePath("/projects");
-  return true;
+  return { autoClosedParents, autoReopenedParents };
 }
 
 export async function deleteSubtaskAction(subtaskId: string): Promise<boolean> {
@@ -4915,7 +4947,7 @@ export async function createTimeLogAction(
   const session = await requireAuth();
   const isClient = await isClientUser(session.user.id);
   if (isClient) {
-    throw new Error("Client users have read-only access and cannot create time logs.");
+    throw new Error("Client users have read-only access and cannot create effort logs.");
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
@@ -5081,7 +5113,7 @@ export async function updateTimeLogAction(
   const session = await requireAuth();
   const isClient = await isClientUser(session.user.id);
   if (isClient) {
-    throw new Error("Client users have read-only access and cannot edit time logs.");
+    throw new Error("Client users have read-only access and cannot edit effort logs.");
   }
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const d = db as any;
@@ -5094,7 +5126,7 @@ export async function updateTimeLogAction(
 
   const isManager = await isPrivilegedViewer(session.user.id);
   if (!isManager && existingLog.userId !== session.user.id) {
-    throw new Error("You do not have permission to edit this time log.");
+    throw new Error("You do not have permission to edit this effort log.");
   }
 
   const dataToUpdate: any = {};
@@ -5201,7 +5233,7 @@ export async function deleteTimeLogAction(logId: string): Promise<{ success: boo
 export async function approveTimeLogsAction(logIds: string[]): Promise<boolean> {
   const session = await requireAuth();
   const isManager = await isPrivilegedViewer(session.user.id);
-  if (!isManager) throw new Error("Only managers can approve time logs.");
+  if (!isManager) throw new Error("Only managers can approve effort logs.");
 
   if (!logIds || logIds.length === 0) return true;
 
@@ -5222,7 +5254,7 @@ export async function rejectTimeLogsAction(
 ): Promise<boolean> {
   const session = await requireAuth();
   const isManager = await isPrivilegedViewer(session.user.id);
-  if (!isManager) throw new Error("Only managers can reject time logs.");
+  if (!isManager) throw new Error("Only managers can reject effort logs.");
 
   if (!logIds || logIds.length === 0) return true;
 

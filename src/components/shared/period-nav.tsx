@@ -252,7 +252,7 @@ interface PeriodNavProps {
   onChange: (next: Period) => void;
   /** Which kinds of period the picker offers (tabs). Default: all four. */
   modes?: PeriodMode[];
-  /** Day values only: how many days the arrows move (7 for a week view). Default 1. */
+  /** No longer used (the step arrows were removed); accepted so existing callers still compile. */
   stepDays?: number;
   /** Replaces the default label (e.g. a week range). */
   label?: string;
@@ -262,15 +262,12 @@ interface PeriodNavProps {
 }
 
 /**
- * ‹ [period ▾] › — the arrows step the current period by its own size (a day / `stepDays`, a
- * range's length, a month or a year). The middle opens a picker for a date, a range, a month or
- * a year, limited to `modes`.
+ * [period ▾] — opens a picker for a date, a range, a month or a year, limited to `modes`.
+ * (The ‹ › step arrows were removed by request; `stepDays` is kept so existing callers compile.)
  */
-export function PeriodNav({ value, onChange, modes = ALL_MODES, stepDays = 1, label, className, triggerClassName }: PeriodNavProps) {
+export function PeriodNav({ value, onChange, modes = ALL_MODES, label, className, triggerClassName }: PeriodNavProps) {
   const kind = periodKind(value);
   const { start, end } = periodBounds(value);
-  const step = kind === "day" ? stepDays : 1;
-  const unit = kind === "day" ? (stepDays === 7 ? "week" : "day") : kind;
 
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<PeriodMode>(modes.includes(kind) ? kind : modes[0]);
@@ -320,22 +317,8 @@ export function PeriodNav({ value, onChange, modes = ALL_MODES, stepDays = 1, la
   const thisYear = today.slice(0, 4);
   const yearStart = yearView - (((yearView % 12) + 12) % 12);
 
-  const navButton =
-    "h-8 w-8 rounded-lg border-border/80 text-muted-foreground hover:text-foreground shrink-0";
-
   return (
     <div className={cn("flex items-center gap-1.5", className)}>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        aria-label={`Previous ${unit}`}
-        onClick={() => onChange(shiftPeriod(value, -step))}
-        className={navButton}
-      >
-        <ChevronLeft className="w-4 h-4" />
-      </Button>
-
       <Popover open={open} onOpenChange={openChange}>
         <PopoverTrigger asChild>
           <button
@@ -470,17 +453,6 @@ export function PeriodNav({ value, onChange, modes = ALL_MODES, stepDays = 1, la
           )}
         </PopoverContent>
       </Popover>
-
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        aria-label={`Next ${unit}`}
-        onClick={() => onChange(shiftPeriod(value, step))}
-        className={navButton}
-      >
-        <ChevronRight className="w-4 h-4" />
-      </Button>
     </div>
   );
 }

@@ -477,7 +477,7 @@ export function TasksListView({ tasks, onUpdateTask }: TasksListViewProps) {
                       <ChevronDown size={11} className="opacity-60" />
                     </span>
                   </th>
-                  <th className="py-3.5 px-4 border-r whitespace-nowrap">Total Hours</th>
+                  <th className="py-3.5 px-4 border-r whitespace-nowrap">Effort Hours</th>
                   <th className="py-3.5 px-4 w-24 text-right">Action</th>
                 </tr>
               </thead>

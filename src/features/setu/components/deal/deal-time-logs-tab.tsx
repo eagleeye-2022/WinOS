@@ -51,7 +51,7 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
 
   const exportCsv = () => {
     if (logs.length === 0) {
-      toast.info("No time logs to export");
+      toast.info("No effort logs to export");
       return;
     }
     const blob = new Blob([timeLogsCsv(logs)], { type: "text/csv;charset=utf-8" });
@@ -69,7 +69,7 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
         icon={Timer}
         title={
           <span className="flex flex-wrap items-center gap-2.5">
-            <span>Time Logs</span>
+            <span>Effort Logs</span>
             <span className="font-mono text-base font-bold tabular-nums">{formatClock(elapsed)}</span>
           </span>
         }
@@ -109,7 +109,7 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
       {/* History */}
       <section className="setu-card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-          <h2 className="text-base font-semibold">Time Log History</h2>
+          <h2 className="text-base font-semibold">Effort Log History</h2>
           <div className="flex gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -179,7 +179,7 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
                           <DropdownMenuTrigger asChild>
                             <button
                               type="button"
-                              aria-label="Time log actions"
+                              aria-label="Effort log actions"
                               className="setu-text-2 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md hover:bg-[var(--setu-soft)]"
                             >
                               <EllipsisVertical size={16} />
@@ -188,7 +188,7 @@ export function DealTimeLogsTab({ deal, onStart, onStop }: { deal: Deal; onStart
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
                               className="text-red-600 focus:text-red-600"
-                              onSelect={() => void attempt(deleteTimeLog(l.id), "Time log deleted")}
+                              onSelect={() => void attempt(deleteTimeLog(l.id), "Effort log deleted")}
                             >
                               <Trash2 size={14} /> Delete
                             </DropdownMenuItem>

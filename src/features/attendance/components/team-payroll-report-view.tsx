@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect, useTransition } from "react";
 import {
-  ChevronDown,
-  Download,
   Search,
   Users,
   ChevronLeft,
@@ -58,22 +56,17 @@ export function TeamPayrollReportView() {
   return (
     <div className="flex w-full flex-col gap-4 select-none">
       {/* Header */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-lg font-semibold text-foreground">
             Team Payroll Report
           </h1>
         </div>
-
-        <button className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-input bg-background text-foreground text-xs font-semibold hover:bg-accent transition-colors shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
-          <Download className="w-3.5 h-3.5 text-muted-foreground" />
-          <span>Export Payroll Report</span>
-          <ChevronDown className="w-3.5 h-3.5 text-muted-foreground ml-0.5" />
-        </button>
+
       </div>
 
       {/* Filter Row */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)] px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card px-4 py-3">
         <div className="flex items-center flex-wrap gap-2.5">
           <PeriodNav modes={["month"]} value={selectedMonth} onChange={setSelectedMonth} />
         </div>
@@ -92,7 +85,7 @@ export function TeamPayrollReportView() {
       </div>
 
       {/* Payroll Table */}
-      <div className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>

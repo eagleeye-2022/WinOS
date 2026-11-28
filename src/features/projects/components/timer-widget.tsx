@@ -495,7 +495,7 @@ export function TimerWidget({
         console.error("[TimerWidget] createTimeLogAction failed:", err);
         saved = false;
         // The stopped timer is still parked — reopen the log modal so the time isn't lost.
-        toast.error("Couldn't save the time log. Please try again.");
+        toast.error("Couldn't save the effort log. Please try again.");
         requestPendingTimerLogRecovery();
       }
     } else {

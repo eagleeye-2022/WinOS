@@ -251,6 +251,116 @@ export function scrollToList(el: HTMLElement | null) {
   requestAnimationFrame(() => el.scrollIntoView({ behavior: "smooth", block: "start" }));
 }
 
+// ── Date tile ────────────────────────────────────────────────────────────────
+
+/** Solid strip colour behind the month on a DateTile. */
+const TONE_STRIP: Record<PulseTone, string> = {
+  blue: "bg-blue-500",
+  green: "bg-emerald-500",
+  red: "bg-rose-500",
+  amber: "bg-amber-500",
+  violet: "bg-violet-500",
+  gray: "bg-slate-500",
+};
+
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * Day + month out of the date strings Pulse passes around: "2026-01-26", "26/01/2026",
+ * "26 Jan 2026" or "26 January". Returns null when it can't tell.
+ */
+export function dateTileParts(value: string): { day: string; month: string } | null {
+  const v = value.trim();
+  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v);
+  if (m) return { day: m[3], month: MONTHS_SHORT[Number(m[2]) - 1] ?? "" };
+  m = /^(\d{1,2})\/(\d{1,2})\/\d{2,4}/.exec(v);
+  if (m) return { day: m[1].padStart(2, "0"), month: MONTHS_SHORT[Number(m[2]) - 1] ?? "" };
+  m = /^(\d{1,2})\s+([A-Za-z]{3})/.exec(v);
+  if (m) return { day: m[1].padStart(2, "0"), month: m[2] };
+  return null;
+}
+
+/**
+ * The calendar-page date block used everywhere in Pulse: a coloured month strip on top ("JAN")
+ * and the day number below ("01"). Pass `date` (any format `dateTileParts` reads) or `day` + `month`.
+ * `highlighted` rings it (e.g. today).
+ */
+export function DateTile({
+  date,
+  day,
+  month,
+  tone = "blue",
+  size = "md",
+  highlighted = false,
+  stripClassName,
+  className,
+}: {
+  date?: string;
+  day?: string | number;
+  month?: string;
+  tone?: PulseTone;
+  size?: "sm" | "md" | "lg";
+  highlighted?: boolean;
+  /** Overrides the month strip's colour (e.g. a lighter shade than the tone). */
+  stripClassName?: string;
+  className?: string;
+}) {
+  const parts = date ? dateTileParts(date) : null;
+  const d = parts?.day ?? (day != null ? String(day).padStart(2, "0") : "");
+  const mon = (parts?.month ?? month ?? "").slice(0, 3);
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 flex-col overflow-hidden rounded-md border border-border/70 text-center leading-none",
+        size === "sm" && "h-9 w-9",
+        size === "md" && "h-10 w-10",
+        size === "lg" && "h-12 w-12",
+        highlighted && "ring-2 ring-blue-500/60 ring-offset-1 ring-offset-background",
+        className
+      )}
+      aria-label={`${d} ${mon}`}
+    >
+      <span className={cn("py-0.5 font-bold uppercase text-white", size === "lg" ? "text-[10px]" : "text-[9px]", TONE_STRIP[tone], stripClassName)}>
+        {mon}
+      </span>
+      <span
+        className={cn(
+          "flex flex-1 items-center justify-center font-bold text-foreground",
+          size === "lg" ? "text-base" : "text-sm"
+        )}
+      >
+        {d}
+      </span>
+    </div>
+  );
+}
+
+/** Same tile as DateTile but for a count: a label strip ("DAYS") over the number. */
+export function CountTile({
+  value,
+  label = "Days",
+  tone = "red",
+  className,
+}: {
+  value: number | string;
+  label?: string;
+  tone?: PulseTone;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex h-10 w-10 shrink-0 flex-col overflow-hidden rounded-md border border-border/70 text-center leading-none",
+        className
+      )}
+      aria-label={`${value} ${label}`}
+    >
+      <span className={cn("py-0.5 text-[9px] font-bold uppercase text-white", TONE_STRIP[tone])}>{label}</span>
+      <span className="flex flex-1 items-center justify-center text-sm font-bold text-foreground">{value}</span>
+    </div>
+  );
+}
+
 // ── Pills ────────────────────────────────────────────────────────────────────
 
 export function StatusPill({ tone, children, className }: { tone: PulseTone; children: ReactNode; className?: string }) {

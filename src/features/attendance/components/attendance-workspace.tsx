@@ -47,7 +47,8 @@ import { cn } from "@/lib/utils";
 import { PeriodNav, periodKind } from "@/components/shared/period-nav";
 import { PulsePage, PulseStickyTabs, PulseTabs } from "@/components/pulse/pulse-ui";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
-import { useModuleViewState, useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
+import { useModuleViewState, useUrlState, usePageViewState, usePathTab } from "@/lib/navigation/use-url-state";
+import { ROUTES } from "@/constants/routes";
 
 type MainTab = "my-attendance" | "team-attendance" | "regularization";
 const MAIN_TABS = ["my-attendance", "team-attendance", "regularization"] as const;
@@ -61,6 +62,21 @@ const TABS_FOR_VIEW = {
   team: ["team-attendance", "regularization"],
   all: MAIN_TABS,
 } as const satisfies Record<string, readonly MainTab[]>;
+/**
+ * Each tab is its own path: My Attendance under /pulse/my/attendance (only my own records and
+ * requests), Team Attendance under /pulse/team/attendance (only the team's).
+ */
+const TAB_PATHS_FOR_VIEW = {
+  my: { "my-attendance": ROUTES.pulseAttendance, regularization: ROUTES.pulseRegularization },
+  team: { "team-attendance": ROUTES.pulseTeamAttendance, regularization: ROUTES.pulseTeamRegularization },
+  all: {
+    "my-attendance": ROUTES.pulseAttendance,
+    "team-attendance": ROUTES.pulseTeamAttendance,
+    regularization: ROUTES.pulseRegularization,
+  },
+} as const satisfies Record<keyof typeof TABS_FOR_VIEW, Partial<Record<MainTab, string>>>;
+/** Whose regularization requests each page lists. */
+const REGULARIZATION_SCOPE = { my: "mine", team: "team", all: "all" } as const;
 const VIEW_MODES = ["week", "month"] as const;
 
 const EMPTY_SUMMARY: MonthlySummary = {
@@ -94,13 +110,10 @@ export function AttendanceWorkspace({
   const initialToday = istDateKey();
   const initialDate = dateFromKey(initialToday)!;
   const shownTabs: readonly MainTab[] = TABS_FOR_VIEW[view];
-  // Tab + week/month in the URL; the open sub-view / selected member / request in the Pulse
-  // navigation slice — so all of it is restored when coming back to the module. A tab this page
-  // doesn't show (e.g. ?tab=my-attendance on Team Attendance) falls back to the page's own tab.
-  const [activeTab, setActiveTab] = useUrlState<MainTab>("tab", initialTab, {
-    allowed: shownTabs,
-    history: "push",
-  });
+  // Tab as its path + week/month in the URL; the open sub-view / selected member / request in the
+  // Pulse navigation slice — so all of it is restored when coming back to the module. Embedded (the
+  // profile page) keeps the tab in local state.
+  const [activeTab, setActiveTab] = usePathTab<MainTab>(TAB_PATHS_FOR_VIEW[view], initialTab, !embedded);
   const [viewMode, setViewMode] = useUrlState<"week" | "month">("view", "week", { allowed: VIEW_MODES });
   const [currentMonthIndex, setCurrentMonthIndex] = useState(initialDate.getUTCMonth());
   const [currentYear, setCurrentYear] = useState(initialDate.getUTCFullYear());
@@ -243,7 +256,7 @@ export function AttendanceWorkspace({
 
   // A team member opens on their own page (attendance + a link to their leave), like Zoho People.
   const handleViewTeamMember = (member: TeamMemberAttendance) => {
-    router.push(`/pulse/team-attendance/${member.id}`);
+    router.push(ROUTES.pulseTeamMemberAttendance(member.id));
   };
 
   // Breadcrumb steps after "Pulse › Attendance": the tab, then the member / request being viewed.
@@ -310,7 +323,7 @@ export function AttendanceWorkspace({
         {activeTab === "my-attendance" && (
           <>
             {/* Toolbar: title, view switcher & date navigation */}
-            <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h1 className="text-lg font-semibold text-foreground">My Attendance</h1>
                 <p className="text-xs text-muted-foreground">
@@ -396,7 +409,7 @@ export function AttendanceWorkspace({
 
             {/* View Content */}
             {isLoading ? (
-              <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-border/70 bg-card py-20 text-muted-foreground">
+              <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border/60 bg-card py-20 text-muted-foreground">
                 <Loader2 className="h-7 w-7 animate-spin text-blue-600 dark:text-blue-400" />
                 <span className="text-xs font-semibold">Loading attendance data...</span>
               </div>
@@ -464,10 +477,16 @@ export function AttendanceWorkspace({
           <>
             {regularizationSubView === "list" && (
               <RegularizationRequestsList
-                onNewRequest={() => {
-                  setOnBehalfEmployee(null);
-                  setRegularizationSubView("create");
-                }}
+                scope={REGULARIZATION_SCOPE[view]}
+                // Team Attendance lists the team's requests only — your own are filed from My Attendance.
+                onNewRequest={
+                  view === "team"
+                    ? undefined
+                    : () => {
+                        setOnBehalfEmployee(null);
+                        setRegularizationSubView("create");
+                      }
+                }
                 onViewRequest={(req) => {
                   setSelectedRequest(req);
                   setRegularizationSubView("details");

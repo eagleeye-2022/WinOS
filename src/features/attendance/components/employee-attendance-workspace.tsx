@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { CalendarCheck, Loader2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/constants/routes";
 import { PULSE_PAGE_BG } from "@/components/pulse/pulse-ui";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 import { EmployeeSwitcherHeader } from "@/components/pulse/employee-switcher-header";
@@ -124,11 +125,11 @@ export function EmployeeAttendanceWorkspace({ userId, embedded = false }: { user
               employeeCode: employee.employeeId,
             }}
             options={options}
-            onSwitch={(id) => router.push(`/pulse/team-attendance/${id}`)}
+            onSwitch={(id) => router.push(ROUTES.pulseTeamMemberAttendance(id))}
             actions={
               <>
                 <Button asChild variant="outline" className="h-8 gap-1.5 rounded-md px-3 text-xs font-semibold">
-                  <Link href={`/pulse/leave/employee/${employee.id}`}>
+                  <Link href={ROUTES.pulseTeamMemberLeave(employee.id)}>
                     <CalendarCheck className="h-3.5 w-3.5" />
                     Leave
                   </Link>

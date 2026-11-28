@@ -404,7 +404,7 @@ export function TaskDetailDrawer({
                   {/* <span title="Comments"><MessageSquare size={13} className="cursor-pointer hover:text-foreground" /></span>
                   <span title="Attachments"><Paperclip size={13} className="cursor-pointer hover:text-foreground" /></span> */}
                   <span title="History"><History size={13} className="cursor-pointer hover:text-foreground" /></span>
-                  <span title="Work Hours"><Clock size={13} className="cursor-pointer hover:text-foreground" /></span>
+                  <span title="Effort Hours"><Clock size={13} className="cursor-pointer hover:text-foreground" /></span>
                   <span title="Due Date"><Calendar size={13} className="cursor-pointer hover:text-foreground" /></span>
                 </div>
               </div>

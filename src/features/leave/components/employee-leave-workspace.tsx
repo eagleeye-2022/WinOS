@@ -10,7 +10,8 @@ import { useRouter } from "next/navigation";
 import { CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Loader2, Plus, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { PULSE_PAGE_BG, PulseStickyTabs, PulseTabs, StatusPill } from "@/components/pulse/pulse-ui";
+import { ROUTES } from "@/constants/routes";
+import { DateTile, PULSE_PAGE_BG, PulseStickyTabs, PulseTabs, StatusPill } from "@/components/pulse/pulse-ui";
 import { usePulseCrumbs } from "@/components/pulse/pulse-breadcrumbs";
 import { EmployeeSwitcherHeader, type SwitcherEmployee } from "@/components/pulse/employee-switcher-header";
 import { useUrlState, usePageViewState } from "@/lib/navigation/use-url-state";
@@ -117,7 +118,7 @@ export function EmployeeLeaveWorkspace({ userId, embedded = false }: { userId: s
 
   const switchEmployee = (id: string) => {
     const qs = tab === "summary" ? "" : `?tab=${tab}`;
-    router.push(`/pulse/leave/employee/${id}${qs}`);
+    router.push(`${ROUTES.pulseTeamMemberLeave(id)}${qs}`);
   };
 
   if (!data && !loadError) {
@@ -180,7 +181,7 @@ export function EmployeeLeaveWorkspace({ userId, embedded = false }: { userId: s
                 onSwitch={switchEmployee}
                 actions={
                   <Button asChild variant="outline" className="h-8 gap-1.5 rounded-md px-3 text-xs font-semibold">
-                    <Link href={`/pulse/team-attendance/${userId}`}>
+                    <Link href={ROUTES.pulseTeamMemberAttendance(userId)}>
                       <CalendarDays className="h-3.5 w-3.5" />
                       Attendance
                     </Link>
@@ -205,19 +206,19 @@ export function EmployeeLeaveWorkspace({ userId, embedded = false }: { userId: s
               leaveTypes={leaveTypes}
               requests={yearRequests}
               onApply={(date) => setApplyFor({ date })}
-              onViewRequest={(r) => router.push(`/pulse/leave/team/requests/${r.id}`)}
+              onViewRequest={(r) => router.push(ROUTES.pulseTeamLeaveRequest(r.id))}
             />
           )}
 
           {tab === "requests" && (
             <div className="space-y-4">
-              <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <h1 className="text-lg font-semibold text-foreground">Leave Requests</h1>
                 <ApplyButton onClick={() => setApplyFor({})} />
               </div>
               <LeaveRequestsTable
                 requests={requests}
-                onViewRequest={(r) => router.push(`/pulse/leave/team/requests/${r.id}`)}
+                onViewRequest={(r) => router.push(ROUTES.pulseTeamLeaveRequest(r.id))}
                 showFilters
                 showDateRangeNav={false}
                 title=""
@@ -228,7 +229,7 @@ export function EmployeeLeaveWorkspace({ userId, embedded = false }: { userId: s
           {tab === "compensatory" && (
             <CompensatoryRequestsTable
               requests={(data.compensatoryRequests ?? []) as unknown as CompensatoryRequest[]}
-              onViewRequest={(r) => router.push(`/pulse/leave/team/compensatory/${r.id}`)}
+              onViewRequest={(r) => router.push(ROUTES.pulseTeamCompensatoryRequest(r.id))}
             />
           )}
 
@@ -279,7 +280,7 @@ function SummaryTab({
   return (
     <div className="space-y-4">
       {/* Toolbar: year totals, year navigation, Apply Leave */}
-      <div className="flex flex-col gap-3 rounded-lg border border-border/70 bg-card px-4 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)] lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
         <p className="text-sm text-muted-foreground">
           Leave booked {year === thisYear ? "this year" : `in ${year}`}:{" "}
           <span className="font-semibold text-foreground">{data.stats.bookedThisYear} day(s)</span>
@@ -327,7 +328,7 @@ function SummaryTab({
       <LeaveBalanceGrid leaveTypes={leaveTypes} onSelectType={() => onApply()} />
 
       {/* Absent days — each can be covered by a leave */}
-      <section className="overflow-hidden rounded-lg border border-border/70 bg-card shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <section className="overflow-hidden rounded-xl border border-border/60 bg-card">
         <div className="flex items-center gap-2 border-b border-border/70 px-5 py-3">
           <h2 className="text-sm font-semibold text-foreground">Absent</h2>
           <span className="text-xs text-muted-foreground">· {data.stats.absentDays} day(s)</span>
@@ -341,7 +342,12 @@ function SummaryTab({
                 {absent.map((a) => (
                   <tr key={a.dateKey}>
                     <td className="px-5 py-2.5 text-foreground">
-                      {dmy(a.dateKey)}, {a.dayName}
+                      <div className="flex items-center gap-3">
+                        <DateTile date={a.dateKey} tone="red" size="sm" />
+                        <span>
+                          {dmy(a.dateKey)}, {a.dayName}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-5 py-2.5 text-muted-foreground">{a.days === 1 ? "1 day" : `${a.days} day`}</td>
                     <td className="px-5 py-2.5 text-right">
@@ -410,12 +416,12 @@ function PolicyTab({ userId, name }: { userId: string; name: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-border/70 bg-card px-5 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
+      <div className="rounded-xl border border-border/60 bg-card px-5 py-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between">
           <h2 className="text-sm font-semibold text-foreground">
             {applies} of {policy.policies.length} leave types apply to {name}
           </h2>
-          <Link href="/pulse/leave/team?tab=leave-policy" className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400">
+          <Link href={ROUTES.pulseTeamLeavePolicy} className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400">
             Edit leave types in Leave Policy →
           </Link>
         </div>
@@ -440,7 +446,7 @@ function PolicyTab({ userId, name }: { userId: string; name: string }) {
             <div
               key={p.id}
               className={cn(
-                "flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+                "flex flex-col gap-3 rounded-lg border bg-card p-4",
                 p.applies ? "border-border/70" : "border-dashed border-border opacity-80"
               )}
             >
