@@ -27,7 +27,14 @@ import { TimerWidget } from "./timer-widget";
 import { TaskCardDueDate } from "./task-card-due-date";
 import { taskOwnerPeople } from "../utils/task-owner-people";
 import { canUserActOnTask } from "../utils/task-authorization";
-import { deleteTaskAction, duplicateTaskAction, updateTaskAction } from "../actions/project-actions";
+import type { UniqueIdentifier } from "@dnd-kit/core";
+import { SortableBlock, SortableStack } from "@/components/shared/sortable";
+import {
+  deleteTaskAction,
+  duplicateTaskAction,
+  reorderProjectTasksAction,
+  updateTaskAction,
+} from "../actions/project-actions";
 import { removeTaskFromList } from "../utils/remove-task-from-list";
 import {
   applyStatusWithRollup,
@@ -272,6 +279,37 @@ export function TaskSidebarTree({
       console.error("[TaskSidebarTree] Failed to delete task:", err);
       toast.error("Couldn't delete the task.");
     }
+  };
+
+  /** Drag-reorder of a card's subtasks: shown at once (here and in the Subtasks table, which read
+   *  the parent's `subtasks` list), saved as each one's order, rolled back if the save fails. */
+  const reorderChildren = (parent: TaskItem, children: TaskItem[], nextIds: UniqueIdentifier[]) => {
+    const rowById = new Map(children.map((c) => [c.id, c]));
+    const nextRows = nextIds.map((id) => rowById.get(String(id))).filter((r): r is TaskItem => !!r);
+    const entries = parent.subtasks || [];
+    const nextCodes = new Set(nextRows.map((r) => r.code));
+    const ordered = [
+      ...nextRows
+        .map((r) => entries.find((s) => s.code === r.code))
+        .filter((s): s is NonNullable<typeof s> => !!s),
+      // Entries without a row of their own (old checklist-style items) keep their place at the end.
+      ...entries.filter((s) => !nextCodes.has(s.code)),
+    ];
+    let before: TaskItem[] = [];
+    setTasks((prev) => {
+      before = prev;
+      return prev.map((t) => (t.id === parent.id ? { ...t, subtasks: ordered } : t));
+    });
+    // By database id where known — codes can repeat across projects.
+    reorderProjectTasksAction(nextRows.map((r) => r.dbId ?? r.id))
+      .then((res) => {
+        if (!res.success) throw new Error(res.error || "Reorder failed");
+      })
+      .catch((err) => {
+        console.error("[TaskSidebarTree] Failed to save subtask order:", err);
+        setTasks(before);
+        toast.error("Couldn't save the new order. Please try again.");
+      });
   };
 
   const phaseMenu = (item: TaskItem) => (
@@ -577,12 +615,26 @@ export function TaskSidebarTree({
           </div>
         </div>
 
-        {/* Same tree as the boards: the line ends in a └ at the last subtask, then "End of N subtasks". */}
+        {/* Same tree as the boards: the line ends in a └ at the last subtask, then "End of N subtasks".
+            Drag a subtask (with its own subtasks) above/below its siblings to reorder them. */}
         {children.length > 0 && (
-          <SubtaskTree
-            stopClicks={false}
-            items={children.map((child) => ({ key: child.id, content: renderCard(child, item, seen) }))}
-          />
+          <SortableStack ids={children.map((c) => c.id)} onReorder={(nextIds) => reorderChildren(item, children, nextIds)}>
+            <SubtaskTree
+              stopClicks={false}
+              items={children.map((child) => ({
+                key: child.id,
+                content: (
+                  <SortableBlock
+                    id={child.id}
+                    disabled={!canAct}
+                    draggingClassName="[&>div>div:first-child]:shadow-xl [&>div>div:first-child]:!border-primary/60 [&>div>div:first-child]:ring-1 [&>div>div:first-child]:ring-primary/30"
+                  >
+                    {renderCard(child, item, seen)}
+                  </SortableBlock>
+                ),
+              }))}
+            />
+          </SortableStack>
         )}
       </div>
     );

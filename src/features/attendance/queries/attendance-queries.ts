@@ -3,6 +3,7 @@
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { loadAttendanceRange, type UserDay } from "../attendance-data";
+import { getUsersDayEffortMinutes } from "@/features/dsm/queries";
 import { canManageUser, managedUserIds, scopeWhere } from "../team-scope";
 import {
   addDaysToKey,
@@ -275,7 +276,13 @@ export async function getTeamAttendanceData(
     orderBy: { name: "asc" },
   });
 
-  const range = await loadAttendanceRange(users.map((u) => u.id), key, key);
+  const userIds = users.map((u) => u.id);
+  // Hours on this page are effort hours: the total of everyone's task timers / effort logs for
+  // the day — not the check-in → check-out span.
+  const [range, effortMinutes] = await Promise.all([
+    loadAttendanceRange(userIds, key, key),
+    getUsersDayEffortMinutes(userIds, key),
+  ]);
 
   const teamMembers: TeamMemberAttendance[] = users.map((u) => {
     const [day] = range.daysFor(u.id, [key]);
@@ -289,7 +296,7 @@ export async function getTeamAttendanceData(
     // Weekends and holidays aren't absences (anyone who worked one is counted above).
     else if (!day.resolved.isWorkingDay) status = "Day Off";
 
-    const minutes = workedMinutesOf(day);
+    const minutes = effortMinutes.get(u.id) ?? 0;
 
     return {
       id: u.id,
@@ -306,7 +313,7 @@ export async function getTeamAttendanceData(
       checkOutTime: att?.checkOutTime || undefined,
       checkOutSource: (att?.checkOutSource as AttendanceSource) || undefined,
       workedHours: minutes > 0 ? formatClock(minutes) : undefined,
-      workedHoursSubtext: status === "Working Now" && att?.checkInTime ? `Since ${att.checkInTime}` : undefined,
+      workedHoursSubtext: minutes > 0 ? "Total effort logged on tasks" : undefined,
       // Only someone who checked in has a work mode for the day.
       workMode: att?.checkInTime ? (att.workMode === "REMOTE" ? "Remote" : "Office") : undefined,
     };

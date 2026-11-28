@@ -1,6 +1,31 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef, useId } from "react";
+import { createPortal } from "react-dom";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  closestCorners,
+  pointerWithin,
+  useDroppable,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+  type UniqueIdentifier,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import {
+  SortableBlock,
+  SortableStack,
+  alwaysMeasure,
+  smoothDropAnimation,
+  suppressNextClick,
+  useDndAccessibility,
+  useIsClient,
+  useSmoothSensors,
+} from "@/components/shared/sortable";
 import { useModuleViewState, useUrlState, writeSearchParam, usePageViewState } from "@/lib/navigation/use-url-state";
 import { useRouter, useParams } from "next/navigation";
 import {
@@ -233,6 +258,47 @@ const DEFAULT_KANBAN_PHASES = [
   { code: "7.7", name: "7.7 MSO PERFORMANCE MARKETING" },
 ];
 
+const COLUMN_DROP_PREFIX = "column:";
+
+/** Board collisions: the column under the pointer wins, then the nearest card inside it (or the
+ *  empty column body itself), so a card dropped anywhere in a column lands in that column. */
+const boardCollisionDetection: CollisionDetection = (args) => {
+  const columnHit = pointerWithin(args).find((c) => String(c.id).startsWith(COLUMN_DROP_PREFIX));
+  if (columnHit) {
+    const code = String(columnHit.id).slice(COLUMN_DROP_PREFIX.length);
+    const cards = args.droppableContainers.filter(
+      (c) => c.data.current?.type === "card" && c.data.current?.columnCode === code
+    );
+    if (cards.length > 0) {
+      const nearest = closestCenter({ ...args, droppableContainers: cards });
+      if (nearest.length > 0) return nearest;
+    }
+    return [columnHit];
+  }
+  return closestCorners({
+    ...args,
+    droppableContainers: args.droppableContainers.filter((c) => c.data.current?.type === "card"),
+  });
+};
+
+/** A phase column's card list — also a drop target, so a card can go into an empty column. */
+function DroppableColumnBody({
+  code,
+  className,
+  children,
+  ...rest
+}: React.HTMLAttributes<HTMLDivElement> & { code: string; "data-scroll-key"?: string }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `${COLUMN_DROP_PREFIX}${code}`,
+    data: { type: "column", columnCode: code },
+  });
+  return (
+    <div ref={setNodeRef} {...rest} className={cn(className, isOver && "bg-primary/5 ring-1 ring-primary/30")}>
+      {children}
+    </div>
+  );
+}
+
 export function TasksBoardView({
   tasks,
   phases,
@@ -262,6 +328,15 @@ export function TasksBoardView({
 
   // Kanban card drag state — id of the card currently being dragged, if any.
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+  // The board as it was when the drag began (restored on cancel / failed save) and the column
+  // the card came from (to tell a phase move from a plain reorder).
+  const dragSnapshotRef = useRef<TaskItem[] | null>(null);
+  const dragOriginColumnRef = useRef<string | null>(null);
+  const boardDndId = useId();
+  const boardSensors = useSmoothSensors();
+  // The drag overlay is portalled to <body>, which only exists in the browser.
+  const isClient = useIsClient();
+  const boardDndAccessibility = useDndAccessibility();
 
   // View Mode: Board / Kanban vs List / Status Columns
   const [viewMode] = useState<"KANBAN">("KANBAN");
@@ -1170,18 +1245,22 @@ export function TasksBoardView({
     tasks: col.tasks,
   }));
 
-  // Kanban card drag handlers — dragging reorders cards within a phase column, and dragging a
-  // card over a *different* column's cards (or empty body) moves it into that phase. Both the
-  // reorder and the phase move apply live to localTasks as the drag passes over targets (so the
-  // board reflects the move immediately), then persist together on drop.
-  const handleCardDragStart = (e: React.DragEvent, task: TaskItem) => {
-    e.dataTransfer.effectAllowed = "move";
-    setDraggedTaskId(task.id);
+  // Kanban card drag (dnd-kit) — dragging reorders cards within a phase column, and dragging a
+  // card over a *different* column's cards (or empty body) moves it into that phase. The phase
+  // move applies live to localTasks as the drag passes over a column (so the other cards slide
+  // apart to make room), the final position is set on drop, and both persist together.
+  const columnOfTask = (id: string) => phaseColumns.find((c) => c.tasks.some((t) => t.id === id))?.code;
+
+  const handleBoardDragStart = ({ active }: DragStartEvent) => {
+    const id = String(active.id);
+    dragSnapshotRef.current = localTasks;
+    dragOriginColumnRef.current = columnOfTask(id) ?? null;
+    setDraggedTaskId(id);
   };
 
-  const moveDraggedTaskIntoColumn = (targetColumnCode: string, beforeTaskId?: string) => {
+  const moveDraggedTaskIntoColumn = (draggedId: string, targetColumnCode: string, beforeTaskId?: string) => {
     setLocalTasks((prev) => {
-      const dragIdx = prev.findIndex((t) => t.id === draggedTaskId);
+      const dragIdx = prev.findIndex((t) => t.id === draggedId);
       if (dragIdx === -1) return prev;
       const next = [...prev];
       const [dragged] = next.splice(dragIdx, 1);
@@ -1202,49 +1281,110 @@ export function TasksBoardView({
     });
   };
 
-  const handleCardDragOver = (e: React.DragEvent, overTask: TaskItem, columnCode: string) => {
-    e.preventDefault();
-    // Stop the dragover from bubbling to the column body's own handler, which would otherwise
-    // immediately override this card's precise "insert before me" position with "append to end".
-    e.stopPropagation();
-    if (!draggedTaskId || draggedTaskId === overTask.id) return;
-    moveDraggedTaskIntoColumn(columnCode, overTask.id);
-  };
+  /** Over a card or a column body of a *different* column: move the card there now. */
+  const handleBoardDragOver = ({ active, over }: DragOverEvent) => {
+    if (!over) return;
+    const activeId = String(active.id);
+    const overData = over.data.current as { type?: string; columnCode?: string } | undefined;
+    const targetCode = overData?.columnCode;
+    const fromCode = columnOfTask(activeId);
+    if (!targetCode || !fromCode || targetCode === fromCode) return;
 
-  /** Drop target for the column body itself — lets a card be dropped into empty space (an
-   *  empty column, or below the last card of a populated one), not just directly on a card. */
-  const handleColumnDragOver = (e: React.DragEvent, columnCode: string) => {
-    e.preventDefault();
-    if (!draggedTaskId) return;
-    moveDraggedTaskIntoColumn(columnCode);
-  };
-
-  const handleCardDrop = async (e: React.DragEvent, columnCode: string) => {
-    e.preventDefault();
-    const taskId = draggedTaskId;
-    setDraggedTaskId(null);
-    if (!taskId) return;
-    const column = phaseColumns.find((c) => c.code === columnCode);
-    if (!column) return;
-    try {
-      await reorderProjectTasksAction(
-        column.tasks.map((t) => t.id),
-        { taskId, phaseCode: column.code, phaseName: column.name }
-      );
-    } catch (err) {
-      console.error("[TasksBoardView] Failed to persist task move/reorder:", err);
+    let beforeTaskId: string | undefined;
+    if (overData?.type === "card") {
+      const column = phaseColumns.find((c) => c.code === targetCode);
+      const overIdx = column ? column.tasks.findIndex((t) => t.id === over.id) : -1;
+      const dragged = active.rect.current.translated;
+      const isBelowOver = !!dragged && dragged.top + dragged.height / 2 > over.rect.top + over.rect.height / 2;
+      beforeTaskId = isBelowOver ? column?.tasks[overIdx + 1]?.id : String(over.id);
     }
+    moveDraggedTaskIntoColumn(activeId, targetCode, beforeTaskId);
   };
 
-  const handleCardDragEnd = () => {
+  const handleBoardDragCancel = () => {
+    if (dragSnapshotRef.current) setLocalTasks(dragSnapshotRef.current);
+    dragSnapshotRef.current = null;
+    dragOriginColumnRef.current = null;
     setDraggedTaskId(null);
+  };
+
+  const handleBoardDragEnd = ({ active, over }: DragEndEvent) => {
+    suppressNextClick();
+    const activeId = String(active.id);
+    const snapshot = dragSnapshotRef.current;
+    const originCode = dragOriginColumnRef.current;
+    dragSnapshotRef.current = null;
+    dragOriginColumnRef.current = null;
+    setDraggedTaskId(null);
+
+    const targetCode = columnOfTask(activeId);
+    if (!over || !targetCode) {
+      if (snapshot) setLocalTasks(snapshot);
+      return;
+    }
+
+    // Final position within the (possibly new) column.
+    let next = localTasks;
+    const overId = String(over.id);
+    if (overId !== activeId && columnOfTask(overId) === targetCode) {
+      const from = next.findIndex((t) => t.id === activeId);
+      const to = next.findIndex((t) => t.id === overId);
+      if (from !== -1 && to !== -1) next = arrayMove(next, from, to);
+    }
+    if (next !== localTasks) setLocalTasks(next);
+
+    const column = phaseColumns.find((c) => c.code === targetCode);
+    if (!column) return;
+    const inColumn = new Set(column.tasks.map((t) => t.id));
+    const ordered = next.filter((t) => inColumn.has(t.id));
+    const movedPhase = originCode !== targetCode;
+    const unchanged = !movedPhase && ordered.every((t, i) => t.id === column.tasks[i]?.id);
+    if (unchanged) return;
+
+    const moved = ordered.find((t) => t.id === activeId);
+    const phaseName = dbPhases.find((p) => p.code === targetCode)?.name ?? column.name;
+    reorderProjectTasksAction(
+      ordered.map((t) => t.dbId ?? t.id),
+      movedPhase && moved ? { taskId: moved.dbId ?? moved.id, phaseCode: targetCode, phaseName } : undefined
+    )
+      .then((res) => {
+        if (!res.success) throw new Error(res.error || "Reorder failed");
+      })
+      .catch((err) => {
+        console.error("[TasksBoardView] Failed to persist task move/reorder:", err);
+        if (snapshot) setLocalTasks(snapshot);
+        toast.error("Couldn't save the new position. Please try again.");
+      });
+  };
+
+  /** Drag a subtask above/below its siblings (under the same card); saved as each one's order. */
+  const handleReorderSubtasks = (parent: TaskItem, nextIds: UniqueIdentifier[]) => {
+    const entries = parent.subtasks || [];
+    const byId = new Map(entries.map((s) => [s.id, s]));
+    const ordered = nextIds.map((id) => byId.get(String(id))).filter((s): s is TaskSubtask => !!s);
+    if (ordered.length !== entries.length) return;
+    const before = localTasks;
+    setLocalTasks((prev) => prev.map((t) => (t.id === parent.id ? { ...t, subtasks: ordered } : t)));
+    reorderProjectTasksAction(ordered.map((s) => s.id))
+      .then((res) => {
+        if (!res.success) throw new Error(res.error || "Reorder failed");
+      })
+      .catch((err) => {
+        console.error("[TasksBoardView] Failed to save subtask order:", err);
+        setLocalTasks(before);
+        toast.error("Couldn't save the new order. Please try again.");
+      });
   };
 
   // Shared card renderer — used for both top-level tasks and subtasks (subtasks are real
   // ProjectTask rows under a parentTaskId, so they get identical UI and functionality: the
   // checkbox, status select, inline title edit, timer, owner/move/delete controls, all wired
   // to the same handlers/actions).
-  const renderTaskCard = (task: TaskItem, isSubtask: boolean = false, columnCode?: string) => {
+  /** Cards in a phase column can be dragged (between columns too); not done or still-saving ones. */
+  const isCardDraggable = (task: TaskItem) =>
+    !isTaskDone(task.status, undefined, task.completionPercentage) && !isUnsavedTaskId(task.id);
+
+  const renderTaskCard = (task: TaskItem, isSubtask: boolean = false, columnCode?: string, isOverlay: boolean = false) => {
     const isOwner = isTaskOwner(task);
 
     const firstOwner =
@@ -1282,22 +1422,22 @@ export function TasksBoardView({
     const isSelected = selectedTaskIds.has(task.id);
     // Still being saved: faded, not clickable, spinner in place of the code.
     const isSaving = isUnsavedTaskId(task.id);
-    const isDraggable = !isSubtask && Boolean(columnCode) && !isLocked && !isSaving;
-    const isBeingDragged = draggedTaskId === task.id;
+    const isDraggable = !isSubtask && Boolean(columnCode) && isCardDraggable(task);
+    // The card left in the column while its floating copy is dragged: a dashed placeholder.
+    const isBeingDragged = !isOverlay && !isSubtask && draggedTaskId === task.id;
+    // Subtasks under this card can be dragged into a new order by anyone who can work on it.
+    const canReorderSubtasks = !isSubtask && !isOverlay && isOwner && !isSaving;
 
     return (
       <div
         key={task.id}
         aria-busy={isSaving || undefined}
         onClick={() => handleOpenTask(task)}
-        draggable={isDraggable}
-        onDragStart={isDraggable ? (e) => handleCardDragStart(e, task) : undefined}
-        onDragOver={isDraggable ? (e) => handleCardDragOver(e, task, columnCode!) : undefined}
-        onDragEnd={isDraggable ? handleCardDragEnd : undefined}
         className={cn(
-          "relative overflow-hidden rounded-xl border p-3.5 shadow-2xs transition-all cursor-pointer space-y-2.5 group",
-          isDraggable && "cursor-grab active:cursor-grabbing",
-          isBeingDragged && "opacity-40",
+          "relative overflow-hidden rounded-xl border p-3.5 shadow-2xs transition-[border-color,box-shadow,background-color,opacity] cursor-pointer space-y-2.5 group",
+          isDraggable && "active:cursor-grabbing",
+          isBeingDragged && "opacity-40 border-dashed !border-primary/50",
+          isOverlay && "pointer-events-none rotate-[1.5deg] scale-[1.02] !border-primary/60 shadow-2xl ring-1 ring-primary/30",
           isSaving && "pointer-events-none opacity-60",
           isSelected
             ? "border-primary/70 bg-primary/5 dark:bg-primary/10 ring-1 ring-primary/40 shadow-md"
@@ -1672,13 +1812,26 @@ export function TasksBoardView({
           </div>
         </div>
 
-        {task.subtasks && task.subtasks.length > 0 && expandedSubtaskCardIds.has(task.id) && (
-          <SubtaskTree
-            items={task.subtasks.map((subtask) => ({
-              key: subtask.id,
-              content: renderTaskCard(convertSubtaskToTaskItem(subtask, task), true),
-            }))}
-          />
+        {!isOverlay && task.subtasks && task.subtasks.length > 0 && expandedSubtaskCardIds.has(task.id) && (
+          <SortableStack
+            ids={task.subtasks.map((s) => s.id)}
+            onReorder={(nextIds) => handleReorderSubtasks(task, nextIds)}
+          >
+            <SubtaskTree
+              items={task.subtasks.map((subtask) => ({
+                key: subtask.id,
+                content: (
+                  <SortableBlock
+                    id={subtask.id}
+                    disabled={!canReorderSubtasks}
+                    draggingClassName="[&>div]:shadow-xl [&>div]:!border-primary/60 [&>div]:ring-1 [&>div]:ring-primary/30"
+                  >
+                    {renderTaskCard(convertSubtaskToTaskItem(subtask, task), true)}
+                  </SortableBlock>
+                ),
+              }))}
+            />
+          </SortableStack>
         )}
       </div>
     );
@@ -2065,6 +2218,17 @@ export function TasksBoardView({
               data-scroll-key={`tasks-board-${realProjectId ?? "all"}`}
               className="dsm-columns-scrollbar flex-1 min-h-0 overflow-x-auto p-4.5 bg-slate-50/50 dark:bg-background/40"
             >
+              <DndContext
+                id={boardDndId}
+                sensors={boardSensors}
+                accessibility={boardDndAccessibility}
+                collisionDetection={boardCollisionDetection}
+                measuring={alwaysMeasure}
+                onDragStart={handleBoardDragStart}
+                onDragOver={handleBoardDragOver}
+                onDragEnd={handleBoardDragEnd}
+                onDragCancel={handleBoardDragCancel}
+              >
               <div data-col-scope className="flex gap-3.5 h-full items-stretch">
                 {phaseColumns.map((col) => {
                   const isCollapsed = collapsedPhaseCodes.has(col.code);
@@ -2227,14 +2391,10 @@ export function TasksBoardView({
                       </div>
 
                       {/* Task Cards Column Body matching reference screenshot */}
-                      <div
+                      <DroppableColumnBody
+                        code={col.code}
                         data-scroll-key={`tasks-board-${realProjectId ?? "all"}-${col.code}`}
-                        className={cn(
-                          "space-y-3 overflow-y-auto pr-1 flex-1 min-h-0 rounded-xl transition-colors",
-                          draggedTaskId && "ring-1 ring-transparent hover:ring-primary/30"
-                        )}
-                        onDragOver={(e) => handleColumnDragOver(e, col.code)}
-                        onDrop={(e) => handleCardDrop(e, col.code)}
+                        className="space-y-3 overflow-y-auto pr-1 flex-1 min-h-0 rounded-xl transition-colors"
                       >
                         {/* Inline Quick Add Task Textarea Box (matching reference image) */}
                         {inlineAddingPhaseCode === col.code && (
@@ -2298,9 +2458,20 @@ export function TasksBoardView({
                             </button>
                           </div>
                         ) : (
-                          col.tasks.map((task) => renderTaskCard(task, false, col.code))
+                          <SortableContext items={col.tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                            {col.tasks.map((task) => (
+                              <SortableBlock
+                                key={task.id}
+                                id={task.id}
+                                disabled={!isCardDraggable(task)}
+                                data={{ type: "card", columnCode: col.code }}
+                              >
+                                {renderTaskCard(task, false, col.code)}
+                              </SortableBlock>
+                            ))}
+                          </SortableContext>
                         )}
-                      </div>
+                      </DroppableColumnBody>
                     </div>
                   );
                 })}
@@ -2405,6 +2576,20 @@ export function TasksBoardView({
                   </div>
                 )}
               </div>
+              {/* The floating card that follows the pointer (in a portal, so no column clips it). */}
+              {isClient &&
+                createPortal(
+                  <DragOverlay dropAnimation={smoothDropAnimation} zIndex={60}>
+                    {draggedTaskId
+                      ? (() => {
+                          const dragged = localTasks.find((t) => t.id === draggedTaskId);
+                          return dragged ? renderTaskCard(dragged, false, undefined, true) : null;
+                        })()
+                      : null}
+                  </DragOverlay>,
+                  document.body
+                )}
+              </DndContext>
             </div>
           )}
 

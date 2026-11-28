@@ -171,7 +171,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="h-8 w-full rounded-md border border-border/80 bg-background pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-blue-500/30"
               />
-            </div>
+            </div>
           </div>
         </div>
 
@@ -183,7 +183,7 @@ export function TeamAttendanceView({ onViewEmployee }: TeamAttendanceViewProps) 
                 <th className="px-4 py-2.5">Status</th>
                 <th className="px-4 py-2.5">Check-in</th>
                 <th className="px-4 py-2.5">Check-out</th>
-                <th className="px-4 py-2.5">Hours</th>
+                <th className="px-4 py-2.5">Effort Hours</th>
                 <th className="px-4 py-2.5">Work Mode</th>
                 <th className="px-4 py-2.5 text-right">Action</th>
               </tr>

@@ -35,7 +35,8 @@ function NotifRow({
     {}
   );
   const router = useRouter();
-  const href = notificationHref(notif);
+  // Worked out on the server (related records checked); older payloads without it fall back.
+  const href = notif.href !== undefined ? notif.href : notificationHref(notif);
 
   useEffect(() => {
     if (state.message === "marked") onRead();

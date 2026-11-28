@@ -3,6 +3,23 @@
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { UserName } from "@/components/shared/user-card";
 import React, { useState, useEffect, useCallback } from "react";
+import {
+  DndContext,
+  closestCenter,
+  type CollisionDetection,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import {
+  SortableHandle,
+  SortableRow,
+  alwaysMeasure,
+  suppressNextClick,
+  useDndAccessibility,
+  useSmoothSensors,
+} from "@/components/shared/sortable";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { canUserActOnTask } from "../../utils/task-authorization";
@@ -667,6 +684,8 @@ export function SingleTaskWorkspaceView({
   // Subtasks as a tree: a subtask's own subtasks sit indented under it, any depth. Each row with
   // children has a ⊟/⊞ box to fold them.
   const [collapsedSubtaskIds, setCollapsedSubtaskIds] = usePageViewSet<string>("SingleTaskWorkspaceView:collapsedSubtaskIds");
+  // Parent of the subtask row being dragged (null when not dragging) — see subtaskRows.
+  const [dragGroupParentId, setDragGroupParentId] = useState<string | null>(null);
   const toggleSubtaskCollapsed = (id: string) =>
     setCollapsedSubtaskIds((prev) => {
       const next = new Set(prev);
@@ -714,36 +733,55 @@ export function SingleTaskWorkspaceView({
         seen.add(st.id);
         const children = childrenOf(st).filter((c) => !seen.has(c.id));
         rows.push({ st, depth, hasChildren: children.length > 0, parentId });
-        if (children.length > 0 && !collapsedSubtaskIds.has(st.id)) walk(children, depth + 1, st.id);
+        // While a row is dragged, its siblings' subtasks are folded away so the siblings sit
+        // together and slide apart smoothly around it.
+        if (children.length > 0 && !collapsedSubtaskIds.has(st.id) && parentId !== dragGroupParentId) {
+          walk(children, depth + 1, st.id);
+        }
       }
     };
     walk(subtasks, 0, activeTask.id);
     return rows;
-  }, [leftTaskItems, subtasks, activeTask.id, collapsedSubtaskIds]);
+  }, [leftTaskItems, subtasks, activeTask.id, collapsedSubtaskIds, dragGroupParentId]);
 
-  // Drag a subtask row above/below another one under the same parent; the new order is saved
-  // (each sibling's `order` = its position) and kept on reload.
-  const [dragReadyId, setDragReadyId] = useState<string | null>(null);
+  // Drag a subtask row (by its grip) above/below another one under the same parent; the new
+  // order is saved (each sibling's `order` = its position) and kept on reload.
+  const subtaskDndId = React.useId();
+  const subtaskSensors = useSmoothSensors();
+  const subtaskDndAccessibility = useDndAccessibility();
   const [draggingSubtaskId, setDraggingSubtaskId] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<{ id: string; after: boolean } | null>(null);
   const endSubtaskDrag = () => {
-    setDragReadyId(null);
     setDraggingSubtaskId(null);
-    setDropTarget(null);
+    setDragGroupParentId(null);
   };
-  const handleSubtaskDrop = (targetId: string, after: boolean) => {
-    const srcId = draggingSubtaskId;
+  const handleSubtaskDragStart = ({ active }: DragStartEvent) => {
+    const row = subtaskRows.find((r) => r.st.id === active.id);
+    setDraggingSubtaskId(String(active.id));
+    setDragGroupParentId(row?.parentId ?? null);
+  };
+  /** Only rows under the same parent are drop targets. */
+  const subtaskCollision: CollisionDetection = (args) => {
+    const parentId = args.active.data.current?.parentId;
+    return closestCenter({
+      ...args,
+      droppableContainers: args.droppableContainers.filter((c) => c.data.current?.parentId === parentId),
+    });
+  };
+  const handleSubtaskDragEnd = ({ active, over }: DragEndEvent) => {
     endSubtaskDrag();
-    if (!srcId || srcId === targetId) return;
+    suppressNextClick();
+    const srcId = String(active.id);
+    const targetId = over ? String(over.id) : null;
+    if (!targetId || srcId === targetId) return;
     const src = subtaskRows.find((r) => r.st.id === srcId);
     const target = subtaskRows.find((r) => r.st.id === targetId);
     if (!src || !target || src.parentId !== target.parentId) return;
 
     const parentId = src.parentId;
     const siblings = subtaskRows.filter((r) => r.parentId === parentId).map((r) => r.st);
-    const without = siblings.filter((s) => s.id !== srcId);
-    const at = without.findIndex((s) => s.id === targetId) + (after ? 1 : 0);
-    const ordered = [...without.slice(0, at), src.st, ...without.slice(at)];
+    const from = siblings.findIndex((s) => s.id === srcId);
+    const to = siblings.findIndex((s) => s.id === targetId);
+    const ordered = arrayMove(siblings, from, to);
     if (ordered.every((s, i) => s.id === siblings[i].id)) return;
 
     let before: TaskItem[] = [];
@@ -753,11 +791,17 @@ export function SingleTaskWorkspaceView({
         t.id === parentId || t.dbId === parentId || t.code === parentId ? { ...t, subtasks: ordered } : t
       );
     });
-    reorderProjectTasksAction(ordered.map((s) => s.id)).catch((err) => {
-      console.error("Failed to save subtask order:", err);
-      setTasks(before);
-      toast.error("Couldn't save the new order. Please try again.");
-    });
+    // By database id where known — codes can repeat across projects.
+    const dbIdOf = (s: TaskSubtask) => leftTaskItems.find((t) => t.id === s.id || t.code === s.code)?.dbId ?? s.id;
+    reorderProjectTasksAction(ordered.map(dbIdOf))
+      .then((res) => {
+        if (!res.success) throw new Error(res.error || "Reorder failed");
+      })
+      .catch((err) => {
+        console.error("Failed to save subtask order:", err);
+        setTasks(before);
+        toast.error("Couldn't save the new order. Please try again.");
+      });
   };
 
   // A subtask is a full ProjectTask with its own detail page, so besides listing it under the
@@ -2296,31 +2340,25 @@ export function SingleTaskWorkspaceView({
                             </td>
                           </tr>
                         ) : (
-                          subtaskRows.map(({ st, depth, hasChildren, parentId }) => (
-                            <tr
+                          <DndContext
+                            id={subtaskDndId}
+                            sensors={subtaskSensors}
+                            accessibility={subtaskDndAccessibility}
+                            collisionDetection={subtaskCollision}
+                            modifiers={[restrictToVerticalAxis]}
+                            measuring={alwaysMeasure}
+                            onDragStart={handleSubtaskDragStart}
+                            onDragEnd={handleSubtaskDragEnd}
+                            onDragCancel={endSubtaskDrag}
+                          >
+                          <SortableContext items={subtaskRows.map((r) => r.st.id)} strategy={verticalListSortingStrategy}>
+                          {subtaskRows.map(({ st, depth, hasChildren, parentId }) => (
+                            <SortableRow
                               key={st.id}
-                              draggable={canEditTask && dragReadyId === st.id}
-                              onDragStart={(e) => {
-                                e.dataTransfer.effectAllowed = "move";
-                                e.dataTransfer.setData("text/plain", st.id);
-                                setDraggingSubtaskId(st.id);
-                              }}
-                              onDragEnd={endSubtaskDrag}
-                              onDragOver={(e) => {
-                                const src = subtaskRows.find((r) => r.st.id === draggingSubtaskId);
-                                if (!src || src.parentId !== parentId || src.st.id === st.id) return;
-                                e.preventDefault();
-                                const rect = e.currentTarget.getBoundingClientRect();
-                                const after = e.clientY > rect.top + rect.height / 2;
-                                setDropTarget((prev) =>
-                                  prev?.id === st.id && prev.after === after ? prev : { id: st.id, after }
-                                );
-                              }}
-                              onDrop={(e) => {
-                                e.preventDefault();
-                                if (dropTarget?.id === st.id) handleSubtaskDrop(st.id, dropTarget.after);
-                                else endSubtaskDrag();
-                              }}
+                              id={st.id}
+                              disabled={!canEditTask}
+                              data={{ parentId }}
+                              draggingClassName="relative bg-card shadow-lg ring-1 ring-primary/40 dark:bg-[#18181b]"
                               onClick={() => {
                                 // Older checklist-style subtasks (ProjectSubtask rows) have no page — opening
                                 // one showed "Task Not Found".
@@ -2332,27 +2370,21 @@ export function SingleTaskWorkspaceView({
                               }}
                               className={cn(
                                 "hover:bg-accent/30 transition-colors group cursor-pointer dark:hover:bg-zinc-800/30",
-                                draggingSubtaskId === st.id && "opacity-40",
-                                dropTarget?.id === st.id &&
-                                  (dropTarget.after
-                                    ? "[&>td]:shadow-[inset_0_-2px_0_0_var(--color-primary)]"
-                                    : "[&>td]:shadow-[inset_0_2px_0_0_var(--color-primary)]")
+                                // While any row is dragged, rows don't light up as the pointer passes.
+                                draggingSubtaskId && "hover:bg-transparent dark:hover:bg-transparent"
                               )}
                               title="Open this subtask"
                             >
                               <td className="py-2 px-3 border-r border-border font-mono text-xs text-muted-foreground font-semibold dark:border-zinc-800 dark:text-zinc-400">
                                 <div className="flex items-center gap-1">
-                                  {canEditTask && (
-                                    <span
-                                      onMouseDown={() => setDragReadyId(st.id)}
-                                      onMouseUp={() => setDragReadyId(null)}
-                                      onClick={(e) => e.stopPropagation()}
-                                      title="Drag to reorder"
-                                      className="-ml-1 shrink-0 cursor-grab rounded p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 active:cursor-grabbing"
-                                    >
-                                      <GripVertical size={13} />
-                                    </span>
-                                  )}
+                                  <SortableHandle
+                                    className={cn(
+                                      "-ml-1 shrink-0 rounded p-0.5 text-muted-foreground/60 opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100",
+                                      draggingSubtaskId === st.id && "opacity-100 text-primary"
+                                    )}
+                                  >
+                                    <GripVertical size={13} />
+                                  </SortableHandle>
                                   <span>{st.code}</span>
                                 </div>
                               </td>
@@ -2427,8 +2459,10 @@ export function SingleTaskWorkspaceView({
                                   <Trash2 size={13} />
                                 </button>
                               </td>
-                            </tr>
-                          ))
+                            </SortableRow>
+                          ))}
+                          </SortableContext>
+                          </DndContext>
                         )}
 
                         {/* Inline Add Row */}
